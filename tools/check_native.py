@@ -86,6 +86,7 @@ def build(sanitize=False):
                    "Real disjoint buffer/optimal-image suballocation",
                    "Controlled graphics creation allocation-before-dispatch",
                    "Controlled graphics readiness, signed extremes",
+                   "Every RGBA8/D32 pixel passed",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

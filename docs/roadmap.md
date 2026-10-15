@@ -5,7 +5,7 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Milestones 0 through 2 are implemented. Later milestones describe planned capabilities and proposed API names.
+Milestones 0 through 3 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
@@ -14,7 +14,7 @@ Milestones 0 through 2 are implemented. Later milestones describe planned capabi
 | 0. Native foundation | Implemented | Loader, checked handles, buffers, memory, synchronous fill | Exact host and GPU buffer readback |
 | 1. General transfers and completion | Implemented | Bulk uploads, explicit barriers, buffer copies, fences, command reuse | Repeated upload, copy, and readback with bounded live resources |
 | 2. Offscreen images | Implemented | Images, binding, views, barriers, color/depth passes, readback | Every-pixel and repeated color/depth clears with bounded resources |
-| 3. Indexed graphics | Next | SPIR-V modules, graphics pipelines, vertex/index binding, depth testing, push constants | Indexed geometry renders with verified occlusion |
+| 3. Indexed graphics | Implemented | SPIR-V modules, graphics pipelines, vertex/index binding, depth testing, push constants | Every-pixel RGBA8/D32 occlusion in both orders, both index widths, clipping, camera updates, and stable reuse |
 | 4. Voxel mesh consumer | Planned | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
 | 5. Interactive presentation | Planned | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
 | 6. Full scene and appearance | Planned | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
@@ -110,14 +110,16 @@ The [API reference](api.md#images-and-views) specifies supported usages, binding
 
 ## 3. Indexed graphics
 
+This milestone is complete. Indexed draws use the existing Vulkan 1.0 passes and checked lifetime graph.
+
 Wrapper work:
 
-- [ ] Load SPIR-V words into shader modules. Keep GLSL compilation in the build process.
-- [ ] Add pipeline layouts and a small camera push-constant path.
-- [ ] Add graphics pipeline creation with vertex input, triangle topology, rasterization, depth testing, and color output state.
-- [ ] Add viewport/scissor, pipeline binding, vertex/index buffer binding, push constants, and indexed draws.
-- [ ] Extend command reference tracking to the resources used by graphics draws.
-- [ ] Document byte strides, attribute formats, index types, matrix layout, coordinate conventions, and shader alignment.
+- [x] Load SPIR-V words into shader modules. Keep GLSL compilation in the build process.
+- [x] Add pipeline layouts and a small camera push-constant path.
+- [x] Add graphics pipeline creation with vertex input, triangle topology, rasterization, depth testing, and color output state.
+- [x] Add viewport/scissor, pipeline binding, vertex/index buffer binding, push constants, and indexed draws.
+- [x] Extend command reference tracking to the resources used by graphics draws.
+- [x] Document byte strides, attribute formats, index types, matrix layout, coordinate conventions, and shader alignment.
 
 The first example uses a combined camera matrix and flat colors. Descriptors and textures are not prerequisites for that example.
 The mesh layout and shaders belong to the example or renderer. The wrapper exposes configurable Vulkan descriptions.
@@ -126,6 +128,15 @@ Khronos documents the [indexed draw path](https://docs.vulkan.org/tutorial/lates
 Completion evidence: draw indexed geometry into the offscreen target and verify its coverage and colors.
 Render overlapping geometry in both draw orders and verify that the nearer surface wins.
 Check winding, clipping, depth convention, and image orientation before introducing voxel geometry.
+
+Executed acceptance is in [indexed_graphics.bend](../tests/indexed_graphics.bend) and [graphics_probes.c](../tests/graphics_probes.c).
+Every RGBA8 and D32 pixel matches literal expectations for both draw orders, UINT16/UINT32 indices, nonzero offsets/firstIndex, and base vertex -3.
+The suite checks winding, lateral and near/far plane clipping, positive-height orientation, a nonsymmetric column-major matrix, dynamic viewport/scissor, color masks, triangle strips, changing pushes, and 32 stable reuses.
+Real submissions retain overwritten pipeline/buffer roots and exclude host access until observed completion.
+Controlled dispatch separately checks INT32_MIN, high U64 limbs, effective memory-plus-relative binding alignment, allocation-before-dispatch, partial pipeline outputs, Uncertain recovery, and failed-reset retention.
+Success and deliberate callback-failure scopes clean up all rows and wrapper metadata.
+`python3 tools/verify.py --sanitize` and `bend PROOF.bend` pass on GTX 1660 with Khronos and synchronization validation available.
+The wrapper checks index byte spans and first-record vertex coverage. Shader semantics, index contents, and subsequent vertex/instance fetch bounds remain caller obligations.
 
 ## 4. Voxel mesh consumer
 

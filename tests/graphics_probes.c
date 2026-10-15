@@ -47,6 +47,20 @@ static void graphics_resource_probes(Env e,BvRow* owner,Term info) {
     bv_test_result(e,bv_create_graphics_pipeline(e,(Term[]){bv_test_handle(owner),graphics_info_copy(e,info,lanes[j],values[j])},NULL),j<3 ? BV_INVALID : BV_ARGUMENT);
     assert(graphics_creates==1 && bv_test_live_allocations==allocations);
   }
+  for(unsigned schema=0;schema<7;schema++) {
+    Term replacement;
+    if (schema<3) {
+      uint32_t stride=schema==1 ? 3 : schema==2 ? UINT32_MAX : 24;
+      replacement=io_node(e,CID(Con),bv_node(e,CID(VertexInputBinding),3,(Term[]){0,stride,0}),term_pak(CID(Nil),0));
+      if (!schema) replacement=io_node(e,CID(Con),bv_node(e,CID(VertexInputBinding),3,(Term[]){0,24,0}),replacement);
+    } else {
+      uint32_t binding=schema==3 ? 7 : 0,format=schema==4 ? 126 : 106,offset=schema==5 ? 1 : 0;
+      replacement=io_node(e,CID(Con),bv_node(e,CID(VertexInputAttribute),4,(Term[]){0,binding,format,offset}),term_pak(CID(Nil),0));
+      if(schema==6)replacement=io_node(e,CID(Con),bv_node(e,CID(VertexInputAttribute),4,(Term[]){0,0,106,12}),replacement);
+    }
+    bv_test_result(e,bv_create_graphics_pipeline(e,(Term[]){bv_test_handle(owner),graphics_info_copy(e,info,schema<3 ? 4 : 5,replacement)},NULL),BV_ARGUMENT);
+    assert(graphics_creates==1 && bv_test_live_allocations==allocations);
+  }
   {
     bv_test_alloc_at=0;bv_test_alloc_fail=1;
     bv_test_result(e,bv_create_shader_module(e,(Term[]){bv_test_handle(owner),graphics_words(e)},NULL),BV_LIMIT);
@@ -118,6 +132,27 @@ static void graphics_command_probes(Env e,BvRow* owner,BvRow* pipeline) {
   bv_test_result(e,bv_cmd_set_viewport(e,(Term[]){bv_test_handle(command),bv_node(e,CID(Viewport),6,(Term[]){0,0,f32_rewrap(8),f32_rewrap(4),0,f32_rewrap(1)})},NULL),0);
   bv_test_result(e,bv_cmd_set_scissor(e,(Term[]){bv_test_handle(command),bv_node(e,CID(RenderArea),4,(Term[]){0,0,8,4})},NULL),0);
   before=command->command.submission.recording;deps=command->deps;
+  for(unsigned bad=0;bad<6;bad++) {
+    float values[]={0,0,8,4,0,1};
+    if (bad==0)values[0]=NAN;
+    if (bad==1)values[1]=INFINITY;
+    if (bad==2)values[2]=0;
+    if (bad==3)values[3]=-4;
+    if (bad==4)values[4]=-0.25f;
+    if (bad==5)values[2]=(float)d->limits.maxViewportDimensions[0]*2;
+    Term lanes[6];for(unsigned j=0;j<6;j++)lanes[j]=f32_rewrap(values[j]);
+    bv_test_result(e,bv_cmd_set_viewport(e,(Term[]){bv_test_handle(command),bv_node(e,CID(Viewport),6,lanes)},NULL),BV_ARGUMENT);
+    graphics_current_unchanged(command,&before,deps);
+  }
+  bv_test_result(e,bv_cmd_set_scissor(e,(Term[]){bv_test_handle(command),bv_node(e,CID(RenderArea),4,(Term[]){INT32_MAX,0,1,4})},NULL),BV_ARGUMENT);
+  bv_test_result(e,graphics_bind_call(e,command,vertices),BV_INVALID);
+  uint32_t queue_flags=d->queue_flags;d->queue_flags=VK_QUEUE_TRANSFER_BIT;
+  bv_test_result(e,graphics_bind_call(e,command,pipeline),BV_ARGUMENT);d->queue_flags=queue_flags;
+  graphics_current_unchanged(command,&before,deps);assert(graphics_viewports==1 && graphics_scissors==1);
+  uint32_t vertex_flags=vertices->flags,index_flags=indices->flags;vertices->flags=indices->flags=0;
+  bv_test_result(e,graphics_vertex_call(e,command,vertices,16),BV_ARGUMENT);
+  bv_test_result(e,graphics_index_call(e,command,indices,8,0),BV_ARGUMENT);
+  vertices->flags=vertex_flags;indices->flags=index_flags;
   bv_test_alloc_at=0;bv_test_alloc_fail=1;
   bv_test_result(e,graphics_vertex_call(e,command,vertices,16),BV_LIMIT);assert(!graphics_vertices);graphics_current_unchanged(command,&before,deps);
   bv_test_alloc_at=0;bv_test_result(e,graphics_index_call(e,command,indices,8,0),BV_LIMIT);assert(!graphics_indices);graphics_current_unchanged(command,&before,deps);
@@ -132,6 +167,16 @@ static void graphics_command_probes(Env e,BvRow* owner,BvRow* pipeline) {
   bv_test_result(e,graphics_index_call(e,command,indices,UINT64_C(1)<<32,1),BV_ARGUMENT);
   bv_test_result(e,graphics_push_call(e,command,15),BV_ARGUMENT);bv_test_result(e,graphics_push_call(e,command,17),BV_ARGUMENT);
   graphics_current_unchanged(command,&before,deps);assert(!graphics_vertices && !graphics_indices && !graphics_pushes);
+  BvDep* index_binding=bv_dependency(indices,BV_DEP_BINDING),*vertex_binding=bv_dependency(vertices,BV_DEP_BINDING);
+  uint64_t saved_index_offset=index_binding->data.binding.offset,saved_vertex_offset=vertex_binding->data.binding.offset;
+  index_binding->data.binding.offset=2;vertex_binding->data.binding.offset=2;
+  unsigned index_calls=graphics_indices,vertex_calls=graphics_vertices;
+  bv_test_result(e,graphics_index_call(e,command,indices,8,1),BV_ARGUMENT);
+  bv_test_result(e,graphics_vertex_call(e,command,vertices,16),BV_ARGUMENT);
+  graphics_current_unchanged(command,&before,deps);assert(graphics_indices==index_calls && graphics_vertices==vertex_calls);
+  bv_test_result(e,graphics_index_call(e,command,indices,10,1),0);assert(graphics_offset==10);
+  bv_test_result(e,graphics_vertex_call(e,command,vertices,18),0);assert(graphics_offset==18);
+  index_binding->data.binding.offset=saved_index_offset;vertex_binding->data.binding.offset=saved_vertex_offset;
   uint64_t vertex_size=vertices->size,index_size=indices->size;vertices->size=indices->size=(UINT64_C(1)<<32)+256;
   bv_test_result(e,graphics_vertex_call(e,command,vertices,(UINT64_C(1)<<32)+16),0);assert(graphics_offset==(UINT64_C(1)<<32)+16);
   bv_test_result(e,graphics_index_call(e,command,indices,(UINT64_C(1)<<32)+8,1),0);assert(graphics_offset==(UINT64_C(1)<<32)+8);
@@ -142,6 +187,15 @@ static void graphics_command_probes(Env e,BvRow* owner,BvRow* pipeline) {
   bv_test_result(e,graphics_draw_call(e,command,UINT32_MAX,0),BV_ARGUMENT);
   bv_test_result(e,graphics_draw_call(e,command,1,UINT32_MAX-2),0);assert(graphics_base==-3);
   bv_test_result(e,graphics_draw_call(e,command,1,0x80000000),0);assert(graphics_base==INT32_MIN);
+  BvRecording* current=&command->command.submission.recording;
+  current->viewport_ready=false;bv_test_result(e,graphics_draw_call(e,command,1,0),BV_LIFETIME);current->viewport_ready=true;
+  current->scissor_ready=false;bv_test_result(e,graphics_draw_call(e,command,1,0),BV_LIFETIME);current->scissor_ready=true;
+  current->index_ready=false;bv_test_result(e,graphics_draw_call(e,command,1,0),BV_LIFETIME);current->index_ready=true;
+  BvRow* no_push=bv_add(BV_LAYOUT,owner);assert(no_push);
+  BvDep* layout_edge=bv_dependency(pipeline,BV_DEP_PIPELINE_LAYOUT);BvRow* original_layout=layout_edge->target;
+  layout_edge->target=no_push;bv_test_result(e,graphics_bind_call(e,command,pipeline),0);assert(current->push_ready);
+  bv_test_result(e,graphics_push_call(e,command,0),BV_ARGUMENT);
+  layout_edge->target=original_layout;bv_remove(no_push);
   bv_test_result(e,graphics_bind_call(e,command,pipeline),0);
   assert(!command->command.submission.recording.vertices_ready && !command->command.submission.recording.push_ready);
   bv_test_result(e,graphics_draw_call(e,command,1,0),BV_LIFETIME);

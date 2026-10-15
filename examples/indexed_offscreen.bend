@@ -12,7 +12,7 @@ type Attachment is Data:
 type BoundBuffer is Data:
   BoundBuffer{buffer: V.Buffer, memory: V.DeviceMemory}
 type Scene is Data:
-  Scene{device: V.Device, command: V.CommandBuffer, fence: V.Fence, framebuffer: V.Framebuffer, pipeline: V.GraphicsPipeline, color: Attachment, depth: Attachment, vertices: BoundBuffer, indices16: BoundBuffer, indices32: BoundBuffer, stage: BoundBuffer}
+  Scene{device: V.Device, command: V.CommandBuffer, fence: V.Fence, framebuffer: V.Framebuffer, pipeline: V.GraphicsPipeline, color: Attachment, depth: Attachment, vertices: BoundBuffer, indices16: BoundBuffer, indices32: BoundBuffer, stage: BoundBuffer, layout: V.PipelineLayout, render_pass: V.RenderPass}
 
 def area() -> V.RenderArea:
   V.RenderArea{V.Offset2D{0,0},V.Extent2D{8,4}}
@@ -104,7 +104,7 @@ def reset(+device: V.Device, +command: V.CommandBuffer, fence: V.Fence) -> V.Act
     V.Fence.reset(fence)
 
 def prepare(+scene: Scene) -> V.Action(Unit):
-  Scene{+device,+command,+fence,framebuffer,pipeline,Attachment{color,cm,cv},Attachment{depth,dm,dv},BoundBuffer{+vertices,vm},BoundBuffer{+i16,m16},BoundBuffer{+i32,m32},stage} = scene
+  Scene{+device,+command,+fence,framebuffer,pipeline,Attachment{color,cm,cv},Attachment{depth,dm,dv},BoundBuffer{+vertices,vm},BoundBuffer{+i16,m16},BoundBuffer{+i32,m32},stage,layout,pass} = scene
   do V.Action<Unit>:
     V.CommandBuffer.begin(command)
     V.CommandBuffer.pipeline_barrier(command,16384,4,[],[V.BufferMemoryBarrier{vertices,W.zero(),Core.whole_size(),16384,4},V.BufferMemoryBarrier{i16,W.zero(),Core.whole_size(),16384,2},V.BufferMemoryBarrier{i32,W.zero(),Core.whole_size(),16384,2}],[])
@@ -149,14 +149,14 @@ def create(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device
     +pool : V.CommandPool <- V.Device.create_command_pool(device)
     command : V.CommandBuffer <- V.Device.allocate_command_buffer(device,pool)
     fence : V.Fence <- V.Device.create_fence(device,False{})
-    return Scene{device,command,fence,framebuffer,pipeline,color,depth,vertices,i16,i32,stage}
+    return Scene{device,command,fence,framebuffer,pipeline,color,depth,vertices,i16,i32,stage,layout,pass}
 
 
 def draw(+command: V.CommandBuffer, first: U32) -> V.Action(Unit):
   V.CommandBuffer.draw_indexed(command,V.IndexedDraw{6,1,first,V.BaseVertex{4294967293},0})
 
 def begin_frame(+scene: Scene, +u32_indices: Bool, shift: Bool) -> V.Action(Unit):
-  Scene{device,+command,fence,framebuffer,pipeline,Attachment{color,cm,cv},Attachment{depth,dm,dv},BoundBuffer{vertices,vm},BoundBuffer{i16,m16},BoundBuffer{i32,m32},stage} = scene
+  Scene{device,+command,fence,framebuffer,pipeline,Attachment{color,cm,cv},Attachment{depth,dm,dv},BoundBuffer{vertices,vm},BoundBuffer{i16,m16},BoundBuffer{i32,m32},stage,layout,pass} = scene
   do V.Action<Unit>:
     V.CommandBuffer.begin(command)
     transition(command,color,1,6,2,4096,1024,2048,256)
@@ -170,7 +170,7 @@ def begin_frame(+scene: Scene, +u32_indices: Bool, shift: Bool) -> V.Action(Unit
     V.CommandBuffer.push_constants(command,camera(shift))
 
 def finish_frame(+scene: Scene) -> V.Action(List<U32> & List<U32>):
-  Scene{+device,+command,+fence,framebuffer,pipeline,Attachment{+color,cm,cv},Attachment{+depth,dm,dv},vertices,i16,i32,BoundBuffer{+stage,+memory}} = scene
+  Scene{+device,+command,+fence,framebuffer,pipeline,Attachment{+color,cm,cv},Attachment{+depth,dm,dv},vertices,i16,i32,BoundBuffer{+stage,+memory},layout,pass} = scene
   do V.Action<List<U32> & List<U32>>:
     V.CommandBuffer.end_render_pass(command)
     transition(command,color,1,2,6,1024,4096,256,2048)
@@ -204,7 +204,7 @@ def check(pair: List<U32> & List<U32>, colors: List<U32>, depths: List<U32>) -> 
     Demo.require(depth_ok,"Indexed D32 pixel mismatch")
 
 def frame(+scene: Scene, u32_indices: Bool, +reverse: Bool, +shift: Bool) -> V.Action(Unit):
-  Scene{device,+command,fence,framebuffer,pipeline,color,depth,vertices,i16,i32,stage} = scene
+  Scene{device,+command,fence,framebuffer,pipeline,color,depth,vertices,i16,i32,stage,layout,pass} = scene
   expected_color expected_depth = expected(32n,0,Bool.pick(U32,shift,1,0),False{}) expected(32n,0,Bool.pick(U32,shift,1,0),True{})
   do V.Action<Unit>:
     begin_frame(scene,u32_indices,shift)

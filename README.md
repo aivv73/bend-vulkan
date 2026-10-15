@@ -1,12 +1,12 @@
 # bend-vulkan
 
 A native Vulkan wrapper for Bend, inspired by [ash](https://github.com/ash-rs/ash).
-The implementation provides explicit instance, device, buffer, image, memory, command-buffer, fence, render-pass, and framebuffer operations.
+The implementation provides explicit instance, device, buffer, image, memory, command-buffer, fence, render-pass, framebuffer, shader, and indexed graphics operations.
 All Vulkan byte sizes, offsets, and alignments use the actual two-limb `U64` from [bend-collections](https://github.com/Giulio2002/bend-collections).
 
-This is a 64-bit Linux, headless Vulkan 1.0 subset. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, and color/depth attachment clears.
+This is a 64-bit Linux, headless Vulkan 1.0 subset. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, color/depth attachment clears, and indexed depth-tested draws.
 Images use a six-format, optimal-tiled 2D profile with explicit mips, layers, binding, views, and staging readback.
-Graphics pipelines, shaders, draws, descriptors, surfaces, swapchains, callbacks, and general `pNext` chains are not implemented.
+Descriptors, surfaces, swapchains, callbacks, and general `pNext` chains are not implemented.
 
 ## Run the buffer example
 
@@ -61,12 +61,34 @@ Optimal image memory has no public linear pixel stride. Readback uses a buffer w
 
 `bend example.bend` uses Bend's JavaScript backend. Vulkan effects report a native-build-required error in that backend.
 
+## Run indexed graphics
+
+Build and run the indexed example:
+
+```sh
+bend examples/indexed_offscreen.bend -o build/indexed-offscreen
+./build/indexed-offscreen
+```
+
+It compares every RGBA8 and D32 pixel for overlapping red and green surfaces in both draw orders.
+Both UINT16 and UINT32 indices use nonzero offsets and base vertex -3. A nonsymmetric column-major camera matrix transforms the mesh.
+The [graphics contract](docs/api.md#example-mesh-and-camera-contract) defines byte strides, matrix order, depth, winding, and image orientation.
+GLSL and mesh packing belong to the example. The wrapper accepts configurable vertex input, rasterization, depth comparison, color masks, and generic push words.
+
+The shader words are checked in. The complete verifier also requires `glslc` and `spirv-val`.
+To rebuild the words after editing GLSL, run:
+
+```sh
+python3 tools/build_shaders.py
+```
+
 ## Use the API
 
 Import `Vulkan.bend`, `src/core.bend`, `src/constants.bend`, and the dependency's `src/math/u64.bend` with paths relative to your program.
 The executable [buffer example](examples/buffer_roundtrip.bend) shows allocation and fill submission.
 The [repeated transfer check](tests/repeated.bend) shows packed upload, explicit barriers, general submission, finite completion, and reset/re-recording.
 The [rendering check](tests/rendering.bend) shows Vulkan 1.0 color/depth passes, partial-area clears, and framebuffer-only lifetime protection.
+The [indexed graphics acceptance](tests/indexed_graphics.bend) checks clipping, winding, viewport/scissor, changing pushes, lifetime, and 32 stable reuses.
 The [image reuse check](tests/image_repeated.bend) runs 32 changing color/depth passes and 32 resource churn cycles.
 
 `V.Action(A)` is `IO(V.VkResult(A))`. A `do V.Action<Unit>:` block propagates returned failures.
@@ -80,7 +102,7 @@ Explicit destroy operations reject live dependents. `Entry.close` releases desce
 Dropping a Bend handle value does not destroy its Vulkan object.
 
 See [the API reference](docs/api.md) for supported operations and [the design](docs/design.md) for the FFI and ownership decisions.
-The [roadmap](docs/roadmap.md) marks milestones 0 through 2 complete. Indexed graphics is next.
+See the [roadmap](docs/roadmap.md) for milestone status and remaining renderer work.
 
 ## Verify changes
 
@@ -107,7 +129,7 @@ Pass tests establish layouts in a separate completed and reset recording before 
 `tools/check_native.py` adds controlled dispatch/allocation probes only to emitted test C.
 These exercise submit OOM/uncertainty, wait/idle/reset errors, map/flush failure ownership, metadata allocation failures, enumeration retries, composite ABI, private-fence isolation, and sticky device loss.
 Injected results are distinct from real GPU execution. The tests never provoke hardware loss.
-The sanitizer run includes those probes and the real repeated transfer test.
+The sanitizer run includes those probes, the real repeated transfer test, and indexed graphics acceptance.
 The emitted-test allocator counts all wrapper metadata allocations, and teardown asserts both zero metadata allocations and zero registry rows.
 Driver-global leak detection is disabled for ASan. These explicit counters cover wrapper cleanup.
 The verifier records queried device/layer output in `build/discovery.txt` and validation availability in `build/validation.txt`.
@@ -120,8 +142,7 @@ The laws cover pure functions. They do not verify C code, Vulkan drivers, or GPU
 `tools/bindings.json` defines the supported effects. `tools/generate.py` generates their Bend declarations, native registrations, JavaScript errors, and selected core constants from the checked-in Khronos registry extract.
 Run `python3 tools/generate.py` after changing the manifest. The generator does not implement new native commands or translate arbitrary Vulkan structs.
 
-The milestone-2 run on NVIDIA GeForce GTX 1660 passed `python3 tools/verify.py --sanitize`.
-Khronos validation and synchronization validation were unavailable in that run.
+The milestone-3 run on NVIDIA GeForce GTX 1660 passed `python3 tools/verify.py --sanitize` with Khronos and synchronization validation available.
 Optimal color image requirements exposed no compatible host-visible memory type on that device.
 Real lifetime rejection and pixels use the driver and staging. Post-completion mapped access in the graph probe uses controlled dispatch and is labeled separately.
 Noncoherent cache paths have controlled flush-failure coverage. Their driver coverage depends on the selected memory type.

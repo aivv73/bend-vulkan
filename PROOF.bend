@@ -79,3 +79,12 @@ def Laws.index_span_rejects_width():
   {==}
 def Laws.index_span_overflow():
   {==}
+
+def Laws.binding_alignment_includes_memory():
+  {==}
+def Laws.binding_alignment_compensates():
+  {==}
+def Laws.binding_alignment_high_limbs():
+  {==}
+def Laws.binding_alignment_rejects_width():
+  {==}

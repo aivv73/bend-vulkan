@@ -1419,7 +1419,7 @@ static Term bv_cmd_bind_vertex_buffer(Env e,Term* f,IoWork* w) {
     if (ordinal==pipeline->count) code=BV_ARGUMENT;
     else {
       BvVertexRequirement* req=&pipeline->required[ordinal];
-      if (!(buffer->flags&VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) || offset>=buffer->size || offset%req->alignment || req->first_end>buffer->size-offset) code=BV_ARGUMENT;
+      if (!(buffer->flags&VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) || offset>=buffer->size || (bv_bound_offset(buffer)%req->alignment+offset%req->alignment)%req->alignment || req->first_end>buffer->size-offset) code=BV_ARGUMENT;
     }
   }
   if (!code && !bv_prepare_refs(command,1,&buffer)) code=BV_LIMIT;
@@ -1436,7 +1436,7 @@ static Term bv_cmd_bind_index_buffer(Env e,Term* f,IoWork* w) {
   if (!code && !buffer) code=BV_INVALID;
   if (!code && !bv_bound_memory(buffer)) code=BV_LIFETIME;
   uint32_t width=type==VK_INDEX_TYPE_UINT16 ? 2 : 4;
-  if (!code && (type>VK_INDEX_TYPE_UINT32 || !(buffer->flags&VK_BUFFER_USAGE_INDEX_BUFFER_BIT) || offset>=buffer->size || offset%width)) code=BV_ARGUMENT;
+  if (!code && (type>VK_INDEX_TYPE_UINT32 || !(buffer->flags&VK_BUFFER_USAGE_INDEX_BUFFER_BIT) || offset>=buffer->size || (bv_bound_offset(buffer)%width+offset%width)%width)) code=BV_ARGUMENT;
   if (!code && !bv_prepare_refs(command,1,&buffer)) code=BV_LIMIT;
   if (code) return io_fail(e,code,"index binding owner, memory, type, usage, alignment, range or allocation");
   BvDevice* d=owner->context;d->CmdBindIndexBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,offset,type);

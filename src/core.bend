@@ -112,3 +112,19 @@ def index_span_end(offset: W.U64, +first: U32, count: U32, +width: U32) -> Maybe
     elements : W.U64 <- size_add_checked(W.of_u32(first),W.of_u32(count))
     bytes : W.U64 <- size_scale_checked(elements,width)
     size_add_checked(offset,bytes)
+
+def alignment_parts(+binding_lo: U32, +relative_lo: U32, width: U32) -> Bool:
+  match width:
+    case 1:
+      True{}
+    case 2:
+      U32.is_zero(U32.and(U32.add(U32.and(binding_lo,1),U32.and(relative_lo,1)),1))
+    case 4:
+      U32.is_zero(U32.and(U32.add(U32.and(binding_lo,3),U32.and(relative_lo,3)),3))
+    case _:
+      False{}
+
+def binding_aligned(binding: W.U64, relative: W.U64, width: U32) -> Bool:
+  W.U64{binding_lo,binding_hi} = binding
+  W.U64{relative_lo,relative_hi} = relative
+  alignment_parts(binding_lo,relative_lo,width)

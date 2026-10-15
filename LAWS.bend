@@ -86,3 +86,12 @@ law index_span_rejects_width:
   {Core.index_span_end(W.zero(),0,1,3) == None{} : Maybe<W.U64>}
 law index_span_overflow:
   {Core.index_span_end(Core.whole_size(),0,1,2) == None{} : Maybe<W.U64>}
+
+law binding_alignment_includes_memory:
+  {Core.binding_aligned(W.of_u32(2),W.of_u32(8),4) == False{} : Bool}
+law binding_alignment_compensates:
+  {Core.binding_aligned(W.of_u32(2),W.of_u32(10),4) == True{} : Bool}
+law binding_alignment_high_limbs:
+  {Core.binding_aligned(W.U64{2,4294967295},W.U64{10,4294967295},4) == True{} : Bool}
+law binding_alignment_rejects_width:
+  {Core.binding_aligned(W.zero(),W.zero(),3) == False{} : Bool}

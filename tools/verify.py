@@ -56,6 +56,7 @@ def main():
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
         ("tests/image_repeated.bend", "image-repeated", "32 distinct color+D32"),
         ("tests/image_formats.bend", "image-formats", "RGBA/BGRA UNORM/SRGB raw channels"),
+        ("tests/indexed_graphics.bend", "indexed-graphics", "Every RGBA8/D32 pixel passed"),
         ("tests/graphics_resources.bend", "graphics-resources", "Real shader/layout/pipeline lifecycle"),
         ("tests/rendering.bend", "rendering", "Real color+D32 pass clears"),
         ("tests/offscreen.bend", "offscreen", "Every-pixel clear and padded two-layer"),
@@ -80,7 +81,7 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen"):
+        for name in ("buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
             completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=60)
             diagnostics = completed.stdout + completed.stderr
             if "Validation Error" in diagnostics or "SYNC-HAZARD" in diagnostics:

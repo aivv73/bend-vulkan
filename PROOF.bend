@@ -64,3 +64,9 @@ def Laws.image_mip_floor():
   {==}
 def Laws.image_range_no_wrap():
   {==}
+
+def Laws.size_limbs_roundtrip(words):
+  (lo,hi) = words
+  {==}
+def Laws.size_scale_zero():
+  {==}

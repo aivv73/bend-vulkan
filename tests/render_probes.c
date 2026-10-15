@@ -45,6 +45,25 @@ static Term probe_begin_call(Env e,BvRow* command,BvRow* framebuffer) {
 }
 static unsigned probe_scope_commands;
 static VKAPI_ATTR void VKAPI_CALL probe_scope_fill(VkCommandBuffer c,VkBuffer b,VkDeviceSize o,VkDeviceSize n,uint32_t v) {probe_scope_commands++;}
+static void probe_graph_retained(Env e,BvRow* owner,BvRow* framebuffer) {
+  bv_test_result(e,bv_destroy_framebuffer(e,(Term[]){bv_test_handle(owner),bv_test_handle(framebuffer)},NULL),BV_LIFETIME);
+  bv_test_result(e,bv_destroy_render_pass(e,(Term[]){bv_test_handle(owner),bv_test_handle(bv_dependency(framebuffer,BV_DEP_FRAMEBUFFER_PASS)->target)},NULL),BV_LIFETIME);
+  for(unsigned j=0;j<framebuffer->object.framebuffer.count;j++) {
+    BvRow* view=framebuffer->object.framebuffer.attachments[j]->target;
+    BvRow* image=bv_dependency(view,BV_DEP_VIEW_IMAGE)->target;
+    bv_test_result(e,bv_destroy_image_view(e,(Term[]){bv_test_handle(owner),bv_test_handle(view)},NULL),BV_LIFETIME);
+    bv_test_result(e,bv_destroy_image(e,(Term[]){bv_test_handle(owner),bv_test_handle(image)},NULL),BV_LIFETIME);
+    bv_test_result(e,bv_free_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(bv_bound_memory(image))},NULL),BV_LIFETIME);
+  }
+}
+static void probe_graph_host_blocked(Env e,BvRow* owner,BvRow* memory) {
+  unsigned maps=probe_maps;
+  bv_test_result(e,bv_read_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(memory),bv_words(e,0),1},NULL),BV_LIFETIME);
+  bv_test_result(e,bv_write_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(memory),bv_words(e,0),io_node(e,CID(Con),91,term_pak(CID(Nil),0))},NULL),BV_LIFETIME);
+  bv_test_upload_result(e,owner,memory,false,BV_LIFETIME);
+  bv_test_upload_result(e,owner,memory,true,BV_LIFETIME);
+  assert(probe_maps==maps);
+}
 static void probe_outside_guards(Env e,BvRow* command,BvRow* framebuffer) {
   BvRow* owner=bv_command_device(command);BvDevice* d=owner->context;BvRow* buffer=NULL;
   for(BvRow* r=bv_rows;r;r=r->next)if(r->kind==BV_BUFFER && r->parent==owner && bv_bound_memory(r))buffer=r;
@@ -114,6 +133,7 @@ static void probe_rendering(Env e,BvRow* owner,BvRow* framebuffer) {
   bv_test_one(e,bv_reset_command_buffer,command,0);bv_test_one(e,bv_begin_command_buffer,command,0);bv_test_result(e,probe_begin_call(e,command,framebuffer),0);
   refs=command->deps;PFN_vkResetCommandBuffer reset=d->ResetCommandBuffer;d->ResetCommandBuffer=bv_test_reset_error;
   bv_test_one(e,bv_reset_command_buffer,command,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(command->command.phase==BV_COMMAND_INVALID && command->deps==refs && bv_referenced(framebuffer));
+  probe_graph_retained(e,owner,framebuffer);
   d->ResetCommandBuffer=reset;bv_test_one(e,bv_reset_command_buffer,command,0);
   BvRow* image=bv_dependency(framebuffer->object.framebuffer.attachments[0]->target,BV_DEP_VIEW_IMAGE)->target;
   BvRow* memory=bv_bound_memory(image);uint32_t flags=memory->flags;memory->flags|=VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
@@ -127,18 +147,25 @@ static void probe_rendering(Env e,BvRow* owner,BvRow* framebuffer) {
     refs=command->deps;assert(bv_memory_busy(memory));unsigned maps=probe_maps;
     bv_test_one(e,bv_reset_command_buffer,command,BV_LIFETIME);bv_test_one(e,bv_fence_reset,fence,BV_LIFETIME);
     bv_test_result(e,bv_destroy_command_pool(e,(Term[]){bv_test_handle(owner),bv_test_handle(pool)},NULL),BV_LIFETIME);
-    bv_test_result(e,bv_read_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(memory),bv_words(e,0),1},NULL),BV_LIFETIME);assert(probe_maps==maps);
+    probe_graph_host_blocked(e,owner,memory);probe_graph_retained(e,owner,framebuffer);
     if(!uncertain) {
       bv_test_wait_result=VK_TIMEOUT;bv_test_status(e,bv_fence_wait(e,(Term[]){bv_test_handle(fence),bv_words(e,0)},NULL),VK_TIMEOUT);assert(bv_memory_busy(memory));
+      probe_graph_host_blocked(e,owner,memory);
       d->GetFenceStatus=probe_status_not_ready;bv_test_status(e,bv_fence_status(e,(Term[]){bv_test_handle(fence)},NULL),VK_NOT_READY);d->GetFenceStatus=status;
+      probe_graph_host_blocked(e,owner,memory);
       bv_test_wait_result=VK_SUCCESS;bv_test_status(e,bv_fence_wait(e,(Term[]){bv_test_handle(fence),bv_words(e,UINT64_MAX)},NULL),0);assert(command->command.phase==BV_COMPLETED);
     } else {
       bv_test_one(e,bv_fence_status,fence,BV_LIFETIME);d->DeviceWaitIdle=bv_test_idle_error;bv_test_idle_result=VK_ERROR_OUT_OF_HOST_MEMORY;
-      bv_test_one(e,bv_device_wait_idle,owner,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(bv_memory_busy(memory));d->DeviceWaitIdle=idle;bv_test_one(e,bv_device_wait_idle,owner,0);assert(command->command.phase==BV_COMMAND_INVALID);
+      bv_test_one(e,bv_device_wait_idle,owner,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(bv_memory_busy(memory));probe_graph_host_blocked(e,owner,memory);
+      d->DeviceWaitIdle=idle;bv_test_one(e,bv_device_wait_idle,owner,0);assert(command->command.phase==BV_COMMAND_INVALID);
     }
     assert(!bv_memory_busy(memory) && command->deps==refs && bv_referenced(framebuffer));
-    bv_test_result(e,bv_read_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(memory),bv_words(e,0),1},NULL),0);assert(probe_maps==maps+1);
-    bv_test_result(e,bv_destroy_framebuffer(e,(Term[]){bv_test_handle(owner),bv_test_handle(framebuffer)},NULL),BV_LIFETIME);
+    Term byte[2];bv_unpack(e,bv_test_value(e,bv_read_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(memory),bv_words(e,0),1},NULL)),2,byte);
+    assert(byte[0]==90 && term_aux(byte[1])==CID(Nil) && probe_maps==maps+1);
+    probe_graph_retained(e,owner,framebuffer);
+    d->ResetCommandBuffer=bv_test_reset_error;
+    bv_test_one(e,bv_reset_command_buffer,command,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(command->deps==refs);
+    probe_graph_retained(e,owner,framebuffer);d->ResetCommandBuffer=reset;
     bv_test_one(e,bv_reset_command_buffer,command,0);assert(!command->deps);
   }
   memory->flags=flags;d->MapMemory=map;d->UnmapMemory=unmap;d->QueueSubmit=submit;d->WaitForFences=wait;d->GetFenceStatus=status;d->DeviceWaitIdle=idle;
@@ -150,8 +177,31 @@ static void probe_rendering(Env e,BvRow* owner,BvRow* framebuffer) {
 }
 static Term test_begin_render_pass(Env e,Term* f,IoWork* w) {
   static int ran;
-  if(!ran) {ran=1;BvRow* c=bv_get(bv_key(e,term_keep(e,f[0],1)),BV_COMMAND),*fb=bv_get(bv_key(e,term_keep(e,f[1],1)),BV_FRAMEBUFFER);assert(c && fb);probe_rendering(e,bv_command_device(c),fb);}
+  if(!ran) {
+    BvRow* c=bv_get(bv_key(e,term_keep(e,f[0],1)),BV_COMMAND),*fb=bv_get(bv_key(e,term_keep(e,f[1],1)),BV_FRAMEBUFFER);
+    if(c && fb && fb->parent==bv_command_device(c)) {ran=1;probe_rendering(e,bv_command_device(c),fb);}
+  }
   return bv_cmd_begin_render_pass(e,f,w);
+}
+static void probe_add_cleanup_graph(Env e,BvRow* owner,BvRow* command) {
+  BvDevice* d=owner->context;
+  BvRow* image=bv_get(bv_key(e,bv_test_value(e,bv_create_image(e,(Term[]){bv_test_handle(owner),probe_image_info(e)},NULL))),BV_IMAGE);assert(image);
+  uint32_t type=0;while(type<d->memory.memoryTypeCount && !(image->requirements.memoryTypeBits&(1u<<type)))type++;
+  assert(type<d->memory.memoryTypeCount);
+  BvRow* memory=bv_get(bv_key(e,bv_test_value(e,bv_allocate_memory(e,(Term[]){bv_test_handle(owner),bv_words(e,image->requirements.size),type},NULL))),BV_MEMORY);
+  bv_test_result(e,bv_bind_image_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(image),bv_test_handle(memory),bv_words(e,0)},NULL),0);
+  BvRow* view=bv_get(bv_key(e,bv_test_value(e,bv_create_image_view(e,(Term[]){bv_test_handle(owner),probe_view_info(e,image)},NULL))),BV_IMAGE_VIEW);
+  Term schema=io_node(e,CID(Con),bv_node(e,CID(AttachmentInfo),3,(Term[]){37,1,0}),term_pak(CID(Nil),0));
+  BvRow* pass=bv_get(bv_key(e,bv_test_value(e,bv_create_render_pass(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(RenderPassCreateInfo),5,(Term[]){schema,0,0,0,0})},NULL))),BV_RENDER_PASS);
+  Term views=io_node(e,CID(Con),bv_test_handle(view),term_pak(CID(Nil),0));
+  BvRow* fb=bv_get(bv_key(e,bv_test_value(e,bv_create_framebuffer(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(FramebufferCreateInfo),4,(Term[]){pass->id,views,8,4})},NULL))),BV_FRAMEBUFFER);
+  bv_test_one(e,bv_begin_command_buffer,command,0);
+  Term barriers=io_node(e,CID(Con),bv_node(e,CID(ImageMemoryBarrier),10,(Term[]){image->id,1,0,1,0,1,0,2,0,256}),term_pak(CID(Nil),0));
+  bv_test_result(e,bv_cmd_pipeline_barrier(e,(Term[]){bv_test_handle(command),1,1024,term_pak(CID(Nil),0),term_pak(CID(Nil),0),barriers},NULL),0);
+  Term clear=io_node(e,CID(Con),bv_node(e,CID(ColorClear),4,(Term[]){0,0,f32_rewrap(1),f32_rewrap(1)}),term_pak(CID(Nil),0));
+  bv_test_result(e,bv_cmd_begin_render_pass(e,(Term[]){bv_test_handle(command),bv_test_handle(fb),bv_node(e,CID(RenderArea),4,(Term[]){0,0,8,4}),clear},NULL),0);
+  bv_test_one(e,bv_cmd_end_render_pass,command,0);bv_test_one(e,bv_end_command_buffer,command,0);
+  assert(bv_referenced(image) && bv_referenced(view) && bv_referenced(pass) && bv_referenced(memory) && bv_referenced(fb));
 }
 static Term test_live_objects(Env e,Term* f,IoWork* w) {
   if(!bv_rows) assert(!bv_test_live_allocations);

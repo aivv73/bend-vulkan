@@ -68,15 +68,18 @@ def build(sanitize=False):
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
                     "-lpthread", "-lm", "-ldl", "-o", str(binary)], cwd=ROOT, check=True)
     env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")
-    completed = subprocess.run([str(binary)], cwd=ROOT, env=env, check=True, timeout=60,
+    completed = subprocess.run([str(binary)], cwd=ROOT, env=env, check=False, timeout=60,
                                text=True, capture_output=True)
     print(completed.stdout, end="", flush=True)
     if completed.stderr:
         print(completed.stderr, end="", file=sys.stderr)
+    completed.check_returncode()
     for marker in ("Injected metadata/map/flush", "Injected layer/extension dispatch",
                    "Injected submit OOM/uncertainty", "Controlled image query/create/bind/view rollback",
                    "Controlled image command F32",
                    "Controlled pass/framebuffer allocation rollback",
+                   "Controlled image graph idle-error retry",
+                   "Real disjoint buffer/optimal-image suballocation",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

@@ -93,6 +93,9 @@ def full_expected() -> List<U32>:
    0,0,0,255,71,72,73,255,81,82,83,255,91,92,93,255,0,0,0,255,
    0,0,0,255,101,102,103,255,111,112,113,255,121,122,123,255,0,0,0,255]
 
+def complete_expected() -> List<U32>:
+  List.concat(&1,U32,[padded_expected(),repeated(228n,205),full_expected(),repeated(392n,205),pixels(120n,[0,0,0,255]),repeated(544n,205)])
+
 def padded_roundtrip(+device: V.Device, +command: V.CommandBuffer, +fence: V.Fence, +target: V.ImageHandle, source: Staging, destination: Staging) -> V.Action(Unit):
   Staging{+src,+source_memory,+source_offset} = source
   Staging{+dst,+dest_memory,+dest_offset} = destination
@@ -126,6 +129,8 @@ def padded_roundtrip(+device: V.Device, +command: V.CommandBuffer, +fence: V.Fen
     Demo.require(Demo.bytes_equal(full,full_expected()),"Nonzero mip addressing, orientation and untouched texels")
     base : List<U32> <- V.Device.read_memory(device,dest_memory,W.add(dest_offset,W.of_u32(1024)),480)
     Demo.require(Demo.bytes_equal(base,pixels(120n,[0,0,0,255])),"Upload changed untouched base mip")
+    all_bytes : List<U32> <- V.Device.read_memory(device,dest_memory,dest_offset,2048)
+    Demo.require(Demo.bytes_equal(all_bytes,complete_expected()),"Complete staging buffer payload, padding, gaps and trailing sentinels")
     V.CommandBuffer.reset(command)
     V.Fence.reset(fence)
     return Unit{}

@@ -7,6 +7,10 @@ import ../examples/buffer_roundtrip.bend as Demo
 import ./native.bend as T
 import ./transfers.bend as Transfer
 
+def query_adapter(properties: V.ImageFormatProperties) -> V.Action(Unit):
+  V.ImageFormatProperties{width,height,depth,mips,layers,samples,W.U64{lo,hi}} = properties
+  Demo.require(Demo.bytes_equal([width,height,depth,mips,layers,samples,lo,hi],[1,2,3,4,5,6,305419896,2596069104]),"Image configuration adapter preserves every field and both size limbs")
+
 def image(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, info: V.ImageCreateInfo, required: U32) -> V.Action(V.ImageHandle & V.DeviceMemory):
   do V.Action<V.ImageHandle & V.DeviceMemory>:
     +image : V.ImageHandle <- V.Device.create_image(device,info)
@@ -25,6 +29,8 @@ def resource(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Devi
     +requirements : V.MemoryRequirements <- V.Device.get_image_memory_requirements(device,target)
     +memory : V.DeviceMemory <- Transfer.allocate(instance,physical,device,requirements,0)
     T.expect_error(Unit,1610612739,V.Device.bind_image_memory(device,target,memory,W.U64{0,1}))
+    T.expect_error(Unit,1610612738,V.Device.bind_image_memory(other,target,memory,W.zero()))
+    T.expect_error(V.MemoryRequirements,1610612738,V.Device.get_image_memory_requirements(other,target))
     V.Device.bind_image_memory(device,target,memory,W.zero())
     T.expect_error(Unit,1610612740,V.Device.bind_image_memory(device,target,memory,W.zero()))
     T.expect_error(V.ImageView,1610612739,V.Device.create_image_view(device,V.ImageViewCreateInfo{target,1,V.ImageSubresourceRange{aspect,0,0,0,1}}))
@@ -68,6 +74,7 @@ def resources(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Dev
 
 def run(+entry: V.Entry) -> V.Action(Unit):
   do V.Action<Unit>:
+    query_adapter(V.image_format_from_words(((1,2),((3,4),((5,6),(305419896,2596069104))))))
     +instance : V.Instance <- V.Entry.create_instance(entry,V.InstanceCreateInfo.default())
     devices : List<V.PhysicalDevice> <- V.Instance.enumerate_physical_devices(instance)
     +physical : V.PhysicalDevice <- Demo.first(devices)

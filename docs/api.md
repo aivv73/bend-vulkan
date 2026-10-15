@@ -35,6 +35,7 @@ If cleanup alone fails, the scope returns that failure.
 | `Instance.enumerate_device_extensions(instance, physical, layer)` | Device extension names and specification versions |
 | `Instance.get_physical_device_memory_heaps(instance, physical)` | `MemoryHeap{size, flags}` values |
 | `Instance.get_physical_device_format_properties(instance, physical, format)` | Linear/optimal tiling and buffer feature masks |
+| `Instance.get_physical_device_image_format_properties(instance, physical, info)` | Exact image configuration limits as `ImageFormatProperties` |
 | `Instance.get_physical_device_limits(instance, physical)` | The selected `PhysicalDeviceLimits` fields |
 | `Instance.create_device(instance, physical, info)` | A device with one queue at priority 1.0 |
 | `Instance.destroy(instance)` | Instance teardown, rejecting live devices |
@@ -57,7 +58,7 @@ Discovery does not enable extensions, features, or layers.
 - `max_vertex_input_attributes`, `max_vertex_input_bindings`, `max_vertex_input_attribute_offset`, and `max_vertex_input_binding_stride`.
 - `max_memory_allocation_count`.
 
-Its final three fields are upstream W.U64 values, `non_coherent_atom_size`, `optimal_buffer_copy_offset_alignment`, and `optimal_buffer_copy_row_pitch_alignment`.
+Its final four fields are upstream W.U64 values, `non_coherent_atom_size`, `optimal_buffer_copy_offset_alignment`, `optimal_buffer_copy_row_pitch_alignment`, and `buffer_image_granularity`.
 Copy-alignment limits do not impose an alignment restriction on buffer-to-buffer byte copies.
 
 ## Buffers and memory
@@ -72,7 +73,7 @@ Copy-alignment limits do not impose an alignment restriction on buffer-to-buffer
 | `Device.write_memory_words(device, memory, offset, byte_length, words)` | Original `Array<U32>` beside `VkResult(Unit)` |
 | `Device.read_memory(device, memory, offset, count)` | Byte list, including invalidation for noncoherent memory |
 | `Device.destroy_buffer(device, buffer)` | Buffer teardown |
-| `Device.free_memory(device, memory)` | Allocation teardown, rejecting bound buffers |
+| `Device.free_memory(device, memory)` | Allocation teardown, rejecting bound buffers and images |
 | `Device.wait_idle(device)` | Device completion |
 | `Device.destroy(device)` | Device teardown, rejecting live resources |
 
@@ -93,6 +94,137 @@ No Bend heap pointer survives the operation.
 
 The wrapper checks common lifetime and memory-access errors. Callers remain responsible for Vulkan validity requirements for chosen flags, extensions, and resource use.
 Handle keys are checked process-local identifiers. They provide no raw Vulkan handle interoperation or access-control guarantee.
+
+## Images and views
+
+| Operation | Result |
+| --- | --- |
+| `Device.create_image(device, info)` | An unbound `ImageHandle` |
+| `Device.get_image_memory_requirements(device, image)` | `MemoryRequirements{size, alignment, memory_type_bits}` |
+| `Device.bind_image_memory(device, image, memory, offset)` | An explicit requirements-checked binding |
+| `Device.create_image_view(device, info)` | An `ImageView` retaining its image |
+| `Device.destroy_image_view(device, view)` | View teardown, rejecting framebuffer dependents |
+| `Device.destroy_image(device, image)` | Image teardown, rejecting views and recorded references |
+
+`ImageHandle` avoids a name collision with Bend Base's `Image` type.
+`ImageCreateInfo{format, extent, mip_levels, array_layers, usage}` creates an exclusive 2D optimal-tiled image.
+Depth is one, samples are one, flags are zero, and initial layout is UNDEFINED.
+Extent and mip/layer counts must be positive and fit the exact configuration limits and full mip chain.
+Creation checks configuration support and required format features before native creation.
+The returned memory requirements determine allocation size. Logical texel bytes do not describe an optimal image's footprint or memory layout.
+
+The creation profile accepts these formats when the driver supports the requested configuration:
+
+| Format | Value | Aspect | Raw texel bytes |
+| --- | --- | --- | --- |
+| `VK_FORMAT_R8G8B8A8_UNORM` | 37 | COLOR | R, G, B, A |
+| `VK_FORMAT_R8G8B8A8_SRGB` | 43 | COLOR | Encoded R, G, B, linear A |
+| `VK_FORMAT_B8G8R8A8_UNORM` | 44 | COLOR | B, G, R, A |
+| `VK_FORMAT_B8G8R8A8_SRGB` | 50 | COLOR | Encoded B, G, R, linear A |
+| `VK_FORMAT_D16_UNORM` | 124 | DEPTH | Two little-endian UNORM bytes |
+| `VK_FORMAT_D32_SFLOAT` | 126 | DEPTH | Four little-endian IEEE binary32 bytes |
+
+Usages are a nonempty subset of TRANSFER_SRC, TRANSFER_DST, SAMPLED, COLOR_ATTACHMENT, and DEPTH_STENCIL_ATTACHMENT.
+Color and depth attachment usages must match the format's role. Stencil, linear tiling, MSAA, compressed formats, sparse images, and format reinterpretation are absent.
+SAMPLED usage permits resource preparation. Descriptors, samplers, and shader sampling commands are absent.
+
+`ImageFormatInfo{format, image_type, tiling, usage, flags}` queries recognized core-1.0 configurations beyond the creation profile.
+Invalid enum values return the wrapper argument error. A driver rejection preserves exact `VK_ERROR_FORMAT_NOT_SUPPORTED` bits, `4294967285`.
+Failed query outputs are never decoded.
+`ImageFormatProperties` contains `max_width`, `max_height`, `max_depth`, `max_mip_levels`, `max_array_layers`, `sample_counts`, and `max_resource_size: W.U64`.
+Generic format masks alone do not establish support for a configuration.
+
+`ImageSubresourceRange{aspect_mask, base_mip_level, level_count, base_array_layer, layer_count}` requires explicit positive counts and the format's exact aspect.
+`ImageViewCreateInfo{image, view_type, range}` requires binding and at least one view-eligible usage, SAMPLED or an attachment usage.
+Views use the image's format and identity component mapping. A 2D view selects one layer. A 2D_ARRAY view may select multiple layers.
+
+Buffer and image bindings share requirements-sized bounds, alignment, type, and owner checks.
+Buffer-buffer aliasing remains available. Binding intervals must not overlap when either resource is an image.
+Mixed buffer/optimal-image intervals must also occupy disjoint `buffer_image_granularity` pages, in either bind order.
+Distinct images may share an allocation at disjoint requirements intervals. Allocation-wide host exclusion still applies.
+
+## Image commands and readback
+
+| Operation | Result |
+| --- | --- |
+| `CommandBuffer.clear_color_image(command, image, layout, value, ranges)` | Float color clear over explicit ranges |
+| `CommandBuffer.clear_depth_image(command, image, layout, depth, ranges)` | Depth clear over explicit ranges |
+| `CommandBuffer.copy_buffer_to_image(command, src, dst, layout, regions)` | Raw buffer upload |
+| `CommandBuffer.copy_image_to_buffer(command, src, layout, dst, regions)` | Raw staging readback |
+
+Image commands require bound, same-device resources and Recording Outside scope.
+Clears and uploads require TRANSFER_DST usage and TRANSFER_DST_OPTIMAL or GENERAL layout.
+Readback requires TRANSFER_SRC usage and TRANSFER_SRC_OPTIMAL or GENERAL layout.
+Color clear requires a graphics or compute queue. Depth clears and depth copies require graphics.
+Color copies accept graphics, compute, or transfer queues and enforce the selected family's actual `minImageTransferGranularity`.
+Zero granularity requires a whole mip. Nonzero granularity permits the Vulkan edge exception.
+Range and copy lists are nonempty and bounded to 4096. Overlapping clear ranges are rejected.
+
+`ClearColor{r, g, b, a}` takes finite F32 values. Vulkan converts them to the destination format, including sRGB encoding of RGB.
+Copies preserve stored bytes and perform no color conversion, swizzle, vertical flip, or alpha transformation.
+Depth clears require finite values in `[0,1]`. Uploaded depth values must also be in `[0,1]`, as a caller obligation.
+The wrapper does not inspect GPU buffer contents to validate uploaded depth values.
+
+`BufferImageCopy{buffer_offset, buffer_row_length, buffer_image_height, image_subresource, image_offset, image_extent}` uses a W.U64 byte offset into the buffer.
+The offset is relative to the buffer, independently of its memory binding offset.
+`buffer_row_length` and `buffer_image_height` are texel counts. Zero means the copied width or height.
+Positive values must cover those dimensions. `ImageSubresourceLayers{aspect_mask, mip_level, base_array_layer, layer_count}` selects one mip and positive layer count.
+Offsets are nonnegative and signed-representable. Extents must be positive, signed-representable, and fit the selected mip.
+Buffer offsets are four-byte aligned, including D16. Row byte lengths cannot exceed `INT32_MAX`.
+
+For normalized row length R, image height H, bytes per texel B, width w, height h, layers L, and buffer offset O:
+
+```text
+row_stride   = R * B
+layer_stride = H * row_stride
+end          = O + (L - 1) * layer_stride + (h - 1) * row_stride + w * B
+```
+
+All arithmetic is checked U64. The final row has no required trailing padding.
+The interval must fit the buffer's logical size and its bound allocation.
+Uploads reject overlapping destination image boxes. Downloads reject overlapping destination buffer envelopes, including their internal padding.
+Repeated source reads are allowed. Logical dimensions and strides determine the result, independently of Bend array capacity.
+Texels increase in x, then y, then layer order. The example defines the first row, `y=0`, as the top.
+This convention specifies exported bytes. Viewport conventions for future draws are outside this API.
+
+Layouts and initialized contents are caller assertions at execution time.
+The wrapper stores no layout cache and inserts no implicit image or host barriers.
+Use `ImageMemoryBarrier{image, range, old_layout, new_layout, src_access, dst_access}` in the sole `pipeline_barrier` operation.
+The wrapper checks usage, aspect, range, layout enum, and queue stage/access compatibility.
+Both queue-family indices are IGNORED. Overlapping image ranges within one barrier call are rejected.
+UNDEFINED is an old discard layout only and requires zero source access by wrapper policy.
+After unexpected submission errors, observe idle recovery and deliberately overwrite, discard, or recreate before relying on contents.
+
+## Render passes and framebuffers
+
+| Operation | Result |
+| --- | --- |
+| `Device.create_render_pass(device, info)` | A Vulkan 1.0 single-subpass `RenderPass` |
+| `Device.create_framebuffer(device, info)` | A one-layer `Framebuffer` retaining its pass and ordered views |
+| `Device.destroy_framebuffer(device, framebuffer)` | Teardown, rejecting recorded command references |
+| `Device.destroy_render_pass(device, pass)` | Teardown, rejecting framebuffers |
+| `CommandBuffer.begin_render_pass(command, framebuffer, area, clears)` | Enter Recording Inside scope |
+| `CommandBuffer.end_render_pass(command)` | Return to Recording Outside scope |
+
+`RenderPassCreateInfo{colors, depth}` contains ordered `AttachmentInfo{format, load_op, store_op}` values and an optional depth attachment.
+At least one attachment is required. Color count is limited by `max_color_attachments` and the wrapper's 4095-color cap.
+LOAD, CLEAR, DONT_CARE and STORE, DONT_CARE operations are supported.
+Attachments are single-sample. Stencil operations are DONT_CARE. The queue must support graphics.
+Initial, subpass, and final layouts are all COLOR_ATTACHMENT_OPTIMAL or DEPTH_STENCIL_ATTACHMENT_OPTIMAL for the corresponding role.
+There are no explicit subpass dependencies. Supply outside barriers for transfers and attachment reads/writes, including LOAD of a prior pass's output.
+
+`FramebufferCreateInfo{render_pass, attachments, extent}` requires same-device, ordered, format-matching 2D views.
+Each view selects exactly one mip and one layer, has the required attachment usage, and covers the framebuffer extent.
+Attachment subresources cannot overlap. Begin derives the exact pass identity from the framebuffer.
+`RenderArea{offset, extent}` has nonnegative offsets and positive extents, all signed-representable and within the framebuffer.
+
+The clear list has one entry per attachment, including placeholders.
+CLEAR slots require `ColorClear{ClearColor{...}}` or `DepthClear{depth}` according to role.
+Other slots require `UnusedClear{}`. Float constraints match image clears.
+Clears cover the render area. Preserved pixels outside that area require prior initialization and correct synchronization.
+Nested begin, unmatched end, and command end Inside reject before dispatch.
+All fills, copies, image clears, and barriers reject Inside. Successful reset may discard an open recording.
+This milestone executes begin/end and attachment clears. Pipelines, shaders, and draws are absent.
 
 ## Command submission
 
@@ -129,7 +261,7 @@ Copies require bound buffers, source/destination transfer usages, and positive i
 They reject overlapping destinations and physical source/destination overlap across every region, including distinct buffers sharing an allocation.
 Byte copies impose no four-byte alignment rule.
 Recorded references are deduplicated and survive completion and recording/reset failures.
-Successful command reset or pool destruction releases them. Referenced buffers cannot be destroyed before that release.
+Successful command reset or pool destruction releases them. Referenced buffers, images, and framebuffers cannot be destroyed before that release.
 
 Barrier arguments and every new reference node are validated and allocated before recording.
 Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both family indices. Ownership transfers are absent.
@@ -139,7 +271,10 @@ The selected queue must support transfers. There is one selected queue and at mo
 
 Pending/Uncertain commands reject command reset, affected pool destruction, associated fence reset/destruction, and further submission.
 Protection remains deterministic until a caller observes completion, even if the GPU has already finished.
-Host access rejects entire allocations reached through active references and buffer bindings, including aliases.
+Host access rejects entire allocations reached through active references and bindings, including aliases.
+The transitive framebuffer path is command to framebuffer to view to image to memory.
+Framebuffers retain their pass and views. Views retain images. Bound images retain allocations after command reset.
+Completion releases host exclusion but retains all recorded references until successful reset or pool destruction.
 Unrelated allocations remain usable. No destructor or mapping operation polls for completion.
 
 Fence SUCCESS and successful device idle complete Pending work. TIMEOUT, NOT_READY, and ordinary wait errors preserve protection.
@@ -149,7 +284,8 @@ Device loss is sticky, returns exact `VK_ERROR_DEVICE_LOST` bits, invalidates co
 The convenience fence is private, lazily allocated once per device, and destroyed at device teardown.
 Fabricated public fence keys cannot reset, destroy, or submit that private fence.
 
-`Entry.close` waits for devices, destroys pools, fences, and buffers, frees allocations, destroys devices and instances, and unloads the library.
+`Entry.close` waits for devices, then destroys pools, fences, framebuffers, views, passes, images, and buffers before allocations, devices, and instances.
+It then unloads the library.
 If waiting returns an error other than device loss, cleanup leaves the remaining entry tree live for an explicit retry.
 Repeated explicit destruction returns an invalid-handle error.
 
@@ -157,5 +293,5 @@ Repeated explicit destruction returns an invalid-handle error.
 
 `debug_live_objects()` returns the live native-registry row count.
 `debug_u64_roundtrip(value)` returns two limbs after conversion through a native `uint64_t`.
-`Device.buffer_requirements_raw`, `Instance.memory_types_raw`, `Instance.memory_heaps_raw`, and `Instance.limits_raw` are FFI adapters used by the public queries.
+`Device.buffer_requirements_raw`, `Device.image_requirements_raw`, `Instance.image_format_properties_raw`, `Instance.memory_types_raw`, `Instance.memory_heaps_raw`, and `Instance.limits_raw` are FFI adapters used by the public queries.
 `LimitsWords()` names the nested raw limb tuple. Applications use `PhysicalDeviceLimits`.

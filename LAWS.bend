@@ -70,3 +70,10 @@ law image_mip_floor:
 
 law image_range_no_wrap:
   {Core.image_range_contains(5,4294967295,2) == False{} : Bool}
+
+law size_limbs_roundtrip:
+  for words: U32 & U32
+  {Core.size_words(Core.size_from_words(words)) == words : U32 & U32}
+
+law size_scale_zero:
+  {Core.size_scale_checked(Core.whole_size(),0) == Some{W.zero()} : Maybe<W.U64>}

@@ -66,6 +66,30 @@ static void probe_image_transfers(Env e,BvRow* owner,BvRow* image) {
   bv_test_result(e,probe_transfer_call(e,command,image,buffer,1,1,1,1,3,2),0);
   bv_test_result(e,probe_transfer_call(e,command,image,buffer,0,1,1,1,3,2),0);
   bv_test_result(e,probe_barrier_call(e,command,image),0);
+  static const uint32_t bad_regions[][2]={{0,2},{1,1},{2,2},{3,1},{4,2},{5,99},{6,UINT32_MAX},{7,0},{8,UINT32_MAX},{9,UINT32_MAX},{10,0},{11,4}};
+  retained=command->deps;
+  for(unsigned j=0;j<sizeof(bad_regions)/sizeof(*bad_regions);j++) for(unsigned upload=0;upload<2;upload++) {
+    Term p[]={20,0,9,6,1,1,0,2,1,1,3,2};p[bad_regions[j][0]]=bad_regions[j][1];
+    Term list=io_node(e,CID(Con),bv_node(e,CID(BufferImageCopy),12,p),term_pak(CID(Nil),0));unsigned calls=probe_image_commands;
+    Term result=upload ? bv_cmd_copy_buffer_to_image(e,(Term[]){bv_test_handle(command),bv_test_handle(buffer),bv_test_handle(image),7,list},NULL) :
+      bv_cmd_copy_image_to_buffer(e,(Term[]){bv_test_handle(command),bv_test_handle(image),6,bv_test_handle(buffer),list},NULL);
+    bv_test_result(e,result,BV_ARGUMENT);assert(command->deps==retained && probe_image_commands==calls);
+  }
+  static const uint32_t bad_barriers[][2]={{1,2},{3,0},{5,0},{6,3},{7,0},{7,5},{8,4096}};
+  for(unsigned j=0;j<sizeof(bad_barriers)/sizeof(*bad_barriers);j++) {
+    Term p[]={image->id,1,1,1,0,2,0,7,0,4096};p[bad_barriers[j][0]]=bad_barriers[j][1];unsigned calls=probe_image_commands;
+    Term list=io_node(e,CID(Con),bv_node(e,CID(ImageMemoryBarrier),10,p),term_pak(CID(Nil),0));
+    bv_test_result(e,bv_cmd_pipeline_barrier(e,(Term[]){bv_test_handle(command),4096,4096,term_pak(CID(Nil),0),term_pak(CID(Nil),0),list},NULL),BV_ARGUMENT);
+    assert(command->deps==retained && probe_image_commands==calls);
+  }
+  Term p[]={image->id,1,1,1,0,2,0,7,0,4096};unsigned duplicate_calls=probe_image_commands;
+  Term duplicate=io_node(e,CID(Con),bv_node(e,CID(ImageMemoryBarrier),10,p),io_node(e,CID(Con),bv_node(e,CID(ImageMemoryBarrier),10,p),term_pak(CID(Nil),0)));
+  bv_test_result(e,bv_cmd_pipeline_barrier(e,(Term[]){bv_test_handle(command),4096,4096,term_pak(CID(Nil),0),term_pak(CID(Nil),0),duplicate},NULL),BV_ARGUMENT);
+  assert(command->deps==retained && probe_image_commands==duplicate_calls);
+  Term a[]={20,0,9,6,1,1,0,2,1,1,3,2},b[]={36,0,9,6,1,1,0,2,1,1,3,2};
+  Term envelopes=io_node(e,CID(Con),bv_node(e,CID(BufferImageCopy),12,a),io_node(e,CID(Con),bv_node(e,CID(BufferImageCopy),12,b),term_pak(CID(Nil),0)));
+  bv_test_result(e,bv_cmd_copy_image_to_buffer(e,(Term[]){bv_test_handle(command),bv_test_handle(image),6,bv_test_handle(buffer),envelopes},NULL),BV_ARGUMENT);
+  assert(command->deps==retained && probe_image_commands==duplicate_calls);
   unsigned calls=probe_image_commands;VkExtent3D granularity=d->queue_properties.minImageTransferGranularity;uint32_t flags=d->queue_flags;
   d->queue_properties.minImageTransferGranularity=(VkExtent3D){0,0,0};
   bv_test_result(e,probe_transfer_call(e,command,image,buffer,1,1,1,1,3,2),BV_ARGUMENT);assert(probe_image_commands==calls);

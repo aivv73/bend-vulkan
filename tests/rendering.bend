@@ -167,7 +167,39 @@ def partial_clear(+device: V.Device, +command: V.CommandBuffer, +fence: V.Fence,
     V.Fence.reset(fence)
     return Unit{}
 
-def render(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, +color: Attachment, +depth: Attachment) -> V.Action(Unit):
+def load_preserve(+device: V.Device, +command: V.CommandBuffer, +fence: V.Fence, color: V.ImageHandle, depth: V.ImageHandle, color_view: V.ImageView, +depth_view: V.ImageView) -> V.Action(Unit):
+  do V.Action<Unit>:
+    +pass : V.RenderPass <- V.Device.create_render_pass(device,V.RenderPassCreateInfo{[V.AttachmentInfo{37,0,0}],Some{V.AttachmentInfo{126,0,0}}})
+    +framebuffer : V.Framebuffer <- V.Device.create_framebuffer(device,V.FramebufferCreateInfo{pass,[color_view,depth_view],V.Extent2D{8,4}})
+    V.CommandBuffer.begin(command)
+    O.transition(command,color,V.ImageSubresourceRange{1,0,1,0,1},2,2,1024,1024,256,384)
+    O.transition(command,depth,V.ImageSubresourceRange{2,0,1,0,1},3,3,768,768,1024,1536)
+    V.CommandBuffer.begin_render_pass(command,framebuffer,V.RenderArea{V.Offset2D{0,0},V.Extent2D{8,4}},[V.UnusedClear{},V.UnusedClear{}])
+    V.CommandBuffer.end_render_pass(command)
+    O.complete(device,command,fence)
+    V.CommandBuffer.reset(command)
+    V.Fence.reset(fence)
+    V.Device.destroy_framebuffer(device,framebuffer)
+    V.Device.destroy_render_pass(device,pass)
+    +depth_only : V.RenderPass <- V.Device.create_render_pass(device,V.RenderPassCreateInfo{[],Some{V.AttachmentInfo{126,1,0}}})
+    depth_framebuffer : V.Framebuffer <- V.Device.create_framebuffer(device,V.FramebufferCreateInfo{depth_only,[depth_view],V.Extent2D{8,4}})
+    V.Device.destroy_framebuffer(device,depth_framebuffer)
+    V.Device.destroy_render_pass(device,depth_only)
+    return Unit{}
+
+def foreign_image_commands(+other: V.Device, +command: V.CommandBuffer, pool: V.CommandPool, +color: V.ImageHandle, +depth: V.ImageHandle, stage: O.Staging) -> V.Action(Unit):
+  O.Staging{+buffer,memory,offset} = stage
+  do V.Action<Unit>:
+    V.CommandBuffer.begin(command)
+    T.expect_error(Unit,1610612738,V.CommandBuffer.clear_color_image(command,color,7,V.ClearColor{0.0,0.0,0.0,1.0},[V.ImageSubresourceRange{1,0,1,0,1}]))
+    T.expect_error(Unit,1610612738,V.CommandBuffer.clear_depth_image(command,depth,7,0.5,[V.ImageSubresourceRange{2,0,1,0,1}]))
+    T.expect_error(Unit,1610612738,V.CommandBuffer.copy_buffer_to_image(command,buffer,color,7,[V.BufferImageCopy{W.zero(),0,0,V.ImageSubresourceLayers{1,0,0,1},V.Offset2D{0,0},V.Extent2D{8,4}}]))
+    T.expect_error(Unit,1610612738,V.CommandBuffer.copy_image_to_buffer(command,color,6,buffer,[V.BufferImageCopy{W.zero(),0,0,V.ImageSubresourceLayers{1,0,0,1},V.Offset2D{0,0},V.Extent2D{8,4}}]))
+    T.expect_error(Unit,1610612738,V.CommandBuffer.pipeline_barrier(command,4096,4096,[],[],[V.ImageMemoryBarrier{color,V.ImageSubresourceRange{1,0,1,0,1},7,6,4096,2048}]))
+    V.CommandBuffer.reset(command)
+    V.Device.destroy_command_pool(other,pool)
+
+def render(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, +other: V.Device, +color: Attachment, +depth: Attachment) -> V.Action(Unit):
   Attachment{+color_image,+color_memory,+color_view,+visible} = color
   Attachment{+depth_image,+depth_memory,+depth_view,depth_visible} = depth
   do V.Action<Unit>:
@@ -176,13 +208,24 @@ def render(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device
     T.expect_error(V.Framebuffer,1610612739,V.Device.create_framebuffer(device,V.FramebufferCreateInfo{pass,[depth_view,color_view],V.Extent2D{8,4}}))
     T.expect_error(V.Framebuffer,1610612739,V.Device.create_framebuffer(device,V.FramebufferCreateInfo{pass,[color_view,depth_view],V.Extent2D{9,4}}))
     T.expect_error(V.Framebuffer,1610612739,V.Device.create_framebuffer(device,V.FramebufferCreateInfo{pass,[color_view],V.Extent2D{8,4}}))
+    T.expect_error(V.Framebuffer,1610612738,V.Device.create_framebuffer(other,V.FramebufferCreateInfo{pass,[color_view,depth_view],V.Extent2D{8,4}}))
+    T.expect_error(Unit,1610612738,V.Device.destroy_render_pass(other,pass))
     +framebuffer : V.Framebuffer <- V.Device.create_framebuffer(device,V.FramebufferCreateInfo{pass,[color_view,depth_view],V.Extent2D{8,4}})
+    T.expect_error(Unit,1610612738,V.Device.destroy_framebuffer(other,framebuffer))
+    +other_pool : V.CommandPool <- V.Device.create_command_pool(other)
+    +other_command : V.CommandBuffer <- V.Device.allocate_command_buffer(other,other_pool)
+    T.expect_error(Unit,1610612738,V.CommandBuffer.begin_render_pass(other_command,framebuffer,V.RenderArea{V.Offset2D{0,0},V.Extent2D{8,4}},[V.ColorClear{V.ClearColor{0.0,0.0,1.0,1.0}},V.DepthClear{0.5}]))
+    +two_colors : V.RenderPass <- V.Device.create_render_pass(device,V.RenderPassCreateInfo{[V.AttachmentInfo{37,1,0},V.AttachmentInfo{37,1,0}],None{}})
+    T.expect_error(V.Framebuffer,1610612739,V.Device.create_framebuffer(device,V.FramebufferCreateInfo{two_colors,[color_view,color_view],V.Extent2D{8,4}}))
+    V.Device.destroy_render_pass(device,two_colors)
     +stage : O.Staging <- O.staging(instance,physical,device)
+    foreign_image_commands(other,other_command,other_pool,color_image,depth_image,stage)
     +pool : V.CommandPool <- V.Device.create_command_pool(device)
     +command : V.CommandBuffer <- V.Device.allocate_command_buffer(device,pool)
     +fence : V.Fence <- V.Device.create_fence(device,False{})
     prepare(device,command,fence,color_image,depth_image)
     framebuffer_only(device,command,fence,framebuffer,pass,color,depth,stage)
+    load_preserve(device,command,fence,color_image,depth_image,color_view,depth_view)
     copy_pass_clear(device,command,fence,color_image,depth_image,stage)
     partial_clear(device,command,fence,framebuffer,color_image,depth_image,stage)
     V.Device.destroy_framebuffer(device,framebuffer)
@@ -203,13 +246,14 @@ def run(+entry: V.Entry) -> V.Action(Unit):
     devices : List<V.PhysicalDevice> <- V.Instance.enumerate_physical_devices(instance)
     +physical : V.PhysicalDevice <- Demo.first(devices)
     families : List<(U32 & U32)> <- V.Instance.get_physical_device_queue_family_properties(instance,physical)
-    family : U32 <- Demo.choose(Core.find_queue_family(families,1),"No graphics queue")
+    +family : U32 <- Demo.choose(Core.find_queue_family(families,1),"No graphics queue")
     +device : V.Device <- V.Instance.create_device(instance,physical,V.DeviceCreateInfo{family,[]})
     T.expect_error(V.RenderPass,1610612739,V.Device.create_render_pass(device,V.RenderPassCreateInfo{[],None{}}))
     T.expect_error(V.RenderPass,1610612739,V.Device.create_render_pass(device,V.RenderPassCreateInfo{[V.AttachmentInfo{126,1,0}],None{}}))
+    +other : V.Device <- V.Instance.create_device(instance,physical,V.DeviceCreateInfo{family,[]})
     +color : Attachment <- attachment(instance,physical,device,37,1,19)
     depth : Attachment <- attachment(instance,physical,device,126,2,35)
-    render(instance,physical,device,color,depth)
+    render(instance,physical,device,other,color,depth)
 
 def main() -> IO(Unit):
   do IO<Unit>:

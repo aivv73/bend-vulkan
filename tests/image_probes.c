@@ -28,7 +28,7 @@ static void probe_binding_policy(BvRow* owner) {
   BvDevice* d=owner->context;uint64_t g=d->limits.bufferImageGranularity;d->limits.bufferImageGranularity=256;
   BvRow memory={.parent=owner,.kind=BV_MEMORY,.size=UINT64_MAX,.memory_type=0};
   BvRow a={.parent=owner,.kind=BV_IMAGE,.requirements={128,64,1}},b={.parent=owner,.kind=BV_BUFFER,.requirements={128,64,1}};
-  BvDep edge={.target=&memory,.role=BV_DEP_BINDING,.offset=0};a.deps=&edge;
+  BvDep edge={.target=&memory,.role=BV_DEP_BINDING,.data.binding={0}};a.deps=&edge;
   BvRow* saved=bv_rows;a.next=bv_rows;bv_rows=&a;
   assert(bv_binding_check(&b,&memory,64)==BV_ARGUMENT);
   assert(bv_binding_check(&b,&memory,128)==BV_ARGUMENT);
@@ -40,6 +40,34 @@ static void probe_binding_policy(BvRow* owner) {
   a.kind=BV_IMAGE;assert(bv_binding_check(&b,&memory,128)==0);
   a.kind=BV_BUFFER;b.kind=BV_BUFFER;assert(bv_binding_check(&b,&memory,0)==0);
   bv_rows=saved;d->limits.bufferImageGranularity=g;
+}
+static void probe_real_suballocation(Env e,BvRow* owner) {
+  unsigned rows=probe_rows(),allocations=bv_test_live_allocations;BvDevice* d=owner->context;
+  for (unsigned reverse=0;reverse<2;reverse++) {
+    BvRow* image=bv_get(bv_key(e,bv_test_value(e,bv_create_image(e,(Term[]){bv_test_handle(owner),probe_image_info(e)},NULL))),BV_IMAGE);
+    BvRow* buffer=bv_get(bv_key(e,bv_test_value(e,bv_create_buffer(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(BufferCreateInfo),3,(Term[]){64,0,3})},NULL))),BV_BUFFER);
+    uint32_t bits=image->requirements.memoryTypeBits&buffer->requirements.memoryTypeBits,type=0;
+    assert(bits);while(!(bits&(1u<<type)))type++;
+    uint64_t align=buffer->requirements.alignment,g=d->limits.bufferImageGranularity,rounded,total;
+    if(g>align)align=g;
+    assert(bv_add64(image->requirements.size,align-1,&rounded));rounded=(rounded/align)*align;
+    assert(bv_add64(rounded,buffer->requirements.size,&total));
+    BvRow* memory=bv_get(bv_key(e,bv_test_value(e,bv_allocate_memory(e,(Term[]){bv_test_handle(owner),bv_words(e,total),type},NULL))),BV_MEMORY);
+    if(reverse) {
+      bv_test_result(e,bv_bind_buffer_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(buffer),bv_test_handle(memory),bv_words(e,rounded)},NULL),0);
+      bv_test_result(e,bv_bind_image_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(image),bv_test_handle(memory),bv_words(e,0)},NULL),0);
+    } else {
+      bv_test_result(e,bv_bind_image_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(image),bv_test_handle(memory),bv_words(e,0)},NULL),0);
+      bv_test_result(e,bv_bind_buffer_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(buffer),bv_test_handle(memory),bv_words(e,0)},NULL),BV_ARGUMENT);
+      bv_test_result(e,bv_bind_buffer_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(buffer),bv_test_handle(memory),bv_words(e,rounded)},NULL),0);
+    }
+    assert(bv_bound_memory(buffer)==bv_bound_memory(image));
+    bv_test_result(e,bv_destroy_buffer(e,(Term[]){bv_test_handle(owner),bv_test_handle(buffer)},NULL),0);
+    bv_test_result(e,bv_destroy_image(e,(Term[]){bv_test_handle(owner),bv_test_handle(image)},NULL),0);
+    bv_test_result(e,bv_free_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(memory)},NULL),0);
+    assert(probe_rows()==rows && bv_test_live_allocations==allocations);
+  }
+  puts("Real disjoint buffer/optimal-image suballocation passed in both binding orders");
 }
 static void probe_image_resources(Env e,BvRow* owner) {
   unsigned before=probe_rows();BvDevice* d=owner->context;BvInstance* i=owner->parent->context;
@@ -54,7 +82,12 @@ static void probe_image_resources(Env e,BvRow* owner) {
     query_result=mode ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS;
     Term args[]={bv_test_handle(owner->parent),bv_test_handle(physical),bv_node(e,CID(ImageFormatInfo),5,(Term[]){37,1,0,23,0})};
     Term result=bv_image_format_properties(e,args,NULL);
-    if(mode) bv_test_result(e,result,(uint32_t)VK_ERROR_FORMAT_NOT_SUPPORTED);
+    if(mode) {
+      bv_test_result(e,result,(uint32_t)VK_ERROR_FORMAT_NOT_SUPPORTED);
+      unsigned calls=image_creates;
+      bv_test_result(e,bv_create_image(e,(Term[]){bv_test_handle(owner),probe_image_info(e)},NULL),(uint32_t)VK_ERROR_FORMAT_NOT_SUPPORTED);
+      assert(image_creates==calls && probe_rows()==before);
+    }
     else {Term pairs[2],tail[2],last[2];bv_unpack(e,bv_test_value(e,result),2,pairs);term_sink(e,pairs[0]);bv_unpack(e,pairs[1],2,tail);term_sink(e,tail[0]);bv_unpack(e,tail[1],2,last);term_sink(e,last[0]);assert(bv_u64(e,last[1])==UINT64_C(0x123456789abcdef0));}
   }
   query_result=VK_SUCCESS;
@@ -82,6 +115,7 @@ static void probe_image_resources(Env e,BvRow* owner) {
   bv_test_result(e,bv_destroy_image(e,(Term[]){bv_test_handle(owner),term_pak(CID(ImageHandle),image->id)},NULL),0);bv_remove(memory);
   probe_binding_policy(owner);assert(probe_rows()==before);
   d->CreateImage=create;d->DestroyImage=destroy;d->GetImageMemoryRequirements=req;d->BindImageMemory=bind;d->CreateImageView=view;d->DestroyImageView=dv;i->image_formats=query;
+  probe_real_suballocation(e,owner);
   puts("Controlled image query/create/bind/view rollback, exact high limbs, both binding orders and zero-row delta passed");
 }
 static Term test_destroy_image_view(Env e,Term* f,IoWork* w) {

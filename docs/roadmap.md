@@ -5,7 +5,7 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Milestones 0 and 1 are implemented. Later milestones describe planned capabilities and proposed API names.
+Milestones 0 through 2 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
@@ -13,8 +13,8 @@ Milestones 0 and 1 are implemented. Later milestones describe planned capabiliti
 | --- | --- | --- | --- |
 | 0. Native foundation | Implemented | Loader, checked handles, buffers, memory, synchronous fill | Exact host and GPU buffer readback |
 | 1. General transfers and completion | Implemented | Bulk uploads, explicit barriers, buffer copies, fences, command reuse | Repeated upload, copy, and readback with bounded live resources |
-| 2. Offscreen images | Next | Images, memory binding, views, layouts, render targets, readback | Clear and read back a known color image |
-| 3. Indexed graphics | Planned | SPIR-V modules, graphics pipelines, vertex/index binding, depth, push constants | Indexed geometry renders with verified occlusion |
+| 2. Offscreen images | Implemented | Images, binding, views, barriers, color/depth passes, readback | Every-pixel and repeated color/depth clears with bounded resources |
+| 3. Indexed graphics | Next | SPIR-V modules, graphics pipelines, vertex/index binding, depth testing, push constants | Indexed geometry renders with verified occlusion |
 | 4. Voxel mesh consumer | Planned | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
 | 5. Interactive presentation | Planned | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
 | 6. Full scene and appearance | Planned | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
@@ -74,20 +74,39 @@ Rerun evidence is in `tools/verify.py`, `tools/check_native.py`, and the native 
 
 ## 2. Offscreen images
 
+This milestone is complete. Image layouts, allocations, copy strides, and synchronization remain explicit.
+Vulkan 1.0 render-pass begin/end and attachment load clears belong to this milestone. Graphics draws belong to milestone 3.
+
 Wrapper work:
 
-- [ ] Add image creation/destruction, memory requirements, allocation binding, and image views.
-- [ ] Add image layouts, aspect masks, subresource ranges, explicit image barriers, and supported-format queries.
-- [ ] Add color and depth attachment support through Vulkan 1.0 render passes and framebuffers, including begin/end and load-operation clears.
-- [ ] Add image clears, buffer-to-image copies, and image-to-buffer readback.
-- [ ] Extend cleanup to image views, framebuffer references, images, and their allocations.
-- [ ] Define readback dimensions, row stride, channel order, and color encoding explicitly.
+- [x] Add image creation/destruction, memory requirements, allocation binding, and image views.
+- [x] Add image layouts, aspect masks, subresource ranges, explicit image barriers, and supported-format queries.
+- [x] Add color and depth attachment support through Vulkan 1.0 render passes and framebuffers, including begin/end and load-operation clears.
+- [x] Add image clears, buffer-to-image copies, and image-to-buffer readback.
+- [x] Extend cleanup to image views, framebuffer references, images, and their allocations.
+- [x] Define readback dimensions, row stride, channel order, and color encoding explicitly.
 
 Select supported formats from queries. Use staging readback so the example does not depend on directly mapping an optimal-tiled image.
 
 Completion evidence: clear a color target, transition it for transfer, copy it to a host-readable buffer, and verify every pixel.
 Repeat the sequence and destroy every object in its valid dependency order.
 Verify unsupported format requests and wrong-device objects produce useful errors.
+
+Acceptance passed with `python3 tools/verify.py --sanitize` on NVIDIA GeForce GTX 1660 with Bend 2.0.37.
+The six-format creation profile is optimal 2D RGBA8/BGRA8 UNORM/SRGB and depth-only D16_UNORM/D32_SFLOAT, with one sample and explicit mip/layer counts.
+The [offscreen example](../examples/offscreen_roundtrip.bend) verifies every magenta RGBA8 pixel through staging.
+The [transfer check](../tests/offscreen.bend) verifies asymmetric padded two-layer uploads at nonzero offsets and mip, untouched texels, and all staging sentinels.
+The [rendering check](../tests/rendering.bend) verifies full and partial-area color/D32 clears and LOAD preservation.
+The [format check](../tests/image_formats.bend) verifies RGBA/BGRA UNORM/SRGB raw channels and exact D16 depth `1.0` bytes.
+D32 clear and render-pass readback verify depth `0.5` as `00 00 00 3f` at every pixel.
+The [reuse check](../tests/image_repeated.bend) verifies 32 changing color/depth pass cycles and 32 image/view/pass/framebuffer churn cycles with bounded rows.
+
+Framebuffer-only lifetime checks establish layouts in an earlier completed and reset recording.
+Real pre-observation host calls reject through the transitive graph, while unrelated staging memory remains accessible.
+Controlled emitted-C probes verify timeout/NOT_READY, Uncertain recovery, failed reset references, allocation/driver rollback, and zero metadata allocations after cleanup.
+Optimal color requirements expose no compatible host-visible memory type on this GPU. Post-completion mapped access is separately controlled evidence.
+Khronos validation and synchronization validation were unavailable. Driver-global leak detection is disabled, with explicit wrapper row and metadata counters.
+The [API reference](api.md#images-and-views) specifies supported usages, binding overlap/granularity policy, raw bytes, copy strides, and caller layout responsibilities.
 
 ## 3. Indexed graphics
 

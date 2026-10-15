@@ -33,7 +33,7 @@ typedef enum { BV_DEP_RECORDED, BV_DEP_BINDING, BV_DEP_VIEW_IMAGE,
 typedef struct BvDep {
   BvRow* target;
   BvDepRole role;
-  uint64_t offset;
+  union { struct { uint64_t offset; } binding; } data;
   struct BvDep* next;
 } BvDep;
 typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkImageUsageFlags usage; } BvImage;
@@ -216,7 +216,7 @@ static BvRow* bv_bound_memory(const BvRow* row) {
   return binding ? binding->target : NULL;
 }
 static uint64_t bv_bound_offset(const BvRow* row) {
-  return bv_dependency(row,BV_DEP_BINDING)->offset;
+  return bv_dependency(row,BV_DEP_BINDING)->data.binding.offset;
 }
 static int bv_reaches_depth(const BvRow* row,const BvRow* target,unsigned remaining) {
   if (row==target) return 1;
@@ -251,7 +251,7 @@ static int bv_prepare_refs(BvRow* command, uint32_t count, BvRow** resources) {
     if (found) continue;
     BvDep* use=malloc(sizeof(*use));
     if (!use) { bv_free_refs(staged); return 0; }
-    use->target=resources[j]; use->role=BV_DEP_RECORDED; use->offset=0; use->next=staged; staged=use;
+    *use=(BvDep){.target=resources[j],.role=BV_DEP_RECORDED,.next=staged};staged=use;
   }
   while (staged) {
     BvDep* next=staged->next; staged->next=command->deps; command->deps=staged; staged=next;
@@ -843,7 +843,7 @@ static Term bv_bind_resource(Env e,Term* f,BvKind kind) {
   if (code) return io_fail(e,code,"binding violates lifetime, requirements, overlap or granularity");
   BvDep* binding=malloc(sizeof(*binding));
   if (!binding) return io_fail(e,BV_LIMIT,"binding allocation failed");
-  *binding=(BvDep){.target=memory,.role=BV_DEP_BINDING,.offset=offset};
+  *binding=(BvDep){.target=memory,.role=BV_DEP_BINDING,.data.binding={offset}};
   BvDevice* device=owner->context;
   VkResult result=kind==BV_BUFFER ? device->BindBufferMemory(device->handle,(VkBuffer)(uintptr_t)resource->handle,
     (VkDeviceMemory)(uintptr_t)memory->handle,offset) : device->BindImageMemory(device->handle,(VkImage)(uintptr_t)resource->handle,

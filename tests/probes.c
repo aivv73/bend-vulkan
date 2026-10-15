@@ -46,7 +46,11 @@ static void bv_test_result(Env e,Term result,uint32_t expected) {
   if (!expected) { assert(term_aux(result)==CID(Done)); term_sink(e,result); return; }
   assert(term_aux(result)==CID(Fail));
   Term error[1],pair[2];bv_unpack(e,result,1,error);bv_unpack(e,error[0],2,pair);
-  assert((uint32_t)pair[0]==expected);term_sink(e,pair[1]);
+  if ((uint32_t)pair[0]!=expected) {
+    uint64_t length=0;char* message=io_cstr(e,pair[1],&length);
+    fprintf(stderr,"Expected result %u, received %u: %s\n",expected,(uint32_t)pair[0],message);free(message);abort();
+  }
+  term_sink(e,pair[1]);
 }
 static Term bv_test_regions(Env e,uint64_t a,uint64_t b,uint64_t n) {
   Term fields[]={(uint32_t)a,(uint32_t)(a>>32),(uint32_t)b,(uint32_t)(b>>32),(uint32_t)n,(uint32_t)(n>>32)};
@@ -108,6 +112,7 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
   puts("Injected metadata/map/flush checks and packed/Term array ownership passed");
 }
 /* CAPABILITY PROBES */
+static void probe_add_cleanup_graph(Env e,BvRow* device,BvRow* command);
 /* LIFECYCLE PROBES */
 static Term bv_test_copy_buffer(Env e,Term* f,IoWork* w) {
   static int ran;

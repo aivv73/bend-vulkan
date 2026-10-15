@@ -24,6 +24,7 @@
   ["Device.allocate_command_buffer", [["device", "Device"], ["pool", "CommandPool"]], "CommandBuffer", "allocate_command_buffer"],
   ["CommandBuffer.begin", [["command", "CommandBuffer"]], "Unit", "begin_command_buffer"],
   ["CommandBuffer.fill_buffer", [["command", "CommandBuffer"], ["buffer", "Buffer"], ["offset", "W.U64"], ["size", "W.U64"], ["data", "U32"]], "Unit", "cmd_fill_buffer"],
+  ["CommandBuffer.pipeline_barrier", [["command", "CommandBuffer"], ["src_stage", "U32"], ["dst_stage", "U32"], ["memory", "List<MemoryBarrier>"], ["buffers", "List<BufferMemoryBarrier>"]], "Unit", "cmd_pipeline_barrier"],
   ["CommandBuffer.end", [["command", "CommandBuffer"]], "Unit", "end_command_buffer"],
   ["Device.submit_and_wait", [["device", "Device"], ["command", "CommandBuffer"]], "Unit", "submit_and_wait"],
   ["debug_live_objects", [], "U32", "live_objects"],

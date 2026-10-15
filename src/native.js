@@ -24,6 +24,7 @@ io_eff(CID(Device.destroy_command_pool), () => ({ $: CID(Fail), error: io_tup(16
 io_eff(CID(Device.allocate_command_buffer), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(CommandBuffer.begin), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(CommandBuffer.fill_buffer), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
+io_eff(CID(CommandBuffer.pipeline_barrier), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(CommandBuffer.end), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(Device.submit_and_wait), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(debug_live_objects), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));

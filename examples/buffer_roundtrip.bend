@@ -48,6 +48,7 @@ def roundtrip(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Dev
     +command : V.CommandBuffer <- V.Device.allocate_command_buffer(device, pool)
     V.CommandBuffer.begin(command)
     V.CommandBuffer.fill_buffer(command, buffer, W.zero(), W.of_u32(16), 707406378)
+    V.CommandBuffer.pipeline_barrier(command, vk.VK_PIPELINE_STAGE_TRANSFER_BIT(), vk.VK_PIPELINE_STAGE_HOST_BIT(), [V.MemoryBarrier{vk.VK_ACCESS_TRANSFER_WRITE_BIT(), vk.VK_ACCESS_HOST_READ_BIT()}], [])
     V.CommandBuffer.end(command)
     V.Device.submit_and_wait(device, command)
     gpu : List<U32> <- V.Device.read_memory(device, memory, W.zero(), 16)

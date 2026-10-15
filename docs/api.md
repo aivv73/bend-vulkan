@@ -76,14 +76,19 @@ Handle keys are checked process-local identifiers. They provide no raw Vulkan ha
 | `Device.allocate_command_buffer(device, pool)` | One primary command buffer |
 | `CommandBuffer.begin(command)` | Begin one-time recording |
 | `CommandBuffer.fill_buffer(command, buffer, offset, size, data)` | Record a transfer fill |
-| `CommandBuffer.end(command)` | Record a transfer-write-to-host-read barrier, then end recording |
+| `CommandBuffer.pipeline_barrier(command, src_stage, dst_stage, memory, buffers)` | Record explicit memory and buffer barriers |
+| `CommandBuffer.end(command)` | End recording |
 | `Device.submit_and_wait(device, command)` | Queue submission followed by `vkQueueWaitIdle` |
 | `Device.destroy_command_pool(device, pool)` | Pool teardown and invalidation of its command buffers |
 
 Command buffers are one-shot. They progress through initial, recording, executable, and submitted states.
 Failed recording moves a command buffer to an invalid state. Destroy its pool to release it.
 A fill requires bound memory, `VK_BUFFER_USAGE_TRANSFER_DST_BIT`, four-byte alignment, and a nonempty valid range.
-Recorded buffer references remain live until their command pool is destroyed.
+Recorded resource references are deduplicated and remain live until their command pool is destroyed.
+Barrier arguments and all new reference nodes are validated and allocated before recording.
+Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both queue-family indices.
+Stage and access masks accept supported core Vulkan 1.0 bits. Geometry and tessellation stages require unavailable optional features.
+`ALL_COMMANDS` excludes host access. The fill caller records its transfer-to-host barrier explicitly.
 The selected queue family must support transfer commands. The examples use a graphics queue.
 The API has no asynchronous submission, command reset, individual command-buffer free, or semaphore operations.
 If submission or a queue wait fails without device loss, memory copies, resource destruction, and further submissions require a successful `Device.wait_idle` first.

@@ -17,7 +17,7 @@
 typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
   BV_MEMORY, BV_POOL, BV_COMMAND } BvKind;
 typedef struct BvRow BvRow;
-typedef struct BvUse { BvRow* buffer; struct BvUse* next; } BvUse;
+typedef struct BvUse { BvRow* resource; struct BvUse* next; } BvUse;
 struct BvRow {
   uint32_t id;
   BvKind kind;
@@ -123,8 +123,65 @@ static BvRow* bv_command_device(BvRow* command) {
 static int bv_referenced(BvRow* buffer) {
   for (BvRow* row = bv_rows; row; row = row->next)
     for (BvUse* use = row->uses; use; use = use->next)
-      if (use->buffer == buffer) return 1;
+      if (use->resource == buffer) return 1;
   return 0;
+}
+static void bv_free_refs(BvUse* uses) {
+  while (uses) { BvUse* next=uses->next; free(uses); uses=next; }
+}
+static int bv_prepare_refs(BvRow* command, uint32_t count, BvRow** resources) {
+  BvUse* staged=NULL;
+  for (uint32_t j=0;j<count;j++) {
+    int found=0;
+    for (BvUse* u=command->uses;u;u=u->next) found |= u->resource==resources[j];
+    for (BvUse* u=staged;u;u=u->next) found |= u->resource==resources[j];
+    if (found) continue;
+    BvUse* use=malloc(sizeof(*use));
+    if (!use) { bv_free_refs(staged); return 0; }
+    use->resource=resources[j]; use->next=staged; staged=use;
+  }
+  while (staged) {
+    BvUse* next=staged->next; staged->next=command->uses; command->uses=staged; staged=next;
+  }
+  return 1;
+}
+
+// Optional geometry and tessellation features are never enabled by create_device.
+static uint32_t bv_stages(BvDevice* device, uint32_t mask) {
+  const uint32_t graphics=VK_PIPELINE_STAGE_VERTEX_INPUT_BIT|VK_PIPELINE_STAGE_VERTEX_SHADER_BIT|
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|
+    VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  uint32_t allowed=VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT|VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT|VK_PIPELINE_STAGE_HOST_BIT;
+  if (device->queue_flags & VK_QUEUE_GRAPHICS_BIT) allowed |= graphics;
+  if (device->queue_flags & VK_QUEUE_COMPUTE_BIT) allowed |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+  if (device->queue_flags & (VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT)) allowed |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+  if (device->queue_flags & (VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT|VK_QUEUE_TRANSFER_BIT)) allowed |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  if (!mask || (mask & ~(allowed|VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT|VK_PIPELINE_STAGE_ALL_COMMANDS_BIT))) return 0;
+  uint32_t expanded=mask & allowed;
+  if (mask & VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT) {
+    if (!(device->queue_flags & VK_QUEUE_GRAPHICS_BIT)) return 0;
+    expanded |= graphics|VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+  }
+  if (mask & VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) expanded |= allowed & ~VK_PIPELINE_STAGE_HOST_BIT;
+  return expanded;
+}
+static int bv_access(uint32_t stages, uint32_t access) {
+  const uint32_t shaders=VK_PIPELINE_STAGE_VERTEX_SHADER_BIT|VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+  static const struct { uint32_t access, stages; } table[]={
+    {VK_ACCESS_INDIRECT_COMMAND_READ_BIT,VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT},
+    {VK_ACCESS_INDEX_READ_BIT|VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,VK_PIPELINE_STAGE_VERTEX_INPUT_BIT},
+    {VK_ACCESS_UNIFORM_READ_BIT|VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_SHADER_WRITE_BIT,0},
+    {VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
+    {VK_ACCESS_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
+    {VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT|VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT},
+    {VK_ACCESS_TRANSFER_READ_BIT|VK_ACCESS_TRANSFER_WRITE_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT},
+    {VK_ACCESS_HOST_READ_BIT|VK_ACCESS_HOST_WRITE_BIT,VK_PIPELINE_STAGE_HOST_BIT},
+    {VK_ACCESS_MEMORY_READ_BIT|VK_ACCESS_MEMORY_WRITE_BIT,UINT32_MAX}
+  };
+  uint32_t supported=0;
+  for (size_t j=0;j<sizeof(table)/sizeof(*table);j++)
+    if (stages & (table[j].stages ? table[j].stages : shaders)) supported |= table[j].access;
+  return !(access & ~supported);
 }
 static int bv_has_children(BvRow* parent, BvKind ignored) {
   for (BvRow* row = bv_rows; row; row = row->next)
@@ -653,12 +710,59 @@ static Term bv_cmd_fill_buffer(Env e, Term* f, IoWork* w) {
   if (size==VK_WHOLE_SIZE && offset<buffer->size) size=(buffer->size-offset)&~UINT64_C(3);
   if (!size || offset>buffer->size || size>buffer->size-offset || ((offset|size)&3) || !(buffer->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT))
     return io_fail(e,BV_ARGUMENT,"invalid fill offset, size, alignment, or usage");
-  BvUse* use=malloc(sizeof(*use));
-  if (!use) return io_fail(e,BV_LIMIT,"command reference allocation failed");
-  use->buffer=buffer;use->next=command->uses;command->uses=use;
+  if (!bv_prepare_refs(command,1,&buffer)) return io_fail(e,BV_LIMIT,"command reference allocation failed");
   BvDevice* device=owner->context;
   device->CmdFillBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,offset,size,(uint32_t)f[4]);
   return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.pipeline_barrier)
+static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);
+  BvRow* owner=bv_command_device(command);
+  BvDevice* device=owner ? owner->context : NULL;
+  uint32_t src=device ? bv_stages(device,(uint32_t)f[1]) : 0;
+  uint32_t dst=device ? bv_stages(device,(uint32_t)f[2]) : 0;
+  uint32_t code=!command ? BV_INVALID : command->state!=1 ? BV_LIFETIME : (!src || !dst) ? BV_ARGUMENT : 0;
+  VkMemoryBarrier* memory=NULL; VkBufferMemoryBarrier* buffers=NULL; BvRow** resources=NULL;
+  uint32_t nm=0,nb=0; Term list=f[3];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],fields[2]; bv_unpack(e,list,2,item); list=item[1]; bv_unpack(e,item[0],2,fields);
+    if (code) continue;
+    if (nm>=4096) {code=BV_LIMIT;continue;}
+    if (!bv_access(src,(uint32_t)fields[0]) || !bv_access(dst,(uint32_t)fields[1])) {code=BV_ARGUMENT;continue;}
+    VkMemoryBarrier* more=realloc(memory,(nm+1)*sizeof(*memory));
+    if (!more) {code=BV_LIMIT;continue;} memory=more;
+    memory[nm++]=(VkMemoryBarrier){.sType=VK_STRUCTURE_TYPE_MEMORY_BARRIER,.srcAccessMask=(uint32_t)fields[0],.dstAccessMask=(uint32_t)fields[1]};
+  }
+  list=f[4];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],fields[7]; bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],7,fields);
+    if (code) continue;
+    BvRow* buffer=bv_child((uint32_t)fields[0],BV_BUFFER,owner);
+    uint64_t offset=((uint64_t)(uint32_t)fields[2]<<32)|(uint32_t)fields[1];
+    uint64_t size=((uint64_t)(uint32_t)fields[4]<<32)|(uint32_t)fields[3];
+    if (!buffer) {code=BV_INVALID;continue;}
+    if (!buffer->bound) {code=BV_LIFETIME;continue;}
+    if (size==VK_WHOLE_SIZE && offset<buffer->size) size=buffer->size-offset;
+    if (!size || offset>buffer->size || size>buffer->size-offset ||
+        !bv_access(src,(uint32_t)fields[5]) || !bv_access(dst,(uint32_t)fields[6])) {code=BV_ARGUMENT;continue;}
+    if (nb>=4096) {code=BV_LIMIT;continue;}
+    VkBufferMemoryBarrier* more=realloc(buffers,(nb+1)*sizeof(*buffers));
+    if (!more) {code=BV_LIMIT;continue;} buffers=more;
+    BvRow** refs=realloc(resources,(nb+1)*sizeof(*resources));
+    if (!refs) {code=BV_LIMIT;continue;} resources=refs;
+    resources[nb]=buffer;
+    buffers[nb++]=(VkBufferMemoryBarrier){.sType=VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+      .srcAccessMask=(uint32_t)fields[5],.dstAccessMask=(uint32_t)fields[6],
+      .srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,
+      .buffer=(VkBuffer)(uintptr_t)buffer->handle,.offset=offset,.size=size};
+  }
+  if (!code && !bv_prepare_refs(command,nb,resources)) code=BV_LIMIT;
+  if (!code) device->CmdPipelineBarrier((VkCommandBuffer)(uintptr_t)command->handle,
+    (uint32_t)f[1],(uint32_t)f[2],0,nm,memory,nb,buffers,0,NULL);
+  free(memory);free(buffers);free(resources);
+  return code ? io_fail(e,code,"pipeline_barrier: invalid state, stages, access, range, or allocation") : bv_ok(e);
 }
 #endif
 #ifdef CID(CommandBuffer.end)
@@ -667,10 +771,6 @@ static Term bv_end_command_buffer(Env e, Term* f, IoWork* w) {
   if (!command) return io_fail(e,BV_INVALID,"invalid command buffer");
   if (command->state!=1) return io_fail(e,BV_LIFETIME,"command buffer is not recording");
   BvDevice* device=bv_command_device(command)->context;
-  VkMemoryBarrier barrier={.sType=VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-    .srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT,.dstAccessMask=VK_ACCESS_HOST_READ_BIT};
-  device->CmdPipelineBarrier((VkCommandBuffer)(uintptr_t)command->handle,VK_PIPELINE_STAGE_TRANSFER_BIT,
-    VK_PIPELINE_STAGE_HOST_BIT,0,1,&barrier,0,NULL,0,NULL);
   VkResult result=device->EndCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle);
   if (result!=VK_SUCCESS) {command->state=4;return bv_vk_error(e,result,"vkEndCommandBuffer");}
   command->state=2;return bv_ok(e);
@@ -785,6 +885,9 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(CommandBuffer.fill_buffer)
   io_eff(CID(CommandBuffer.fill_buffer), bv_cmd_fill_buffer);
+#endif
+#ifdef CID(CommandBuffer.pipeline_barrier)
+  io_eff(CID(CommandBuffer.pipeline_barrier), bv_cmd_pipeline_barrier);
 #endif
 #ifdef CID(CommandBuffer.end)
   io_eff(CID(CommandBuffer.end), bv_end_command_buffer);

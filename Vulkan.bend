@@ -20,6 +20,11 @@ type CommandPool is Data:
 type CommandBuffer is Data:
   CommandBuffer{key: U32}
 
+type MemoryBarrier is Data:
+  MemoryBarrier{src_access: U32, dst_access: U32}
+type BufferMemoryBarrier is Data:
+  BufferMemoryBarrier{buffer: Buffer, offset: W.U64, size: W.U64, src_access: U32, dst_access: U32}
+
 type InstanceCreateInfo is Type:
   InstanceCreateInfo{application_name: String, api_version: U32, layers: List<String>, extensions: List<String>}
 
@@ -168,6 +173,10 @@ def CommandBuffer.begin(command: CommandBuffer) -> IO(VkResult(Unit)):
   import "./src/native.js"
 
 def CommandBuffer.fill_buffer(command: CommandBuffer, buffer: Buffer, offset: W.U64, size: W.U64, data: U32) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.pipeline_barrier(command: CommandBuffer, src_stage: U32, dst_stage: U32, memory: List<MemoryBarrier>, buffers: List<BufferMemoryBarrier>) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 

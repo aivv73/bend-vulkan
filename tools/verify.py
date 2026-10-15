@@ -45,10 +45,12 @@ def main():
     discovery_output = ""
     for source, name, expected in (
         ("examples/discover.bend", "discover", "Loader API version bits:"),
+        ("examples/offscreen_roundtrip.bend", "offscreen-roundtrip", "Optimal RGBA8 image clear"),
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
         ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
+        ("tests/offscreen.bend", "offscreen", "Every-pixel clear and padded two-layer"),
         ("tests/images.bend", "images", "Six optimal image formats"),
         ("tests/repeated.bend", "repeated", "32 repeated GPU transfers and 32 private-fence reuses passed"),
     ):

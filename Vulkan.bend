@@ -247,7 +247,7 @@ def CommandBuffer.copy_buffer(command: CommandBuffer, src: Buffer, dst: Buffer, 
   import "./src/native.c"
   import "./src/native.js"
 
-def CommandBuffer.pipeline_barrier(command: CommandBuffer, src_stage: U32, dst_stage: U32, memory: List<MemoryBarrier>, buffers: List<BufferMemoryBarrier>) -> IO(VkResult(Unit)):
+def CommandBuffer.pipeline_barrier(command: CommandBuffer, src_stage: U32, dst_stage: U32, memory: List<MemoryBarrier>, buffers: List<BufferMemoryBarrier>, images: List<ImageMemoryBarrier>) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 
@@ -344,6 +344,22 @@ def Device.create_image_view(device: Device, info: ImageViewCreateInfo) -> IO(Vk
   import "./src/native.js"
 
 def Device.destroy_image_view(device: Device, view: ImageView) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.clear_color_image(command: CommandBuffer, image: ImageHandle, layout: U32, value: ClearColor, ranges: List<ImageSubresourceRange>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.clear_depth_image(command: CommandBuffer, image: ImageHandle, layout: U32, depth: F32, ranges: List<ImageSubresourceRange>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.copy_buffer_to_image(command: CommandBuffer, src: Buffer, dst: ImageHandle, layout: U32, regions: List<BufferImageCopy>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.copy_image_to_buffer(command: CommandBuffer, src: ImageHandle, layout: U32, dst: Buffer, regions: List<BufferImageCopy>) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 # END GENERATED EFFECTS

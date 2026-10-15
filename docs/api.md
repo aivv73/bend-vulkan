@@ -103,7 +103,7 @@ Handle keys are checked process-local identifiers. They provide no raw Vulkan ha
 | `CommandBuffer.begin(command)` | Begin one-time recording |
 | `CommandBuffer.fill_buffer(command, buffer, offset, size, data)` | Record a transfer fill |
 | `CommandBuffer.copy_buffer(command, src, dst, regions)` | Record nonempty byte ranges from `List<BufferCopy>` |
-| `CommandBuffer.pipeline_barrier(command, src_stage, dst_stage, memory, buffers)` | Record explicit memory and buffer barriers |
+| `CommandBuffer.pipeline_barrier(command, src_stage, dst_stage, memory, buffers, images)` | Record explicit memory, buffer and image barriers |
 | `CommandBuffer.end(command)` | End recording |
 | `Device.create_fence(device, signaled)` | A caller-owned fence |
 | `Device.submit(device, command, fence)` | Submit one executable command with an unsignaled same-device fence |

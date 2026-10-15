@@ -69,7 +69,7 @@ def transfer_body(+device: V.Device, source: V.Buffer & V.DeviceMemory, destinat
     T.expect_error(Unit, 1610612739, V.CommandBuffer.copy_buffer(command, src, dst, [V.BufferCopy{W.zero(),W.zero(),W.of_u32(4)},V.BufferCopy{W.of_u32(8),W.of_u32(3),W.of_u32(4)}]))
     T.expect_error(Unit, 1610612739, V.CommandBuffer.copy_buffer(command, src, alias, [V.BufferCopy{W.zero(),W.of_u32(8),W.of_u32(4)},V.BufferCopy{W.of_u32(8),W.of_u32(16),W.of_u32(4)}]))
     V.CommandBuffer.copy_buffer(command, src, dst, [V.BufferCopy{W.of_u32(3),W.of_u32(5),W.of_u32(7)}])
-    V.CommandBuffer.pipeline_barrier(command, 4096, 16384, [V.MemoryBarrier{4096,8192}], [])
+    V.CommandBuffer.pipeline_barrier(command, 4096, 16384, [V.MemoryBarrier{4096,8192}], [], [])
     V.CommandBuffer.end(command)
     V.Device.submit_and_wait(device, command)
     copied : List<U32> <- V.Device.read_memory(device, dest_memory, W.of_u32(5), 7)

@@ -46,3 +46,27 @@ law packed_word_bytes:
 
 law packed_index_wraps:
   {Core.word_byte(16909060, 4) == 4 : U32}
+
+law image_copy_last_byte:
+  {Core.image_copy_end(W.of_u32(12),7,5,3,2,2,4) == Some{W.of_u32(192)} : Maybe<W.U64>}
+
+law image_copy_readback_last_byte:
+  {Core.image_copy_end(W.of_u32(20),9,6,3,2,2,4) == Some{W.of_u32(284)} : Maybe<W.U64>}
+
+law image_copy_tight_padding:
+  {Core.image_copy_end(W.of_u32(8),0,0,3,2,2,4) == Core.image_copy_end(W.of_u32(8),3,2,3,2,2,4) : Maybe<W.U64>}
+
+law image_copy_overflow:
+  {Core.image_copy_end(Core.whole_size(),0,0,1,1,1,4) == None{} : Maybe<W.U64>}
+
+law image_copy_product_overflow:
+  {Core.image_copy_end(W.zero(),4294967295,4294967295,1,1,4294967295,4) == None{} : Maybe<W.U64>}
+
+law size_checked_wrap:
+  {Core.size_add_checked(Core.whole_size(),W.of_u32(1)) == None{} : Maybe<W.U64>}
+
+law image_mip_floor:
+  {(Core.image_mip_dimension(9,1),Core.image_mip_dimension(9,32)) == (4,1) : U32 & U32}
+
+law image_range_no_wrap:
+  {Core.image_range_contains(5,4294967295,2) == False{} : Bool}

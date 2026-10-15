@@ -51,3 +51,7 @@ io_eff(CID(Device.image_requirements_raw), () => ({ $: CID(Fail), error: io_tup(
 io_eff(CID(Device.bind_image_memory), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(Device.create_image_view), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
 io_eff(CID(Device.destroy_image_view), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
+io_eff(CID(CommandBuffer.clear_color_image), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
+io_eff(CID(CommandBuffer.clear_depth_image), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
+io_eff(CID(CommandBuffer.copy_buffer_to_image), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));
+io_eff(CID(CommandBuffer.copy_image_to_buffer), () => ({ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }));

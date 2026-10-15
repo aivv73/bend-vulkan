@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <dlfcn.h>
 #include <limits.h>
+#include <math.h>
 
 #if !defined(__linux__) || UINTPTR_MAX != UINT64_MAX
 #error "bend-vulkan currently requires 64-bit Linux"
@@ -18,9 +19,11 @@ typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
   BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER } BvKind;
 typedef struct BvRow BvRow;
 typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN, BV_COMPLETED, BV_COMMAND_INVALID } BvCommandPhase;
+typedef enum { BV_OUTSIDE, BV_INSIDE } BvRenderTag;
+typedef struct { BvRenderTag tag; union { struct { BvRow* framebuffer; } inside; } data; } BvRenderScope;
 typedef struct {
   BvCommandPhase phase;
-  union { struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
+  union { struct { BvRenderScope scope; } recording; struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
 } BvCommand;
 typedef enum { BV_CALLER, BV_CONVENIENCE_PRIVATE } BvFenceLifetime;
 typedef struct { BvFenceLifetime lifetime; } BvFence;
@@ -83,6 +86,7 @@ typedef struct {
   X(FlushMappedMemoryRanges) X(InvalidateMappedMemoryRanges) \
   X(CreateCommandPool) X(DestroyCommandPool) X(AllocateCommandBuffers) \
   X(BeginCommandBuffer) X(EndCommandBuffer) X(CmdFillBuffer) \
+  X(CmdClearColorImage) X(CmdClearDepthStencilImage) X(CmdCopyBufferToImage) X(CmdCopyImageToBuffer) \
   X(CmdCopyBuffer) X(CmdPipelineBarrier) X(QueueSubmit) \
   X(CreateFence) X(DestroyFence) X(GetFenceStatus) X(WaitForFences) X(ResetFences) X(ResetCommandBuffer)
 typedef struct {
@@ -152,6 +156,9 @@ static BvRow* bv_child(uint32_t id, BvKind kind, BvRow* owner) {
 }
 static BvRow* bv_command_device(BvRow* command) {
   return command ? command->parent->parent : NULL;
+}
+static int bv_outside(const BvRow* command) {
+  return command->command.phase==BV_RECORDING && command->command.submission.recording.scope.tag==BV_OUTSIDE;
 }
 static BvRow* bv_command_fence(BvRow* command) {
   if (command->command.phase==BV_PENDING) return command->command.submission.pending.fence;
@@ -986,6 +993,25 @@ static Term bv_destroy_image_view(Env e,Term* f,IoWork* w) {
 }
 #endif
 
+static int bv_ranges_overlap(VkImageSubresourceRange a,VkImageSubresourceRange b) {
+  return (a.aspectMask&b.aspectMask) && a.baseMipLevel<b.baseMipLevel+b.levelCount && b.baseMipLevel<a.baseMipLevel+a.levelCount &&
+    a.baseArrayLayer<b.baseArrayLayer+b.layerCount && b.baseArrayLayer<a.baseArrayLayer+a.layerCount;
+}
+static int bv_image_layout(BvRow* image,uint32_t layout,int old) {
+  BvImage* i=&image->object.image;uint32_t aspect=bv_format(i->format)->aspect;
+  switch (layout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:return old;
+    case VK_IMAGE_LAYOUT_GENERAL:return 1;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:return aspect==VK_IMAGE_ASPECT_COLOR_BIT && (i->usage&VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:return aspect==VK_IMAGE_ASPECT_DEPTH_BIT && (i->usage&VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:return i->usage&VK_IMAGE_USAGE_SAMPLED_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:return i->usage&VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:return i->usage&VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    default:return 0;
+  }
+}
+
 // Map whole allocations so cache ranges satisfy nonCoherentAtomSize alignment.
 static int bv_map_range(BvRow* memory,uint64_t offset,uint32_t count) {
   return (memory->flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) && offset<=memory->size &&
@@ -1139,7 +1165,7 @@ static Term bv_begin_command_buffer(Env e, Term* f, IoWork* w) {
   VkCommandBufferBeginInfo info={.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
   VkResult result=device->BeginCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle,&info);
   if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;return bv_device_error(e,bv_command_device(command),result,"vkBeginCommandBuffer");}
-  command->command.phase=BV_RECORDING;return bv_ok(e);
+  command->command.phase=BV_RECORDING;command->command.submission.recording.scope=(BvRenderScope){.tag=BV_OUTSIDE};return bv_ok(e);
 }
 #endif
 #ifdef CID(CommandBuffer.fill_buffer)
@@ -1149,7 +1175,7 @@ static Term bv_cmd_fill_buffer(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_command_device(command);BvRow* buffer=bv_child(id,BV_BUFFER,owner);
   if (!command || !buffer) return io_fail(e,BV_INVALID,"command and buffer must belong to same device");
   if (bv_lost(bv_command_device(command))) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_cmd_fill_buffer");
-  if (command->command.phase!=BV_RECORDING || !bv_bound_memory(buffer)) return io_fail(e,BV_LIFETIME,"fill needs recording command and bound buffer");
+  if (!bv_outside(command) || !bv_bound_memory(buffer)) return io_fail(e,BV_LIFETIME,"fill needs recording command and bound buffer");
   if (size==VK_WHOLE_SIZE && offset<buffer->size) size=(buffer->size-offset)&~UINT64_C(3);
   if (!size || offset>buffer->size || size>buffer->size-offset || ((offset|size)&3) || !(buffer->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT))
     return io_fail(e,BV_ARGUMENT,"invalid fill offset, size, alignment, or usage");
@@ -1168,7 +1194,7 @@ static Term bv_cmd_copy_buffer(Env e, Term* f, IoWork* w) {
   BvRow* src=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);
   BvRow* dst=bv_child(bv_key(e,f[2]),BV_BUFFER,owner);
   uint32_t code=(!command || !src || !dst) ? BV_INVALID :
-    (command->command.phase!=BV_RECORDING || !bv_bound_memory(src) || !bv_bound_memory(dst)) ? BV_LIFETIME :
+    (!bv_outside(command) || !bv_bound_memory(src) || !bv_bound_memory(dst)) ? BV_LIFETIME :
     (!(src->flags & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) || !(dst->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT)) ? BV_ARGUMENT : 0;
   VkBufferCopy* regions=NULL; uint32_t count=0; Term list=f[3];
   while (term_aux(list)==CID(Con)) {
@@ -1210,9 +1236,9 @@ static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
   BvDevice* device=owner ? owner->context : NULL;
   uint32_t src=device ? bv_baseline_stages(device,(uint32_t)f[1]) : 0;
   uint32_t dst=device ? bv_baseline_stages(device,(uint32_t)f[2]) : 0;
-  uint32_t code=!command ? BV_INVALID : command->command.phase!=BV_RECORDING ? BV_LIFETIME : (!src || !dst) ? BV_ARGUMENT : 0;
-  VkMemoryBarrier* memory=NULL; VkBufferMemoryBarrier* buffers=NULL; BvRow** resources=NULL;
-  uint32_t nm=0,nb=0; Term list=f[3];
+  uint32_t code=!command ? BV_INVALID : !bv_outside(command) ? BV_LIFETIME : (!src || !dst) ? BV_ARGUMENT : 0;
+  VkMemoryBarrier* memory=NULL; VkBufferMemoryBarrier* buffers=NULL; VkImageMemoryBarrier* images=NULL; BvRow** resources=NULL;
+  uint32_t nm=0,nb=0,ni=0; Term list=f[3];
   while (term_aux(list)==CID(Con)) {
     Term item[2],fields[2]; bv_unpack(e,list,2,item); list=item[1]; bv_unpack(e,item[0],2,fields);
     if (code) continue;
@@ -1245,20 +1271,173 @@ static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
       .srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,
       .buffer=(VkBuffer)(uintptr_t)buffer->handle,.offset=offset,.size=size};
   }
-  if (owner && bv_lost(owner)) {free(memory);free(buffers);free(resources);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"pipeline_barrier");}
-  if (!code && !bv_prepare_refs(command,nb,resources)) code=BV_LIMIT;
+  list=f[5];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],p[10];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],10,p);
+    if (code) continue;
+    BvRow* image=bv_child((uint32_t)p[0],BV_IMAGE,owner);
+    if (!image) {code=BV_INVALID;continue;}
+    if (!bv_bound_memory(image)) {code=BV_LIFETIME;continue;}
+    VkImageSubresourceRange range=bv_image_range(p+1);
+    if (!bv_image_range_valid(image,range) || !bv_image_layout(image,p[6],1) || !bv_image_layout(image,p[7],0) ||
+        (!p[6] && p[8]) || !bv_access(src,p[8]) || !bv_access(dst,p[9])) {code=BV_ARGUMENT;continue;}
+    for (uint32_t j=0;j<ni;j++) if (images[j].image==(VkImage)(uintptr_t)image->handle && bv_ranges_overlap(images[j].subresourceRange,range)) code=BV_ARGUMENT;
+    if (code) continue;
+    if (ni>=4096) {code=BV_LIMIT;continue;}
+    VkImageMemoryBarrier* more=realloc(images,(ni+1)*sizeof(*images));
+    if (!more) {code=BV_LIMIT;continue;}images=more;
+    BvRow** refs=realloc(resources,(nb+ni+1)*sizeof(*resources));
+    if (!refs) {code=BV_LIMIT;continue;}resources=refs;resources[nb+ni]=image;
+    images[ni++]=(VkImageMemoryBarrier){.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .srcAccessMask=p[8],.dstAccessMask=p[9],.oldLayout=p[6],.newLayout=p[7],
+      .srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,
+      .image=(VkImage)(uintptr_t)image->handle,.subresourceRange=range};
+  }
+  if (owner && bv_lost(owner)) {free(memory);free(buffers);free(images);free(resources);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"pipeline_barrier");}
+  if (!code && !bv_prepare_refs(command,nb+ni,resources)) code=BV_LIMIT;
   if (!code) device->CmdPipelineBarrier((VkCommandBuffer)(uintptr_t)command->handle,
-    (uint32_t)f[1],(uint32_t)f[2],0,nm,memory,nb,buffers,0,NULL);
-  free(memory);free(buffers);free(resources);
-  return code ? io_fail(e,code,"pipeline_barrier: invalid state, stages, access, range, or allocation") : bv_ok(e);
+    (uint32_t)f[1],(uint32_t)f[2],0,nm,memory,nb,buffers,ni,images);
+  free(memory);free(buffers);free(images);free(resources);
+  return code ? io_fail(e,code,"pipeline_barrier: invalid state, stages, access, layout, range, or allocation") : bv_ok(e);
 }
 #endif
+static int bv_add64(uint64_t a,uint64_t b,uint64_t* out) {
+  if (b>UINT64_MAX-a) return 0;
+  *out=a+b;return 1;
+}
+static int bv_mul64(uint64_t a,uint64_t b,uint64_t* out) {
+  if (b && a>UINT64_MAX/b) return 0;
+  *out=a*b;return 1;
+}
+static int bv_copy_end(uint64_t offset,uint32_t row_length,uint32_t image_height,uint32_t width,uint32_t height,uint32_t layers,uint32_t bytes,uint64_t* end) {
+  uint64_t row,layer,last_layer,last_row,payload,total;
+  uint32_t r=row_length ? row_length : width,h=image_height ? image_height : height;
+  return width && height && layers && bytes && r>=width && h>=height &&
+    bv_mul64(r,bytes,&row) && bv_mul64(h,row,&layer) && bv_mul64(layers-1,layer,&last_layer) &&
+    bv_mul64(height-1,row,&last_row) && bv_mul64(width,bytes,&payload) &&
+    bv_add64(last_layer,last_row,&total) && bv_add64(total,payload,&total) && bv_add64(offset,total,end);
+}
+static int bv_transfer_axis(uint32_t offset,uint32_t extent,uint32_t limit,uint32_t granularity) {
+  return !granularity ? (!offset && extent==limit) : !(offset%granularity) && (!(extent%granularity) || extent==limit-offset);
+}
+static uint32_t bv_image_command_state(BvRow* command,BvRow* image,uint32_t usage,uint32_t layout) {
+  if (!command || !image) return BV_INVALID;
+  if (!bv_outside(command) || !bv_bound_memory(image)) return BV_LIFETIME;
+  if (!(image->object.image.usage&usage) || (layout!=VK_IMAGE_LAYOUT_GENERAL &&
+      layout!=(usage==VK_IMAGE_USAGE_TRANSFER_SRC_BIT ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))) return BV_ARGUMENT;
+  return 0;
+}
+#if defined(CID(CommandBuffer.clear_color_image)) || defined(CID(CommandBuffer.clear_depth_image))
+static Term bv_clear_image(Env e,Term* f,int depth) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* image=bv_child(bv_key(e,f[1]),BV_IMAGE,owner);uint32_t layout=f[2];
+  uint32_t code=bv_image_command_state(command,image,VK_IMAGE_USAGE_TRANSFER_DST_BIT,layout);
+  VkClearColorValue color={0};VkClearDepthStencilValue value={0};
+  if (depth) {value.depth=f32_unbox(f[3]);if (!isfinite(value.depth) || value.depth<0 || value.depth>1) code=BV_ARGUMENT;}
+  else {
+    Term lanes[4];bv_unpack(e,f[3],4,lanes);
+    for (unsigned j=0;j<4;j++) {color.float32[j]=f32_unbox(lanes[j]);if (!isfinite(color.float32[j])) code=BV_ARGUMENT;}
+  }
+  BvDevice* device=owner ? owner->context : NULL;
+  if (!code && (bv_format(image->object.image.format)->aspect!=(depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT) ||
+      !(device->queue_flags&(depth ? VK_QUEUE_GRAPHICS_BIT : VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT)))) code=BV_ARGUMENT;
+  VkImageSubresourceRange* ranges=NULL;uint32_t count=0;Term list=f[4];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],p[5];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],5,p);
+    if (code) continue;
+    VkImageSubresourceRange range=bv_image_range(p);
+    if (!bv_image_range_valid(image,range)) {code=BV_ARGUMENT;continue;}
+    for (uint32_t j=0;j<count;j++) if (bv_ranges_overlap(range,ranges[j])) code=BV_ARGUMENT;
+    if (code) continue;
+    if (count>=4096) {code=BV_LIMIT;continue;}
+    VkImageSubresourceRange* more=realloc(ranges,(count+1)*sizeof(*ranges));
+    if (!more) {code=BV_LIMIT;continue;}ranges=more;ranges[count++]=range;
+  }
+  if (!code && !count) code=BV_ARGUMENT;
+  if (owner && bv_lost(owner)) {free(ranges);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"clear image");}
+  if (!code && !bv_prepare_refs(command,1,&image)) code=BV_LIMIT;
+  if (!code) {
+    if (depth) device->CmdClearDepthStencilImage((VkCommandBuffer)(uintptr_t)command->handle,(VkImage)(uintptr_t)image->handle,layout,&value,count,ranges);
+    else device->CmdClearColorImage((VkCommandBuffer)(uintptr_t)command->handle,(VkImage)(uintptr_t)image->handle,layout,&color,count,ranges);
+  }
+  free(ranges);return code ? io_fail(e,code,"clear image state, queue, layout, values, ranges or allocation") : bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.clear_color_image)
+static Term bv_cmd_clear_color_image(Env e,Term* f,IoWork* w) {return bv_clear_image(e,f,0);}
+#endif
+#ifdef CID(CommandBuffer.clear_depth_image)
+static Term bv_cmd_clear_depth_image(Env e,Term* f,IoWork* w) {return bv_clear_image(e,f,1);}
+#endif
+#if defined(CID(CommandBuffer.copy_buffer_to_image)) || defined(CID(CommandBuffer.copy_image_to_buffer))
+static Term bv_copy_image_buffer(Env e,Term* f,int upload) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* image=bv_child(bv_key(e,f[upload ? 2 : 1]),BV_IMAGE,owner);
+  BvRow* buffer=bv_child(bv_key(e,f[upload ? 1 : 3]),BV_BUFFER,owner);
+  uint32_t layout=f[upload ? 3 : 2],usage=upload ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+  uint32_t code=bv_image_command_state(command,image,usage,layout);
+  BvDevice* device=owner ? owner->context : NULL;const BvFormat* format=image ? bv_format(image->object.image.format) : NULL;
+  if (!buffer) code=BV_INVALID;
+  else if (!bv_bound_memory(buffer)) code=BV_LIFETIME;
+  else if (!(buffer->flags&(upload ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : VK_BUFFER_USAGE_TRANSFER_DST_BIT))) code=BV_ARGUMENT;
+  if (!code && (!(device->queue_flags&(VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT|VK_QUEUE_TRANSFER_BIT)) ||
+      (format->aspect==VK_IMAGE_ASPECT_DEPTH_BIT && !(device->queue_flags&VK_QUEUE_GRAPHICS_BIT)))) code=BV_ARGUMENT;
+  VkBufferImageCopy* regions=NULL;uint32_t count=0;Term list=f[4];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],p[12];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],12,p);
+    if (code) continue;
+    VkBufferImageCopy r={.bufferOffset=((uint64_t)(uint32_t)p[1]<<32)|(uint32_t)p[0],.bufferRowLength=p[2],.bufferImageHeight=p[3],
+      .imageSubresource={p[4],p[5],p[6],p[7]},.imageOffset={(int32_t)(uint32_t)p[8],(int32_t)(uint32_t)p[9],0},.imageExtent={p[10],p[11],1}};
+    BvImage* i=&image->object.image;uint32_t mip=r.imageSubresource.mipLevel;
+    uint32_t w=bv_mip_dimension(i->extent.width,mip),h=bv_mip_dimension(i->extent.height,mip);uint64_t end,row;
+    if (r.imageSubresource.aspectMask!=format->aspect || mip>=i->mips ||
+        !bv_range_contains(i->layers,r.imageSubresource.baseArrayLayer,r.imageSubresource.layerCount) ||
+        (uint32_t)p[8]>INT32_MAX || (uint32_t)p[9]>INT32_MAX || r.imageExtent.width>INT32_MAX || r.imageExtent.height>INT32_MAX ||
+        (uint32_t)p[8]>w || r.imageExtent.width>w-(uint32_t)p[8] || (uint32_t)p[9]>h || r.imageExtent.height>h-(uint32_t)p[9] ||
+        (r.bufferOffset&3) || !bv_copy_end(r.bufferOffset,r.bufferRowLength,r.bufferImageHeight,r.imageExtent.width,r.imageExtent.height,
+          r.imageSubresource.layerCount,format->bytes,&end) || end>buffer->size ||
+        !bv_mul64(r.bufferRowLength ? r.bufferRowLength : r.imageExtent.width,format->bytes,&row) || row>INT32_MAX) {code=BV_ARGUMENT;continue;}
+    VkExtent3D g=device->queue_properties.minImageTransferGranularity;
+    if (!bv_transfer_axis(p[8],r.imageExtent.width,w,g.width) || !bv_transfer_axis(p[9],r.imageExtent.height,h,g.height) ||
+        !bv_transfer_axis(0,1,1,g.depth)) {code=BV_ARGUMENT;continue;}
+    for (uint32_t j=0;j<count;j++) {
+      VkBufferImageCopy a=regions[j];
+      if (upload) {
+        if (a.imageSubresource.mipLevel==mip && bv_overlap(a.imageSubresource.baseArrayLayer,a.imageSubresource.layerCount,r.imageSubresource.baseArrayLayer,r.imageSubresource.layerCount) &&
+            bv_overlap(a.imageOffset.x,a.imageExtent.width,r.imageOffset.x,r.imageExtent.width) && bv_overlap(a.imageOffset.y,a.imageExtent.height,r.imageOffset.y,r.imageExtent.height)) code=BV_ARGUMENT;
+      } else {
+        uint64_t previous;bv_copy_end(a.bufferOffset,a.bufferRowLength,a.bufferImageHeight,a.imageExtent.width,a.imageExtent.height,a.imageSubresource.layerCount,format->bytes,&previous);
+        if (bv_overlap(a.bufferOffset,previous-a.bufferOffset,r.bufferOffset,end-r.bufferOffset)) code=BV_ARGUMENT;
+      }
+    }
+    if (code) continue;
+    if (count>=4096) {code=BV_LIMIT;continue;}
+    VkBufferImageCopy* more=realloc(regions,(count+1)*sizeof(*regions));
+    if (!more) {code=BV_LIMIT;continue;}regions=more;regions[count++]=r;
+  }
+  if (!code && !count) code=BV_ARGUMENT;
+  if (owner && bv_lost(owner)) {free(regions);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"copy image buffer");}
+  BvRow* roots[]={buffer,image};if (!code && !bv_prepare_refs(command,2,roots)) code=BV_LIMIT;
+  if (!code) {
+    if (upload) device->CmdCopyBufferToImage((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,(VkImage)(uintptr_t)image->handle,layout,count,regions);
+    else device->CmdCopyImageToBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkImage)(uintptr_t)image->handle,layout,(VkBuffer)(uintptr_t)buffer->handle,count,regions);
+  }
+  free(regions);return code ? io_fail(e,code,"copy image buffer state, queue, layout, region, overlap or allocation") : bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.copy_buffer_to_image)
+static Term bv_cmd_copy_buffer_to_image(Env e,Term* f,IoWork* w) {return bv_copy_image_buffer(e,f,1);}
+#endif
+#ifdef CID(CommandBuffer.copy_image_to_buffer)
+static Term bv_cmd_copy_image_to_buffer(Env e,Term* f,IoWork* w) {return bv_copy_image_buffer(e,f,0);}
+#endif
+
 #ifdef CID(CommandBuffer.end)
 static Term bv_end_command_buffer(Env e, Term* f, IoWork* w) {
   BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);
   if (!command) return io_fail(e,BV_INVALID,"invalid command buffer");
   if (bv_lost(bv_command_device(command))) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_end_command_buffer");
-  if (command->command.phase!=BV_RECORDING) return io_fail(e,BV_LIFETIME,"command buffer is not recording");
+  if (!bv_outside(command)) return io_fail(e,BV_LIFETIME,"command buffer is not recording");
   BvDevice* device=bv_command_device(command)->context;
   VkResult result=device->EndCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle);
   if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;return bv_device_error(e,bv_command_device(command),result,"vkEndCommandBuffer");}
@@ -1365,6 +1544,7 @@ static Term bv_reset_command_buffer(Env e,Term* f,IoWork* w) {
   if (bv_command_fence(command)) return io_fail(e,BV_LIFETIME,"command has active submission");
   VkResult result=bv_device_result(owner,device->ResetCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle,0));
   command->command.phase=result==VK_SUCCESS ? BV_INITIAL : BV_COMMAND_INVALID;
+  memset(&command->command.submission,0,sizeof(command->command.submission));
   if (result!=VK_SUCCESS) return bv_vk_error(e,result,"vkResetCommandBuffer");
   bv_free_refs(command->deps);command->deps=NULL;return bv_ok(e);
 }
@@ -1563,6 +1743,18 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(Device.destroy_image_view)
   io_eff(CID(Device.destroy_image_view), bv_destroy_image_view);
+#endif
+#ifdef CID(CommandBuffer.clear_color_image)
+  io_eff(CID(CommandBuffer.clear_color_image), bv_cmd_clear_color_image);
+#endif
+#ifdef CID(CommandBuffer.clear_depth_image)
+  io_eff(CID(CommandBuffer.clear_depth_image), bv_cmd_clear_depth_image);
+#endif
+#ifdef CID(CommandBuffer.copy_buffer_to_image)
+  io_eff(CID(CommandBuffer.copy_buffer_to_image), bv_cmd_copy_buffer_to_image);
+#endif
+#ifdef CID(CommandBuffer.copy_image_to_buffer)
+  io_eff(CID(CommandBuffer.copy_image_to_buffer), bv_cmd_copy_image_to_buffer);
 #endif
 // END GENERATED REGISTRATIONS
 }

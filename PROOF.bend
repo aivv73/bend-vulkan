@@ -47,3 +47,20 @@ def Laws.packed_word_bytes():
 
 def Laws.packed_index_wraps():
   {==}
+
+def Laws.image_copy_last_byte():
+  {==}
+def Laws.image_copy_readback_last_byte():
+  {==}
+def Laws.image_copy_tight_padding():
+  {==}
+def Laws.image_copy_overflow():
+  {==}
+def Laws.image_copy_product_overflow():
+  {==}
+def Laws.size_checked_wrap():
+  {==}
+def Laws.image_mip_floor():
+  {==}
+def Laws.image_range_no_wrap():
+  {==}

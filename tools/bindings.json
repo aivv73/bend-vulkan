@@ -26,7 +26,7 @@
   ["CommandBuffer.begin", [["command", "CommandBuffer"]], "Unit", "begin_command_buffer"],
   ["CommandBuffer.fill_buffer", [["command", "CommandBuffer"], ["buffer", "Buffer"], ["offset", "W.U64"], ["size", "W.U64"], ["data", "U32"]], "Unit", "cmd_fill_buffer"],
   ["CommandBuffer.copy_buffer", [["command", "CommandBuffer"], ["src", "Buffer"], ["dst", "Buffer"], ["regions", "List<BufferCopy>"]], "Unit", "cmd_copy_buffer"],
-  ["CommandBuffer.pipeline_barrier", [["command", "CommandBuffer"], ["src_stage", "U32"], ["dst_stage", "U32"], ["memory", "List<MemoryBarrier>"], ["buffers", "List<BufferMemoryBarrier>"]], "Unit", "cmd_pipeline_barrier"],
+  ["CommandBuffer.pipeline_barrier", [["command", "CommandBuffer"], ["src_stage", "U32"], ["dst_stage", "U32"], ["memory", "List<MemoryBarrier>"], ["buffers", "List<BufferMemoryBarrier>"], ["images", "List<ImageMemoryBarrier>"]], "Unit", "cmd_pipeline_barrier"],
   ["CommandBuffer.end", [["command", "CommandBuffer"]], "Unit", "end_command_buffer"],
   ["Device.submit_and_wait", [["device", "Device"], ["command", "CommandBuffer"]], "Unit", "submit_and_wait"],
   ["debug_live_objects", [], "U32", "live_objects"],
@@ -50,5 +50,9 @@
   ["Device.image_requirements_raw", [["device", "Device"], ["image", "ImageHandle"]], "((U32 & U32) & ((U32 & U32) & U32))", "image_requirements"],
   ["Device.bind_image_memory", [["device", "Device"], ["image", "ImageHandle"], ["memory", "DeviceMemory"], ["offset", "W.U64"]], "Unit", "bind_image_memory"],
   ["Device.create_image_view", [["device", "Device"], ["info", "ImageViewCreateInfo"]], "ImageView", "create_image_view"],
-  ["Device.destroy_image_view", [["device", "Device"], ["view", "ImageView"]], "Unit", "destroy_image_view"]
+  ["Device.destroy_image_view", [["device", "Device"], ["view", "ImageView"]], "Unit", "destroy_image_view"],
+  ["CommandBuffer.clear_color_image", [["command", "CommandBuffer"], ["image", "ImageHandle"], ["layout", "U32"], ["value", "ClearColor"], ["ranges", "List<ImageSubresourceRange>"]], "Unit", "cmd_clear_color_image"],
+  ["CommandBuffer.clear_depth_image", [["command", "CommandBuffer"], ["image", "ImageHandle"], ["layout", "U32"], ["depth", "F32"], ["ranges", "List<ImageSubresourceRange>"]], "Unit", "cmd_clear_depth_image"],
+  ["CommandBuffer.copy_buffer_to_image", [["command", "CommandBuffer"], ["src", "Buffer"], ["dst", "ImageHandle"], ["layout", "U32"], ["regions", "List<BufferImageCopy>"]], "Unit", "cmd_copy_buffer_to_image"],
+  ["CommandBuffer.copy_image_to_buffer", [["command", "CommandBuffer"], ["src", "ImageHandle"], ["layout", "U32"], ["dst", "Buffer"], ["regions", "List<BufferImageCopy>"]], "Unit", "cmd_copy_image_to_buffer"]
 ]

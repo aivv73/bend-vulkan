@@ -67,7 +67,7 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
     Term bf[]={src->id,0,0,1,0,VK_ACCESS_TRANSFER_WRITE_BIT,VK_ACCESS_TRANSFER_READ_BIT};
     Term args[]={term_pak(CID(CommandBuffer),command->id),VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,
       io_node(e,CID(Con),bv_node(e,CID(MemoryBarrier),2,mf),term_pak(CID(Nil),0)),
-      io_node(e,CID(Con),bv_node(e,CID(BufferMemoryBarrier),7,bf),term_pak(CID(Nil),0))};
+      io_node(e,CID(Con),bv_node(e,CID(BufferMemoryBarrier),7,bf),term_pak(CID(Nil),0)),term_pak(CID(Nil),0)};
     bv_test_result(e,bv_cmd_pipeline_barrier(e,args,NULL),BV_LIMIT);
     assert(command->deps==before && bv_test_barrier_calls==0);
   }

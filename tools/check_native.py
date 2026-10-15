@@ -20,6 +20,7 @@ def build(sanitize=False):
         "/* LIFECYCLE PROBES */", (ROOT / "tests/lifecycle_probes.c").read_text())
     probes = probes.replace("/* CAPABILITY PROBES */", (ROOT / "tests/capability_probes.c").read_text())
     probes += "\n" + (ROOT / "tests/image_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/image_transfer_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -41,11 +42,9 @@ def build(sanitize=False):
     native = emitted[begin:end]
     # Keep the emitted-test allocator itself outside the substitution.
     native = native.replace(allocator + "\n", "")
-    native = native.replace("malloc(", "bv_test_alloc(").replace("calloc(", "bv_test_calloc(")
+    native = native.replace("malloc(", "bv_test_alloc(").replace("calloc(", "bv_test_calloc(").replace("realloc(", "bv_test_realloc(")
     native = native.replace(anchor, allocator + "\n" + anchor)
     emitted = emitted[:begin] + native + emitted[end:]
-    for variable in ("regions", "memory", "buffers", "resources"):
-        emitted = emitted.replace(f"realloc({variable},", f"bv_test_realloc({variable},")
     emitted = emitted.replace("static void __attribute__((constructor)) bv_register(void)", checks + "\nstatic void __attribute__((constructor)) bv_register(void)")
     emitted, registrations = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_copy_buffer(\);)", r"\1bv_test_copy_buffer\2", emitted)
     if registrations != 1:
@@ -53,6 +52,9 @@ def build(sanitize=False):
     emitted, images = re.subn(r"(io_eff\(CID_\w+, )bv_destroy_image_view(\);)", r"\1test_destroy_image_view\2", emitted)
     if images != 1:
         raise ValueError("Image resource probe registration moved")
+    emitted, transfers = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_clear_color_image(\);)", r"\1test_clear_color_image\2", emitted)
+    if transfers != 1:
+        raise ValueError("Image transfer probe registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
@@ -65,6 +67,7 @@ def build(sanitize=False):
         print(completed.stderr, end="", file=sys.stderr)
     for marker in ("Injected metadata/map/flush", "Injected layer/extension dispatch",
                    "Injected submit OOM/uncertainty", "Controlled image query/create/bind/view rollback",
+                   "Controlled image command F32",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

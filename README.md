@@ -2,7 +2,7 @@
 
 A native Vulkan wrapper for Bend, inspired by [ash](https://github.com/ash-rs/ash).
 The implementation provides explicit instance, device, buffer, image, memory, command-buffer, fence, render-pass, framebuffer, shader, and indexed graphics operations.
-All Vulkan byte sizes, offsets, and alignments use the actual two-limb `U64` from [bend-collections](https://github.com/Giulio2002/bend-collections).
+Vulkan 64-bit sizes, offsets, and alignments use the actual two-limb `U64` from [bend-collections](https://github.com/Giulio2002/bend-collections).
 
 This is a 64-bit Linux, headless Vulkan 1.0 subset. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, color/depth attachment clears, and indexed depth-tested draws.
 Images use a six-format, optimal-tiled 2D profile with explicit mips, layers, binding, views, and staging readback.

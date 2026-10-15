@@ -38,7 +38,7 @@ The current implementation provides these capabilities:
 
 The baseline targets Bend 2.0.37 and 64-bit Linux. The initial Vulkan API level is 1.0.
 The generator currently consumes a small enum extract and an effect manifest. It does not generate arbitrary Vulkan structs or dispatch tables.
-The API exposes one selected queue and no general graphics pipeline yet.
+Milestone 0 provides one selected queue. Milestone 3 adds graphics pipelines.
 
 ## 1. General transfers and completion
 
@@ -253,5 +253,5 @@ Finish each milestone's acceptance result before starting its dependent mileston
 
 ## Start here
 
-Start milestone 2 with image creation, memory allocation and binding, views, and explicit layout transitions.
-Clear a known color image, copy it to a host-readable buffer, and verify every pixel after readback.
+Start milestone 4 with the packed vertex/index contract in bend-voxel.
+Render intact and carved 8³ cubes at 512×512 through the indexed offscreen API.

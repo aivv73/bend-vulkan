@@ -37,12 +37,9 @@ def build(sanitize=False):
     anchor = "static BvRow* bv_add("
     if emitted.count(anchor) != 1:
         raise ValueError("Native reference allocator moved")
-    emitted = emitted.replace(anchor, allocator + "\n" + anchor)
     begin = emitted.index("// Bend 2.0.37 effect ABI.")
     end = emitted.index("static void __attribute__((constructor)) bv_register(void)", begin)
     native = emitted[begin:end]
-    # Keep the emitted-test allocator itself outside the substitution.
-    native = native.replace(allocator + "\n", "")
     native = native.replace("malloc(", "bv_test_alloc(").replace("calloc(", "bv_test_calloc(").replace("realloc(", "bv_test_realloc(")
     native = re.sub(r"\bfree\(", "bv_test_free(", native)
     native = native.replace(anchor, allocator + "\n" + anchor)

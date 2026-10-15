@@ -14,7 +14,7 @@ def check_heaps(heaps: List<V.MemoryHeap>) -> V.Action(Unit):
       Demo.require(Bool.not(W.is_zero(size)),"Zero memory heap size")
 
 def check_limits(limits: V.PhysicalDeviceLimits) -> V.Action(Unit):
-  V.PhysicalDeviceLimits{image,width,height,colors,push,attributes,bindings,offset,stride,allocations,atom,copy,row} = limits
+  V.PhysicalDeviceLimits{image,width,height,colors,push,attributes,bindings,offset,stride,allocations,atom,copy,row,granularity} = limits
   Demo.require(Bool.and(Bool.and(U32.is_ne(image,0),U32.is_ne(allocations,0)),Bool.and(Bool.not(W.is_zero(atom)),Bool.and(Bool.not(W.is_zero(copy)),Bool.not(W.is_zero(row))))),"Invalid physical limits")
 
 def query_layers(layers: List<V.LayerProperties>, +entry: V.Entry, +instance: V.Instance, +physical: V.PhysicalDevice) -> V.Action(Unit):

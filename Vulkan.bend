@@ -98,10 +98,10 @@ type MemoryHeap is Data:
 type FormatProperties is Data:
   FormatProperties{linear_tiling_features: U32, optimal_tiling_features: U32, buffer_features: U32}
 type PhysicalDeviceLimits is Data:
-  PhysicalDeviceLimits{max_image_dimension_2d: U32, max_framebuffer_width: U32, max_framebuffer_height: U32, max_color_attachments: U32, max_push_constants_size: U32, max_vertex_input_attributes: U32, max_vertex_input_bindings: U32, max_vertex_input_attribute_offset: U32, max_vertex_input_binding_stride: U32, max_memory_allocation_count: U32, non_coherent_atom_size: W.U64, optimal_buffer_copy_offset_alignment: W.U64, optimal_buffer_copy_row_pitch_alignment: W.U64}
+  PhysicalDeviceLimits{max_image_dimension_2d: U32, max_framebuffer_width: U32, max_framebuffer_height: U32, max_color_attachments: U32, max_push_constants_size: U32, max_vertex_input_attributes: U32, max_vertex_input_bindings: U32, max_vertex_input_attribute_offset: U32, max_vertex_input_binding_stride: U32, max_memory_allocation_count: U32, non_coherent_atom_size: W.U64, optimal_buffer_copy_offset_alignment: W.U64, optimal_buffer_copy_row_pitch_alignment: W.U64, buffer_image_granularity: W.U64}
 
 def LimitsWords() -> Type:
-  (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & ((U32 & U32) & ((U32 & U32) & (U32 & U32)))))))))))))
+  (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & ((U32 & U32) & ((U32 & U32) & ((U32 & U32) & (U32 & U32))))))))))))))
 
 type MemoryRequirements is Data:
   MemoryRequirements{size: W.U64, alignment: W.U64, memory_type_bits: U32}
@@ -318,6 +318,34 @@ def Instance.get_physical_device_format_properties(instance: Instance, physical:
 def Instance.limits_raw(instance: Instance, physical: PhysicalDevice) -> IO(VkResult(LimitsWords())):
   import "./src/native.c"
   import "./src/native.js"
+
+def Instance.image_format_properties_raw(instance: Instance, physical: PhysicalDevice, info: ImageFormatInfo) -> IO(VkResult(ImageFormatWords())):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_image(device: Device, info: ImageCreateInfo) -> IO(VkResult(ImageHandle)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_image(device: Device, image: ImageHandle) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.image_requirements_raw(device: Device, image: ImageHandle) -> IO(VkResult(((U32 & U32) & ((U32 & U32) & U32)))):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.bind_image_memory(device: Device, image: ImageHandle, memory: DeviceMemory, offset: W.U64) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_image_view(device: Device, info: ImageViewCreateInfo) -> IO(VkResult(ImageView)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_image_view(device: Device, view: ImageView) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
 # END GENERATED EFFECTS
 
 def requirements_from_words(words: (U32 & U32) & ((U32 & U32) & U32)) -> MemoryRequirements:
@@ -375,8 +403,8 @@ def Instance.get_physical_device_memory_heaps(instance: Instance, physical: Phys
     return heaps_result(result)
 
 def limits_from_words(words: LimitsWords()) -> PhysicalDeviceLimits:
-  (a, (b, (c, (d, (e, (f, (g, (h, (i, (j, (atom, (offset, row)))))))))))) = words
-  PhysicalDeviceLimits{a,b,c,d,e,f,g,h,i,j,Core.size_from_words(atom),Core.size_from_words(offset),Core.size_from_words(row)}
+  (a, (b, (c, (d, (e, (f, (g, (h, (i, (j, (atom, (offset, (row, granularity))))))))))))) = words
+  PhysicalDeviceLimits{a,b,c,d,e,f,g,h,i,j,Core.size_from_words(atom),Core.size_from_words(offset),Core.size_from_words(row),Core.size_from_words(granularity)}
 
 def limits_result(result: VkResult(LimitsWords())) -> VkResult(PhysicalDeviceLimits):
   match result:
@@ -415,3 +443,27 @@ def Entry.with(-A: Type, body: Entry -> IO(VkResult(A))) -> IO(VkResult(A)):
   do IO<VkResult(A)>:
     loaded : VkResult(Entry) <- Entry.load()
     Entry.run_loaded(A, body, loaded)
+
+def ImageFormatWords() -> Type:
+  (U32 & U32) & ((U32 & U32) & ((U32 & U32) & (U32 & U32)))
+
+def image_format_from_words(words: ImageFormatWords()) -> ImageFormatProperties:
+  ((width,height),((depth,mips),((layers,samples),size))) = words
+  ImageFormatProperties{width,height,depth,mips,layers,samples,Core.size_from_words(size)}
+
+def image_format_result(result: VkResult(ImageFormatWords())) -> VkResult(ImageFormatProperties):
+  match result:
+    case Fail{error}:
+      Fail{error}
+    case Done{words}:
+      Done{image_format_from_words(words)}
+
+def Instance.get_physical_device_image_format_properties(instance: Instance, physical: PhysicalDevice, info: ImageFormatInfo) -> IO(VkResult(ImageFormatProperties)):
+  do IO<VkResult(ImageFormatProperties)>:
+    result : VkResult(ImageFormatWords()) <- Instance.image_format_properties_raw(instance,physical,info)
+    return image_format_result(result)
+
+def Device.get_image_memory_requirements(device: Device, image: ImageHandle) -> IO(VkResult(MemoryRequirements)):
+  do IO<VkResult(MemoryRequirements)>:
+    result : VkResult(((U32 & U32) & ((U32 & U32) & U32))) <- Device.image_requirements_raw(device,image)
+    return requirements_result(result)

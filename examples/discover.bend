@@ -40,7 +40,7 @@ def print_heaps(heaps: List<V.MemoryHeap>) -> IO(Unit):
         print_heaps(rest)
 
 def print_limits(limits: V.PhysicalDeviceLimits) -> IO(Unit):
-  V.PhysicalDeviceLimits{image,width,height,colors,push,attributes,bindings,attribute_offset,stride,allocations,atom,copy,row} = limits
+  V.PhysicalDeviceLimits{image,width,height,colors,push,attributes,bindings,attribute_offset,stride,allocations,atom,copy,row,granularity} = limits
   do IO<Unit>:
     IO.print("Image/framebuffer limits: " ++ U32.show(image) ++ " " ++ U32.show(width) ++ " " ++ U32.show(height))
     IO.print("Color/push/vertex limits: " ++ U32.show(colors) ++ " " ++ U32.show(push) ++ " " ++ U32.show(attributes) ++ " " ++ U32.show(bindings) ++ " " ++ U32.show(attribute_offset) ++ " " ++ U32.show(stride))

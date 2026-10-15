@@ -43,5 +43,12 @@
   ["Instance.enumerate_device_extensions", [["instance", "Instance"], ["physical", "PhysicalDevice"], ["layer", "Maybe<String>"]], "List<ExtensionProperties>", "device_extensions"],
   ["Instance.memory_heaps_raw", [["instance", "Instance"], ["physical", "PhysicalDevice"]], "List<((U32 & U32) & U32)>", "memory_heaps"],
   ["Instance.get_physical_device_format_properties", [["instance", "Instance"], ["physical", "PhysicalDevice"], ["format", "U32"]], "FormatProperties", "format_properties"],
-  ["Instance.limits_raw", [["instance", "Instance"], ["physical", "PhysicalDevice"]], "LimitsWords()", "physical_limits"]
+  ["Instance.limits_raw", [["instance", "Instance"], ["physical", "PhysicalDevice"]], "LimitsWords()", "physical_limits"],
+  ["Instance.image_format_properties_raw", [["instance", "Instance"], ["physical", "PhysicalDevice"], ["info", "ImageFormatInfo"]], "ImageFormatWords()", "image_format_properties"],
+  ["Device.create_image", [["device", "Device"], ["info", "ImageCreateInfo"]], "ImageHandle", "create_image"],
+  ["Device.destroy_image", [["device", "Device"], ["image", "ImageHandle"]], "Unit", "destroy_image"],
+  ["Device.image_requirements_raw", [["device", "Device"], ["image", "ImageHandle"]], "((U32 & U32) & ((U32 & U32) & U32))", "image_requirements"],
+  ["Device.bind_image_memory", [["device", "Device"], ["image", "ImageHandle"], ["memory", "DeviceMemory"], ["offset", "W.U64"]], "Unit", "bind_image_memory"],
+  ["Device.create_image_view", [["device", "Device"], ["info", "ImageViewCreateInfo"]], "ImageView", "create_image_view"],
+  ["Device.destroy_image_view", [["device", "Device"], ["view", "ImageView"]], "Unit", "destroy_image_view"]
 ]

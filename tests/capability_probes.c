@@ -21,7 +21,7 @@ static VKAPI_ATTR void VKAPI_CALL bv_test_limits(VkPhysicalDevice p,VkPhysicalDe
   memset(out,0,sizeof(*out));VkPhysicalDeviceLimits* v=&out->limits;
   v->maxImageDimension2D=1;v->maxFramebufferWidth=2;v->maxFramebufferHeight=3;v->maxColorAttachments=4;v->maxPushConstantsSize=5;
   v->maxVertexInputAttributes=6;v->maxVertexInputBindings=7;v->maxVertexInputAttributeOffset=8;v->maxVertexInputBindingStride=9;v->maxMemoryAllocationCount=10;
-  v->nonCoherentAtomSize=UINT64_C(0x123456789abcdef);v->optimalBufferCopyOffsetAlignment=UINT64_C(0x23456789abcdef01);v->optimalBufferCopyRowPitchAlignment=UINT64_MAX;
+  v->nonCoherentAtomSize=UINT64_C(0x123456789abcdef);v->optimalBufferCopyOffsetAlignment=UINT64_C(0x23456789abcdef01);v->optimalBufferCopyRowPitchAlignment=UINT64_MAX;v->bufferImageGranularity=UINT64_C(0x3456789abcdef012);
 }
 static VKAPI_ATTR void VKAPI_CALL bv_test_formats(VkPhysicalDevice p,VkFormat format,VkFormatProperties* out) {
   assert(format==VK_FORMAT_R8G8B8A8_UNORM);out->linearTilingFeatures=11;out->optimalTilingFeatures=22;out->bufferFeatures=33;
@@ -65,7 +65,7 @@ static void bv_test_capabilities(Env e,BvRow* device_row) {
   Term tuple=bv_test_query_value(e,bv_physical_limits(e,query,NULL));
   for (uint32_t j=1;j<=10;j++) {Term pair[2];bv_unpack(e,tuple,2,pair);assert(pair[0]==j);tuple=pair[1];}
   Term pair[2];bv_unpack(e,tuple,2,pair);assert(bv_u64(e,pair[0])==UINT64_C(0x123456789abcdef));
-  Term align[2];bv_unpack(e,pair[1],2,align);assert(bv_u64(e,align[0])==UINT64_C(0x23456789abcdef01) && bv_u64(e,align[1])==UINT64_MAX);instance->properties=properties;
+  Term align[2];bv_unpack(e,pair[1],2,align);assert(bv_u64(e,align[0])==UINT64_C(0x23456789abcdef01));Term tail[2];bv_unpack(e,align[1],2,tail);assert(bv_u64(e,tail[0])==UINT64_MAX && bv_u64(e,tail[1])==UINT64_C(0x3456789abcdef012));instance->properties=properties;
   PFN_vkGetPhysicalDeviceFormatProperties formats=instance->formats;instance->formats=bv_test_formats;
   Term format[3];bv_unpack(e,bv_test_query_value(e,bv_format_properties(e,query,NULL)),3,format);
   assert(format[0]==11 && format[1]==22 && format[2]==33);instance->formats=formats;

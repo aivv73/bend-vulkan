@@ -5,6 +5,9 @@ static void* bv_test_alloc(size_t size) {
   if (++bv_test_alloc_at==bv_test_alloc_fail) return NULL;
   return malloc(size);
 }
+static void* bv_test_calloc(size_t count,size_t size) {
+  void* result=bv_test_alloc(count*size);if(result)memset(result,0,count*size);return result;
+}
 static unsigned bv_test_realloc_at,bv_test_realloc_fail;
 static void* bv_test_realloc(void* pointer,size_t size) {
   if (++bv_test_realloc_at==bv_test_realloc_fail) return NULL;

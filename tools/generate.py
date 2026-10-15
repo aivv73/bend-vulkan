@@ -12,6 +12,9 @@ GROUPS = (
     "VkCommandPoolCreateFlagBits", "VkCommandBufferUsageFlagBits",
     "VkSharingMode", "VkPipelineStageFlagBits", "VkAccessFlagBits",
     "VkFormat", "VkFormatFeatureFlagBits", "VkMemoryHeapFlagBits",
+    "VkImageType", "VkImageTiling", "VkImageUsageFlagBits", "VkImageCreateFlagBits",
+    "VkImageViewType", "VkImageAspectFlagBits", "VkImageLayout", "VkSampleCountFlagBits",
+    "VkAttachmentLoadOp", "VkAttachmentStoreOp",
 )
 
 

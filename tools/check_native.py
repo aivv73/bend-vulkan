@@ -19,6 +19,7 @@ def build(sanitize=False):
     probes = (ROOT / "tests/probes.c").read_text().replace(
         "/* LIFECYCLE PROBES */", (ROOT / "tests/lifecycle_probes.c").read_text())
     probes = probes.replace("/* CAPABILITY PROBES */", (ROOT / "tests/capability_probes.c").read_text())
+    probes += "\n" + (ROOT / "tests/image_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -31,17 +32,27 @@ def build(sanitize=False):
     probes = re.sub(r"CID\(([^)]+)\)", cid, probes)
     split = probes.index("static unsigned bv_test_barrier_calls;")
     allocator, checks = probes[:split], probes[split:]
-    anchor = "static int bv_prepare_refs("
+    anchor = "static BvRow* bv_add("
     if emitted.count(anchor) != 1:
         raise ValueError("Native reference allocator moved")
     emitted = emitted.replace(anchor, allocator + "\n" + anchor)
-    emitted = emitted.replace("BvDep* use=malloc(sizeof(*use));", "BvDep* use=bv_test_alloc(sizeof(*use));")
+    begin = emitted.index("// Bend 2.0.37 effect ABI.")
+    end = emitted.index("static void __attribute__((constructor)) bv_register(void)", begin)
+    native = emitted[begin:end]
+    # Keep the emitted-test allocator itself outside the substitution.
+    native = native.replace(allocator + "\n", "")
+    native = native.replace("malloc(", "bv_test_alloc(").replace("calloc(", "bv_test_calloc(")
+    native = native.replace(anchor, allocator + "\n" + anchor)
+    emitted = emitted[:begin] + native + emitted[end:]
     for variable in ("regions", "memory", "buffers", "resources"):
         emitted = emitted.replace(f"realloc({variable},", f"bv_test_realloc({variable},")
     emitted = emitted.replace("static void __attribute__((constructor)) bv_register(void)", checks + "\nstatic void __attribute__((constructor)) bv_register(void)")
     emitted, registrations = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_copy_buffer(\);)", r"\1bv_test_copy_buffer\2", emitted)
     if registrations != 1:
         raise ValueError("Copy probe registration moved")
+    emitted, images = re.subn(r"(io_eff\(CID_\w+, )bv_destroy_image_view(\);)", r"\1test_destroy_image_view\2", emitted)
+    if images != 1:
+        raise ValueError("Image resource probe registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
@@ -53,7 +64,8 @@ def build(sanitize=False):
     if completed.stderr:
         print(completed.stderr, end="", file=sys.stderr)
     for marker in ("Injected metadata/map/flush", "Injected layer/extension dispatch",
-                   "Injected submit OOM/uncertainty", "Controlled native probes and real GPU integration passed"):
+                   "Injected submit OOM/uncertainty", "Controlled image query/create/bind/view rollback",
+                   "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")
 

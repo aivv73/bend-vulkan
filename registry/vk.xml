@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <registry>
+  <!--Khronos Vulkan-Headers vk.xml core enum extract; original SHA256 55ec60950cfb18c3575dcf5fd52741b2bb70eb1e466408f803a91049973ee6fb-->
   <comment>Copyright 2015-2026 The Khronos Group Inc.
 SPDX-License-Identifier: Apache-2.0 OR MIT</comment>
-  <!--Khronos Vulkan-Headers vk.xml core enum extract; original SHA256 55ec60950cfb18c3575dcf5fd52741b2bb70eb1e466408f803a91049973ee6fb-->
   <enums name="VkResult" type="enum" comment="API result codes">
     <comment>Return codes (positive values)</comment>
     <enum value="0" name="VK_SUCCESS" comment="Command completed successfully" />
@@ -313,5 +313,75 @@ SPDX-License-Identifier: Apache-2.0 OR MIT</comment>
   </enums>
   <enums name="VkMemoryHeapFlagBits" type="bitmask">
     <enum bitpos="0" name="VK_MEMORY_HEAP_DEVICE_LOCAL_BIT" comment="If set, heap represents device memory" />
+  </enums>
+  <enums name="VkImageType" type="enum">
+    <enum value="0" name="VK_IMAGE_TYPE_1D" />
+    <enum value="1" name="VK_IMAGE_TYPE_2D" />
+    <enum value="2" name="VK_IMAGE_TYPE_3D" />
+  </enums>
+  <enums name="VkImageTiling" type="enum">
+    <enum value="0" name="VK_IMAGE_TILING_OPTIMAL" />
+    <enum value="1" name="VK_IMAGE_TILING_LINEAR" />
+  </enums>
+  <enums name="VkImageUsageFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_IMAGE_USAGE_TRANSFER_SRC_BIT" comment="Can be used as a source of transfer operations" />
+    <enum bitpos="1" name="VK_IMAGE_USAGE_TRANSFER_DST_BIT" comment="Can be used as a destination of transfer operations" />
+    <enum bitpos="2" name="VK_IMAGE_USAGE_SAMPLED_BIT" comment="Can be sampled from (SAMPLED_IMAGE and COMBINED_IMAGE_SAMPLER descriptor types)" />
+    <enum bitpos="3" name="VK_IMAGE_USAGE_STORAGE_BIT" comment="Can be used as storage image (STORAGE_IMAGE descriptor type)" />
+    <enum bitpos="4" name="VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT" comment="Can be used as framebuffer color attachment" />
+    <enum bitpos="5" name="VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT" comment="Can be used as framebuffer depth/stencil attachment" />
+    <enum bitpos="6" name="VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT" comment="Image data not needed outside of rendering" />
+    <enum bitpos="7" name="VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT" comment="Can be used as framebuffer input attachment" />
+  </enums>
+  <enums name="VkImageCreateFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_IMAGE_CREATE_SPARSE_BINDING_BIT" comment="Image should support sparse backing" />
+    <enum bitpos="1" name="VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT" comment="Image should support sparse backing with partial residency" />
+    <enum bitpos="2" name="VK_IMAGE_CREATE_SPARSE_ALIASED_BIT" comment="Image should support constant data access to physical memory ranges mapped into multiple locations of sparse images" />
+    <enum bitpos="3" name="VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT" comment="Allows image views to have different format than the base image" />
+    <enum bitpos="4" name="VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT" comment="Allows creating image views with cube type from the created image" />
+  </enums>
+  <enums name="VkImageViewType" type="enum">
+    <enum value="0" name="VK_IMAGE_VIEW_TYPE_1D" />
+    <enum value="1" name="VK_IMAGE_VIEW_TYPE_2D" />
+    <enum value="2" name="VK_IMAGE_VIEW_TYPE_3D" />
+    <enum value="3" name="VK_IMAGE_VIEW_TYPE_CUBE" />
+    <enum value="4" name="VK_IMAGE_VIEW_TYPE_1D_ARRAY" />
+    <enum value="5" name="VK_IMAGE_VIEW_TYPE_2D_ARRAY" />
+    <enum value="6" name="VK_IMAGE_VIEW_TYPE_CUBE_ARRAY" />
+  </enums>
+  <enums name="VkImageAspectFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_IMAGE_ASPECT_COLOR_BIT" />
+    <enum bitpos="1" name="VK_IMAGE_ASPECT_DEPTH_BIT" />
+    <enum bitpos="2" name="VK_IMAGE_ASPECT_STENCIL_BIT" />
+    <enum bitpos="3" name="VK_IMAGE_ASPECT_METADATA_BIT" />
+  </enums>
+  <enums name="VkImageLayout" type="enum">
+    <enum value="0" name="VK_IMAGE_LAYOUT_UNDEFINED" comment="Implicit layout an image is when its contents are undefined due to various reasons (e.g. right after creation)" />
+    <enum value="1" name="VK_IMAGE_LAYOUT_GENERAL" comment="General layout when image can be used for any kind of access" />
+    <enum value="2" name="VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL" comment="Optimal layout when image is only used for color attachment read/write" />
+    <enum value="3" name="VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL" comment="Optimal layout when image is only used for depth/stencil attachment read/write" />
+    <enum value="4" name="VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL" comment="Optimal layout when image is used for read only depth/stencil attachment and shader access" />
+    <enum value="5" name="VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL" comment="Optimal layout when image is used for read only shader access" />
+    <enum value="6" name="VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL" comment="Optimal layout when image is used only as source of transfer operations" />
+    <enum value="7" name="VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL" comment="Optimal layout when image is used only as destination of transfer operations" />
+    <enum value="8" name="VK_IMAGE_LAYOUT_PREINITIALIZED" comment="Initial layout used when the data is populated by the CPU" />
+  </enums>
+  <enums name="VkSampleCountFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_SAMPLE_COUNT_1_BIT" comment="Sample count 1 supported" />
+    <enum bitpos="1" name="VK_SAMPLE_COUNT_2_BIT" comment="Sample count 2 supported" />
+    <enum bitpos="2" name="VK_SAMPLE_COUNT_4_BIT" comment="Sample count 4 supported" />
+    <enum bitpos="3" name="VK_SAMPLE_COUNT_8_BIT" comment="Sample count 8 supported" />
+    <enum bitpos="4" name="VK_SAMPLE_COUNT_16_BIT" comment="Sample count 16 supported" />
+    <enum bitpos="5" name="VK_SAMPLE_COUNT_32_BIT" comment="Sample count 32 supported" />
+    <enum bitpos="6" name="VK_SAMPLE_COUNT_64_BIT" comment="Sample count 64 supported" />
+  </enums>
+  <enums name="VkAttachmentLoadOp" type="enum">
+    <enum value="0" name="VK_ATTACHMENT_LOAD_OP_LOAD" />
+    <enum value="1" name="VK_ATTACHMENT_LOAD_OP_CLEAR" />
+    <enum value="2" name="VK_ATTACHMENT_LOAD_OP_DONT_CARE" />
+  </enums>
+  <enums name="VkAttachmentStoreOp" type="enum">
+    <enum value="0" name="VK_ATTACHMENT_STORE_OP_STORE" />
+    <enum value="1" name="VK_ATTACHMENT_STORE_OP_DONT_CARE" />
   </enums>
 </registry>

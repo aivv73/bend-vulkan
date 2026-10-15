@@ -49,6 +49,7 @@ def main():
         ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
+        ("tests/images.bend", "images", "Six optimal image formats"),
         ("tests/repeated.bend", "repeated", "32 repeated GPU transfers and 32 private-fence reuses passed"),
     ):
         binary = BUILD / name

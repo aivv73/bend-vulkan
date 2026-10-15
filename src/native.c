@@ -15,7 +15,7 @@
 #define BV_MAX_COPY (16u * 1024u * 1024u)
 
 typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
-  BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE } BvKind;
+  BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER } BvKind;
 typedef struct BvRow BvRow;
 typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN, BV_COMPLETED, BV_COMMAND_INVALID } BvCommandPhase;
 typedef struct {
@@ -33,6 +33,8 @@ typedef struct BvDep {
   uint64_t offset;
   struct BvDep* next;
 } BvDep;
+typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkImageUsageFlags usage; } BvImage;
+typedef struct { VkImageViewType type; VkImageSubresourceRange range; } BvImageView;
 struct BvRow {
   uint32_t id;
   BvKind kind;
@@ -40,6 +42,7 @@ struct BvRow {
   uint64_t handle, size;
   VkMemoryRequirements requirements;
   uint32_t flags, memory_type;
+  union { BvImage image; BvImageView view; } object;
   BvCommand command;
   BvFence fence;
   void* context;
@@ -66,6 +69,7 @@ typedef struct {
   PFN_vkGetPhysicalDeviceMemoryProperties memory;
   PFN_vkEnumerateDeviceExtensionProperties extensions;
   PFN_vkGetPhysicalDeviceFormatProperties formats;
+  PFN_vkGetPhysicalDeviceImageFormatProperties image_formats;
   PFN_vkCreateDevice create_device;
   PFN_vkGetDeviceProcAddr get_device;
 } BvInstance;
@@ -73,6 +77,8 @@ typedef struct {
 #define BV_DEVICE_FUNCTIONS(X) \
   X(DestroyDevice) X(DeviceWaitIdle) X(GetDeviceQueue) \
   X(CreateBuffer) X(DestroyBuffer) X(GetBufferMemoryRequirements) \
+  X(CreateImage) X(DestroyImage) X(GetImageMemoryRequirements) X(BindImageMemory) \
+  X(CreateImageView) X(DestroyImageView) \
   X(AllocateMemory) X(FreeMemory) X(BindBufferMemory) X(MapMemory) X(UnmapMemory) \
   X(FlushMappedMemoryRanges) X(InvalidateMappedMemoryRanges) \
   X(CreateCommandPool) X(DestroyCommandPool) X(AllocateCommandBuffers) \
@@ -306,13 +312,16 @@ static void bv_destroy_device(BvRow* row) {
     }
   }
   device->convenience=NULL;
-  for (BvRow* child = bv_rows, *next; child; child = next) {
-    next = child->next;
-    if (child->parent == row && child->kind == BV_BUFFER) {
-      device->DestroyBuffer(device->handle, (VkBuffer)(uintptr_t)child->handle, NULL);
+  const BvKind order[]={BV_IMAGE_VIEW,BV_IMAGE,BV_BUFFER};
+  for (unsigned j=0;j<sizeof(order)/sizeof(*order);j++)
+    for (BvRow* child=bv_rows,*next;child;child=next) {
+      next=child->next;
+      if (child->parent!=row || child->kind!=order[j]) continue;
+      if (child->kind==BV_IMAGE_VIEW) device->DestroyImageView(device->handle,(VkImageView)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_IMAGE) device->DestroyImage(device->handle,(VkImage)(uintptr_t)child->handle,NULL);
+      else device->DestroyBuffer(device->handle,(VkBuffer)(uintptr_t)child->handle,NULL);
       bv_remove(child);
     }
-  }
   for (BvRow* child = bv_rows, *next; child; child = next) {
     next = child->next;
     if (child->parent == row && child->kind == BV_MEMORY) {
@@ -445,12 +454,13 @@ static Term bv_create_instance(Env e, Term* f, IoWork* w) {
   BV_INSTANCE_LOAD(memory, GetPhysicalDeviceMemoryProperties);
   BV_INSTANCE_LOAD(extensions, EnumerateDeviceExtensionProperties);
   BV_INSTANCE_LOAD(formats, GetPhysicalDeviceFormatProperties);
+  BV_INSTANCE_LOAD(image_formats, GetPhysicalDeviceImageFormatProperties);
   BV_INSTANCE_LOAD(create_device, CreateDevice);
   BV_INSTANCE_LOAD(get_device, GetDeviceProcAddr);
 #undef BV_INSTANCE_LOAD
   BvRow* row = NULL;
   if (destroy && instance->enumerate && instance->properties && instance->queues &&
-      instance->memory && instance->extensions && instance->formats && instance->create_device && instance->get_device) row=bv_add(BV_INSTANCE, owner);
+      instance->memory && instance->extensions && instance->formats && instance->image_formats && instance->create_device && instance->get_device) row=bv_add(BV_INSTANCE, owner);
   if (!row) { if (destroy) destroy(handle,NULL); free(instance); return io_fail(e,BV_LIMIT,"instance dispatch unavailable"); }
   row->context=instance; row->handle=(uint64_t)(uintptr_t)handle;
   return io_done(e,term_pak(CID(Instance),row->id));
@@ -649,7 +659,7 @@ static Term bv_physical_limits(Env e,Term* f,IoWork* w) {
   instance->properties((VkPhysicalDevice)(uintptr_t)physical->handle,&properties);VkPhysicalDeviceLimits* p=&properties.limits;
   uint32_t values[]={p->maxImageDimension2D,p->maxFramebufferWidth,p->maxFramebufferHeight,p->maxColorAttachments,p->maxPushConstantsSize,
     p->maxVertexInputAttributes,p->maxVertexInputBindings,p->maxVertexInputAttributeOffset,p->maxVertexInputBindingStride,p->maxMemoryAllocationCount};
-  Term result=io_tup(e,bv_words(e,p->nonCoherentAtomSize),io_tup(e,bv_words(e,p->optimalBufferCopyOffsetAlignment),bv_words(e,p->optimalBufferCopyRowPitchAlignment)));
+  Term result=io_tup(e,bv_words(e,p->nonCoherentAtomSize),io_tup(e,bv_words(e,p->optimalBufferCopyOffsetAlignment),io_tup(e,bv_words(e,p->optimalBufferCopyRowPitchAlignment),bv_words(e,p->bufferImageGranularity))));
   for (unsigned j=10;j>0;j--) result=io_tup(e,values[j-1],result);
   return io_done(e,result);
 }
@@ -792,26 +802,187 @@ static Term bv_free_memory(Env e, Term* f, IoWork* w) {
   bv_remove(memory);return bv_ok(e);
 }
 #endif
-#ifdef CID(Device.bind_buffer_memory)
-static Term bv_bind_buffer_memory(Env e, Term* f, IoWork* w) {
+static uint32_t bv_binding_check(BvRow* resource,BvRow* memory,uint64_t offset) {
+  if (bv_bound_memory(resource)) return BV_LIFETIME;
+  VkMemoryRequirements r=resource->requirements;
+  if (!r.size || !r.alignment || offset>memory->size || r.size>memory->size-offset || offset%r.alignment ||
+      !(r.memoryTypeBits & (1u<<memory->memory_type))) return BV_ARGUMENT;
+  uint64_t end=offset+r.size;
+  BvDevice* device=resource->parent->context;
+  uint64_t g=device->limits.bufferImageGranularity;
+  for (BvRow* peer=bv_rows;peer;peer=peer->next) {
+    if (peer==resource || bv_bound_memory(peer)!=memory || (peer->kind!=BV_IMAGE && resource->kind!=BV_IMAGE)) continue;
+    uint64_t a=bv_bound_offset(peer),b=a+peer->requirements.size;
+    if (offset<b && a<end) return BV_ARGUMENT;
+    if (peer->kind!=resource->kind && g && (offset/g<=(b-1)/g && a/g<=(end-1)/g)) return BV_ARGUMENT;
+  }
+  return 0;
+}
+static Term bv_bind_resource(Env e,Term* f,BvKind kind) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
-  BvRow* buffer=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);
+  BvRow* resource=bv_child(bv_key(e,f[1]),kind,owner);
   BvRow* memory=bv_child(bv_key(e,f[2]),BV_MEMORY,owner);uint64_t offset=bv_u64(e,f[3]);
-  if (!owner || !buffer || !memory) return io_fail(e,BV_INVALID,"buffer and memory must belong to device");
-  if (bv_bound_memory(buffer)) return io_fail(e,BV_LIFETIME,"buffer is already bound");
-  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_bind_buffer_memory");
-  BvDevice* device=owner->context;VkMemoryRequirements requirements;
-  requirements=buffer->requirements;
-  if (offset>memory->size || requirements.size>memory->size-offset || offset%requirements.alignment ||
-      !(requirements.memoryTypeBits & (1u<<memory->memory_type)))
-    return io_fail(e,BV_ARGUMENT,"memory binding violates size, alignment, or memory type requirements");
+  if (!owner || !resource || !memory) return io_fail(e,BV_INVALID,"resource and memory must belong to device");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bind memory");
+  uint32_t code=bv_binding_check(resource,memory,offset);
+  if (code) return io_fail(e,code,"binding violates lifetime, requirements, overlap or granularity");
   BvDep* binding=malloc(sizeof(*binding));
   if (!binding) return io_fail(e,BV_LIMIT,"binding allocation failed");
   *binding=(BvDep){.target=memory,.role=BV_DEP_BINDING,.offset=offset};
-  VkResult result=device->BindBufferMemory(device->handle,(VkBuffer)(uintptr_t)buffer->handle,
+  BvDevice* device=owner->context;
+  VkResult result=kind==BV_BUFFER ? device->BindBufferMemory(device->handle,(VkBuffer)(uintptr_t)resource->handle,
+    (VkDeviceMemory)(uintptr_t)memory->handle,offset) : device->BindImageMemory(device->handle,(VkImage)(uintptr_t)resource->handle,
     (VkDeviceMemory)(uintptr_t)memory->handle,offset);
-  if (result!=VK_SUCCESS) {free(binding);return bv_device_error(e,owner,result,"vkBindBufferMemory");}
-  buffer->deps=binding;return bv_ok(e);
+  if (result!=VK_SUCCESS) {free(binding);return bv_device_error(e,owner,result,"vkBind resource memory");}
+  resource->deps=binding;return bv_ok(e);
+}
+#ifdef CID(Device.bind_buffer_memory)
+static Term bv_bind_buffer_memory(Env e,Term* f,IoWork* w) { return bv_bind_resource(e,f,BV_BUFFER); }
+#endif
+#ifdef CID(Device.bind_image_memory)
+static Term bv_bind_image_memory(Env e,Term* f,IoWork* w) { return bv_bind_resource(e,f,BV_IMAGE); }
+#endif
+
+typedef struct { VkFormat format; VkImageAspectFlags aspect; uint32_t bytes; } BvFormat;
+static const BvFormat bv_formats[]={
+  {VK_FORMAT_R8G8B8A8_UNORM,VK_IMAGE_ASPECT_COLOR_BIT,4},
+  {VK_FORMAT_R8G8B8A8_SRGB,VK_IMAGE_ASPECT_COLOR_BIT,4},
+  {VK_FORMAT_B8G8R8A8_UNORM,VK_IMAGE_ASPECT_COLOR_BIT,4},
+  {VK_FORMAT_B8G8R8A8_SRGB,VK_IMAGE_ASPECT_COLOR_BIT,4},
+  {VK_FORMAT_D16_UNORM,VK_IMAGE_ASPECT_DEPTH_BIT,2},
+  {VK_FORMAT_D32_SFLOAT,VK_IMAGE_ASPECT_DEPTH_BIT,4}
+};
+static const BvFormat* bv_format(VkFormat format) {
+  for (unsigned j=0;j<sizeof(bv_formats)/sizeof(*bv_formats);j++) if (bv_formats[j].format==format) return &bv_formats[j];
+  return NULL;
+}
+static int bv_image_configuration(uint32_t format,uint32_t type,uint32_t tiling,uint32_t usage,uint32_t flags) {
+  if (!format || format>VK_FORMAT_ASTC_12x12_SRGB_BLOCK || type>VK_IMAGE_TYPE_3D || tiling>VK_IMAGE_TILING_LINEAR ||
+      !usage || (usage&~255u) || (flags&~31u)) return 0;
+  if ((flags&(VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT|VK_IMAGE_CREATE_SPARSE_ALIASED_BIT)) && !(flags&VK_IMAGE_CREATE_SPARSE_BINDING_BIT)) return 0;
+  if ((flags&VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) && type!=VK_IMAGE_TYPE_2D) return 0;
+  if ((usage&VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT) &&
+      (!(usage&(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT|VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) ||
+       (usage&~(VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT|VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)))) return 0;
+  return 1;
+}
+static int bv_image_features(BvInstance* instance,VkPhysicalDevice physical,VkFormat format,VkImageUsageFlags usage) {
+  VkFormatProperties p;instance->formats(physical,format,&p);
+  VkFormatFeatureFlags required=0;
+  if (usage&VK_IMAGE_USAGE_SAMPLED_BIT) required|=VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+  if (usage&VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) required|=VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT;
+  if (usage&VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) required|=VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  return (p.optimalTilingFeatures&required)==required;
+}
+static uint32_t bv_mip_dimension(uint32_t base,uint32_t level) {
+  return level>=32 || !(base>>level) ? 1 : base>>level;
+}
+static int bv_range_contains(uint32_t limit,uint32_t base,uint32_t count) {
+  return count && base<limit && count<=limit-base;
+}
+static VkImageSubresourceRange bv_image_range(const Term* p) {
+  return (VkImageSubresourceRange){(uint32_t)p[0],(uint32_t)p[1],(uint32_t)p[2],(uint32_t)p[3],(uint32_t)p[4]};
+}
+static int bv_image_range_valid(BvRow* image,VkImageSubresourceRange r) {
+  BvImage* i=&image->object.image;
+  return r.aspectMask==bv_format(i->format)->aspect && bv_range_contains(i->mips,r.baseMipLevel,r.levelCount) &&
+    bv_range_contains(i->layers,r.baseArrayLayer,r.layerCount);
+}
+#ifdef CID(Instance.image_format_properties_raw)
+static Term bv_image_format_properties(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE),*physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
+  Term p[5];bv_unpack(e,f[2],5,p);
+  if (!owner || !physical) return io_fail(e,BV_INVALID,"image format query ownership");
+  if (!bv_image_configuration(p[0],p[1],p[2],p[3],p[4])) return io_fail(e,BV_ARGUMENT,"invalid core image configuration");
+  BvInstance* instance=owner->context;VkImageFormatProperties out;
+  VkResult result=instance->image_formats((VkPhysicalDevice)(uintptr_t)physical->handle,p[0],p[1],p[2],p[3],p[4],&out);
+  if (result!=VK_SUCCESS) return bv_vk_error(e,result,"vkGetPhysicalDeviceImageFormatProperties");
+  return io_done(e,io_tup(e,io_tup(e,out.maxExtent.width,out.maxExtent.height),
+    io_tup(e,io_tup(e,out.maxExtent.depth,out.maxMipLevels),io_tup(e,io_tup(e,out.maxArrayLayers,out.sampleCounts),bv_words(e,out.maxResourceSize)))));
+}
+#endif
+#ifdef CID(Device.create_image)
+static Term bv_create_image(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[6];bv_unpack(e,f[1],6,p);
+  if (!owner) return io_fail(e,BV_INVALID,"invalid device");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create image");
+  const BvFormat* format=bv_format((VkFormat)(uint32_t)p[0]);
+  uint32_t usage=p[5],width=p[1],height=p[2],mips=p[3],layers=p[4];
+  const uint32_t allowed=VK_IMAGE_USAGE_TRANSFER_SRC_BIT|VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|
+    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  if (!format || !width || !height || !mips || !layers || !usage || (usage&~allowed) ||
+      ((usage&VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) && format->aspect!=VK_IMAGE_ASPECT_COLOR_BIT) ||
+      ((usage&VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) && format->aspect!=VK_IMAGE_ASPECT_DEPTH_BIT))
+    return io_fail(e,BV_ARGUMENT,"unsupported image profile");
+  uint32_t levels=1;for (uint32_t size=width>height ? width : height;size>1;size>>=1) levels++;
+  if (mips>levels) return io_fail(e,BV_ARGUMENT,"mip count exceeds full chain");
+  BvDevice* device=owner->context;BvInstance* instance=owner->parent->context;VkImageFormatProperties supported;
+  VkResult result=instance->image_formats(device->physical,format->format,VK_IMAGE_TYPE_2D,VK_IMAGE_TILING_OPTIMAL,usage,0,&supported);
+  if (result!=VK_SUCCESS) return bv_vk_error(e,result,"vkGetPhysicalDeviceImageFormatProperties");
+  if (width>supported.maxExtent.width || height>supported.maxExtent.height || !supported.maxExtent.depth ||
+      mips>supported.maxMipLevels || layers>supported.maxArrayLayers || !(supported.sampleCounts&VK_SAMPLE_COUNT_1_BIT) ||
+      !bv_image_features(instance,device->physical,format->format,usage)) return io_fail(e,BV_ARGUMENT,"image configuration limits or features");
+  VkImageCreateInfo create={.sType=VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,.imageType=VK_IMAGE_TYPE_2D,.format=format->format,
+    .extent={width,height,1},.mipLevels=mips,.arrayLayers=layers,.samples=VK_SAMPLE_COUNT_1_BIT,.tiling=VK_IMAGE_TILING_OPTIMAL,
+    .usage=usage,.sharingMode=VK_SHARING_MODE_EXCLUSIVE,.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED};
+  VkImage handle;result=device->CreateImage(device->handle,&create,NULL,&handle);
+  if (result!=VK_SUCCESS) return bv_device_error(e,owner,result,"vkCreateImage");
+  BvRow* row=bv_add(BV_IMAGE,owner);
+  if (!row) {device->DestroyImage(device->handle,handle,NULL);return io_fail(e,BV_LIMIT,"image registry full");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.image=(BvImage){format->format,{width,height},mips,layers,usage};
+  device->GetImageMemoryRequirements(device->handle,handle,&row->requirements);
+  return io_done(e,term_pak(CID(ImageHandle),row->id));
+}
+#endif
+#ifdef CID(Device.image_requirements_raw)
+static Term bv_image_requirements(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*image=bv_child(bv_key(e,f[1]),BV_IMAGE,owner);
+  if (!owner || !image) return io_fail(e,BV_INVALID,"image requirements ownership");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"image requirements");
+  VkMemoryRequirements r=image->requirements;
+  return io_done(e,io_tup(e,bv_words(e,r.size),io_tup(e,bv_words(e,r.alignment),r.memoryTypeBits)));
+}
+#endif
+#ifdef CID(Device.destroy_image)
+static Term bv_destroy_image(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*image=bv_child(bv_key(e,f[1]),BV_IMAGE,owner);
+  if (!owner || !image) return io_fail(e,BV_INVALID,"destroy image ownership");
+  if (bv_referenced(image)) return io_fail(e,BV_LIFETIME,"image has incoming dependencies");
+  BvDevice* device=owner->context;device->DestroyImage(device->handle,(VkImage)(uintptr_t)image->handle,NULL);
+  bv_remove(image);return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.create_image_view)
+static Term bv_create_image_view(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[7];bv_unpack(e,f[1],7,p);
+  BvRow* image=bv_child((uint32_t)p[0],BV_IMAGE,owner);
+  if (!owner || !image) return io_fail(e,BV_INVALID,"image view ownership");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create image view");
+  if (!bv_bound_memory(image)) return io_fail(e,BV_LIFETIME,"image view requires binding");
+  VkImageSubresourceRange range=bv_image_range(p+2);BvImage* i=&image->object.image;
+  if (!bv_image_range_valid(image,range) || ((uint32_t)p[1]!=VK_IMAGE_VIEW_TYPE_2D && (uint32_t)p[1]!=VK_IMAGE_VIEW_TYPE_2D_ARRAY) ||
+      ((uint32_t)p[1]==VK_IMAGE_VIEW_TYPE_2D && range.layerCount!=1) ||
+      !(i->usage&(VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)))
+    return io_fail(e,BV_ARGUMENT,"image view range, type or usage");
+  BvDep* dep=malloc(sizeof(*dep));if (!dep) return io_fail(e,BV_LIMIT,"image view dependency allocation");
+  *dep=(BvDep){.target=image,.role=BV_DEP_VIEW_IMAGE};
+  VkImageViewCreateInfo create={.sType=VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,.image=(VkImage)(uintptr_t)image->handle,
+    .viewType=(VkImageViewType)(uint32_t)p[1],.format=i->format,.subresourceRange=range};
+  BvDevice* device=owner->context;VkImageView handle;VkResult result=device->CreateImageView(device->handle,&create,NULL,&handle);
+  if (result!=VK_SUCCESS) {free(dep);return bv_device_error(e,owner,result,"vkCreateImageView");}
+  BvRow* row=bv_add(BV_IMAGE_VIEW,owner);
+  if (!row) {device->DestroyImageView(device->handle,handle,NULL);free(dep);return io_fail(e,BV_LIMIT,"view registry full");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->deps=dep;row->object.view=(BvImageView){create.viewType,range};
+  return io_done(e,term_pak(CID(ImageView),row->id));
+}
+#endif
+#ifdef CID(Device.destroy_image_view)
+static Term bv_destroy_image_view(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*view=bv_child(bv_key(e,f[1]),BV_IMAGE_VIEW,owner);
+  if (!owner || !view) return io_fail(e,BV_INVALID,"destroy image view ownership");
+  if (bv_referenced(view)) return io_fail(e,BV_LIFETIME,"view has incoming dependencies");
+  BvDevice* device=owner->context;device->DestroyImageView(device->handle,(VkImageView)(uintptr_t)view->handle,NULL);
+  bv_remove(view);return bv_ok(e);
 }
 #endif
 
@@ -1371,6 +1542,27 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(Instance.limits_raw)
   io_eff(CID(Instance.limits_raw), bv_physical_limits);
+#endif
+#ifdef CID(Instance.image_format_properties_raw)
+  io_eff(CID(Instance.image_format_properties_raw), bv_image_format_properties);
+#endif
+#ifdef CID(Device.create_image)
+  io_eff(CID(Device.create_image), bv_create_image);
+#endif
+#ifdef CID(Device.destroy_image)
+  io_eff(CID(Device.destroy_image), bv_destroy_image);
+#endif
+#ifdef CID(Device.image_requirements_raw)
+  io_eff(CID(Device.image_requirements_raw), bv_image_requirements);
+#endif
+#ifdef CID(Device.bind_image_memory)
+  io_eff(CID(Device.bind_image_memory), bv_bind_image_memory);
+#endif
+#ifdef CID(Device.create_image_view)
+  io_eff(CID(Device.create_image_view), bv_create_image_view);
+#endif
+#ifdef CID(Device.destroy_image_view)
+  io_eff(CID(Device.destroy_image_view), bv_destroy_image_view);
 #endif
 // END GENERATED REGISTRATIONS
 }

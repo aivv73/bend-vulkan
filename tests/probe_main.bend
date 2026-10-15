@@ -4,6 +4,7 @@ import ./native.bend as Native
 import ./discovery.bend as Discovery
 import ./transfers.bend as Transfer
 import ./repeated.bend as Repeated
+import ./images.bend as Images
 import ../examples/buffer_roundtrip.bend as Demo
 
 def main() -> IO(Unit):
@@ -16,6 +17,8 @@ def main() -> IO(Unit):
     V.or_exit(Unit,transfer)
     repeated : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Repeated.run(entry))
     V.or_exit(Unit,repeated)
+    images : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Images.run(entry))
+    V.or_exit(Unit,images)
     live : V.VkResult(U32) <- V.debug_live_objects()
     count : U32 <- V.or_exit(U32,live)
     checked : V.VkResult(Unit) <- Demo.require(U32.is_eq(count,0),"Controlled scope leaked")

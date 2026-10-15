@@ -60,5 +60,11 @@
   ["Device.create_framebuffer", [["device", "Device"], ["info", "FramebufferCreateInfo"]], "Framebuffer", "create_framebuffer"],
   ["Device.destroy_framebuffer", [["device", "Device"], ["framebuffer", "Framebuffer"]], "Unit", "destroy_framebuffer"],
   ["CommandBuffer.begin_render_pass", [["command", "CommandBuffer"], ["framebuffer", "Framebuffer"], ["area", "RenderArea"], ["clears", "List<ClearValue>"]], "Unit", "cmd_begin_render_pass"],
-  ["CommandBuffer.end_render_pass", [["command", "CommandBuffer"]], "Unit", "cmd_end_render_pass"]
+  ["CommandBuffer.end_render_pass", [["command", "CommandBuffer"]], "Unit", "cmd_end_render_pass"],
+  ["Device.create_shader_module", [["device", "Device"], ["words", "List<U32>"]], "ShaderModule", "create_shader_module"],
+  ["Device.destroy_shader_module", [["device", "Device"], ["shader", "ShaderModule"]], "Unit", "destroy_shader_module"],
+  ["Device.create_pipeline_layout", [["device", "Device"], ["info", "PipelineLayoutCreateInfo"]], "PipelineLayout", "create_pipeline_layout"],
+  ["Device.destroy_pipeline_layout", [["device", "Device"], ["layout", "PipelineLayout"]], "Unit", "destroy_pipeline_layout"],
+  ["Device.create_graphics_pipeline", [["device", "Device"], ["info", "GraphicsPipelineCreateInfo"]], "GraphicsPipeline", "create_graphics_pipeline"],
+  ["Device.destroy_graphics_pipeline", [["device", "Device"], ["pipeline", "GraphicsPipeline"]], "Unit", "destroy_graphics_pipeline"]
 ]

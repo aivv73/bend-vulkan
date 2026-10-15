@@ -22,6 +22,7 @@ def build(sanitize=False):
     probes += "\n" + (ROOT / "tests/image_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/image_transfer_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/render_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/graphics_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -57,6 +58,9 @@ def build(sanitize=False):
     emitted, rendering = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_begin_render_pass(\);)", r"\1test_begin_render_pass\2", emitted)
     if rendering != 1:
         raise ValueError("Render pass probe registration moved")
+    emitted, graphics = re.subn(r"(io_eff\(CID_\w+, )bv_create_graphics_pipeline(\);)", r"\1test_create_graphics_pipeline\2", emitted)
+    if graphics != 1:
+        raise ValueError("Graphics pipeline probe registration moved")
     emitted, live = re.subn(r"(io_eff\(CID_\w+, )bv_live_objects(\);)", r"\1test_live_objects\2", emitted)
     if live != 1:
         raise ValueError("Registry cleanup probe registration moved")
@@ -77,6 +81,7 @@ def build(sanitize=False):
                    "Controlled pass/framebuffer allocation rollback",
                    "Controlled image graph idle-error retry",
                    "Real disjoint buffer/optimal-image suballocation",
+                   "Controlled graphics creation allocation-before-dispatch",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

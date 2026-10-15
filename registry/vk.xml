@@ -384,4 +384,61 @@ SPDX-License-Identifier: Apache-2.0 OR MIT</comment>
     <enum value="0" name="VK_ATTACHMENT_STORE_OP_STORE" />
     <enum value="1" name="VK_ATTACHMENT_STORE_OP_DONT_CARE" />
   </enums>
+  <enums name="VkShaderStageFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_SHADER_STAGE_VERTEX_BIT" />
+    <enum bitpos="1" name="VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT" />
+    <enum bitpos="2" name="VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT" />
+    <enum bitpos="3" name="VK_SHADER_STAGE_GEOMETRY_BIT" />
+    <enum bitpos="4" name="VK_SHADER_STAGE_FRAGMENT_BIT" />
+    <enum bitpos="5" name="VK_SHADER_STAGE_COMPUTE_BIT" />
+    <enum value="0x0000001F" name="VK_SHADER_STAGE_ALL_GRAPHICS" />
+    <enum value="0x7FFFFFFF" name="VK_SHADER_STAGE_ALL" />
+  </enums>
+  <enums name="VkVertexInputRate" type="enum">
+    <enum value="0" name="VK_VERTEX_INPUT_RATE_VERTEX" />
+    <enum value="1" name="VK_VERTEX_INPUT_RATE_INSTANCE" />
+  </enums>
+  <enums name="VkPrimitiveTopology" type="enum">
+    <enum value="0" name="VK_PRIMITIVE_TOPOLOGY_POINT_LIST" />
+    <enum value="1" name="VK_PRIMITIVE_TOPOLOGY_LINE_LIST" />
+    <enum value="2" name="VK_PRIMITIVE_TOPOLOGY_LINE_STRIP" />
+    <enum value="3" name="VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST" />
+    <enum value="4" name="VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP" />
+    <enum value="5" name="VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN" />
+    <enum value="6" name="VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY" />
+    <enum value="7" name="VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY" />
+    <enum value="8" name="VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY" />
+    <enum value="9" name="VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY" />
+    <enum value="10" name="VK_PRIMITIVE_TOPOLOGY_PATCH_LIST" />
+  </enums>
+  <enums name="VkCullModeFlagBits" type="bitmask">
+    <enum value="0" name="VK_CULL_MODE_NONE" />
+    <enum bitpos="0" name="VK_CULL_MODE_FRONT_BIT" />
+    <enum bitpos="1" name="VK_CULL_MODE_BACK_BIT" />
+    <enum value="0x00000003" name="VK_CULL_MODE_FRONT_AND_BACK" />
+  </enums>
+  <enums name="VkFrontFace" type="enum">
+    <enum value="0" name="VK_FRONT_FACE_COUNTER_CLOCKWISE" />
+    <enum value="1" name="VK_FRONT_FACE_CLOCKWISE" />
+  </enums>
+  <enums name="VkCompareOp" type="enum">
+    <enum value="0" name="VK_COMPARE_OP_NEVER" />
+    <enum value="1" name="VK_COMPARE_OP_LESS" />
+    <enum value="2" name="VK_COMPARE_OP_EQUAL" />
+    <enum value="3" name="VK_COMPARE_OP_LESS_OR_EQUAL" />
+    <enum value="4" name="VK_COMPARE_OP_GREATER" />
+    <enum value="5" name="VK_COMPARE_OP_NOT_EQUAL" />
+    <enum value="6" name="VK_COMPARE_OP_GREATER_OR_EQUAL" />
+    <enum value="7" name="VK_COMPARE_OP_ALWAYS" />
+  </enums>
+  <enums name="VkColorComponentFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_COLOR_COMPONENT_R_BIT" />
+    <enum bitpos="1" name="VK_COLOR_COMPONENT_G_BIT" />
+    <enum bitpos="2" name="VK_COLOR_COMPONENT_B_BIT" />
+    <enum bitpos="3" name="VK_COLOR_COMPONENT_A_BIT" />
+  </enums>
+  <enums name="VkIndexType" type="enum">
+    <enum value="0" name="VK_INDEX_TYPE_UINT16" />
+    <enum value="1" name="VK_INDEX_TYPE_UINT32" />
+  </enums>
 </registry>

@@ -105,3 +105,10 @@ def image_copy_end(offset: W.U64, +row_length: U32, +image_height: U32, +width: 
     prefix : W.U64 <- size_add_checked(last_layer,last_row)
     span : W.U64 <- size_add_checked(prefix,payload)
     size_add_checked(offset,span)
+
+def index_span_end(offset: W.U64, +first: U32, count: U32, +width: U32) -> Maybe<W.U64>:
+  do Maybe<W.U64>:
+    valid : Unit <- Bool.pick(Maybe<Unit>,Bool.or(U32.is_eq(width,2),U32.is_eq(width,4)),Some{Unit{}},None{})
+    elements : W.U64 <- size_add_checked(W.of_u32(first),W.of_u32(count))
+    bytes : W.U64 <- size_scale_checked(elements,width)
+    size_add_checked(offset,bytes)

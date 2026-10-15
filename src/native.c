@@ -16,7 +16,7 @@
 #define BV_MAX_COPY (16u * 1024u * 1024u)
 
 typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
-  BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER } BvKind;
+  BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER, BV_SHADER, BV_LAYOUT, BV_PIPELINE } BvKind;
 typedef struct BvRow BvRow;
 typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN, BV_COMPLETED, BV_COMMAND_INVALID } BvCommandPhase;
 typedef enum { BV_OUTSIDE, BV_INSIDE } BvRenderTag;
@@ -29,7 +29,7 @@ typedef enum { BV_CALLER, BV_CONVENIENCE_PRIVATE } BvFenceLifetime;
 typedef struct { BvFenceLifetime lifetime; } BvFence;
 typedef enum { BV_HEALTHY, BV_LOST } BvHealth;
 typedef enum { BV_DEP_RECORDED, BV_DEP_BINDING, BV_DEP_VIEW_IMAGE,
-  BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW } BvDepRole;
+  BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW, BV_DEP_PIPELINE_LAYOUT, BV_DEP_PIPELINE_PASS } BvDepRole;
 typedef struct BvDep {
   BvRow* target;
   BvDepRole role;
@@ -40,6 +40,9 @@ typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkIma
 typedef struct { VkImageViewType type; VkImageSubresourceRange range; } BvImageView;
 typedef struct { uint32_t colors,count; VkAttachmentDescription* attachments; } BvRenderPass;
 typedef struct { VkExtent2D extent; uint32_t count; BvDep** attachments; } BvFramebuffer;
+typedef struct { uint32_t stages,bytes; } BvPushRange;
+typedef struct { uint32_t binding,stride,rate,alignment,first_end; } BvVertexRequirement;
+typedef struct { uint32_t count; BvVertexRequirement* required; } BvPipeline;
 struct BvRow {
   uint32_t id;
   BvKind kind;
@@ -47,7 +50,7 @@ struct BvRow {
   uint64_t handle, size;
   VkMemoryRequirements requirements;
   uint32_t flags, memory_type;
-  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; } object;
+  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; BvPushRange layout; BvPipeline pipeline; } object;
   BvCommand command;
   BvFence fence;
   void* context;
@@ -86,6 +89,8 @@ typedef struct {
   X(CreateImageView) X(DestroyImageView) \
   X(CreateRenderPass) X(DestroyRenderPass) X(CreateFramebuffer) X(DestroyFramebuffer) \
   X(CmdBeginRenderPass) X(CmdEndRenderPass) \
+  X(CreateShaderModule) X(DestroyShaderModule) X(CreatePipelineLayout) X(DestroyPipelineLayout) \
+  X(CreateGraphicsPipelines) X(DestroyPipeline) \
   X(AllocateMemory) X(FreeMemory) X(BindBufferMemory) X(MapMemory) X(UnmapMemory) \
   X(FlushMappedMemoryRanges) X(InvalidateMappedMemoryRanges) \
   X(CreateCommandPool) X(DestroyCommandPool) X(AllocateCommandBuffers) \
@@ -154,6 +159,7 @@ static void bv_remove(BvRow* row) {
   while (row->deps) { BvDep* use = row->deps; row->deps = use->next; free(use); }
   if (row->kind==BV_RENDER_PASS) free(row->object.pass.attachments);
   if (row->kind==BV_FRAMEBUFFER) free(row->object.framebuffer.attachments);
+  if (row->kind==BV_PIPELINE) free(row->object.pipeline.required);
   free(row);
 }
 static BvRow* bv_child(uint32_t id, BvKind kind, BvRow* owner) {
@@ -325,12 +331,15 @@ static void bv_destroy_device(BvRow* row) {
     }
   }
   device->convenience=NULL;
-  const BvKind order[]={BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
+  const BvKind order[]={BV_PIPELINE,BV_LAYOUT,BV_SHADER,BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
   for (unsigned j=0;j<sizeof(order)/sizeof(*order);j++)
     for (BvRow* child=bv_rows,*next;child;child=next) {
       next=child->next;
       if (child->parent!=row || child->kind!=order[j]) continue;
-      if (child->kind==BV_FRAMEBUFFER) device->DestroyFramebuffer(device->handle,(VkFramebuffer)(uintptr_t)child->handle,NULL);
+      if (child->kind==BV_PIPELINE) device->DestroyPipeline(device->handle,(VkPipeline)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_LAYOUT) device->DestroyPipelineLayout(device->handle,(VkPipelineLayout)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_SHADER) device->DestroyShaderModule(device->handle,(VkShaderModule)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_FRAMEBUFFER) device->DestroyFramebuffer(device->handle,(VkFramebuffer)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_RENDER_PASS) device->DestroyRenderPass(device->handle,(VkRenderPass)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_IMAGE_VIEW) device->DestroyImageView(device->handle,(VkImageView)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_IMAGE) device->DestroyImage(device->handle,(VkImage)(uintptr_t)child->handle,NULL);
@@ -1193,6 +1202,158 @@ static Term bv_cmd_end_render_pass(Env e,Term* f,IoWork* w) {
 }
 #endif
 
+#ifdef CID(Device.create_shader_module)
+typedef struct { uint32_t* data,count,code; } BvWordList;
+static BvWordList bv_word_list(Env e,Term list,uint32_t limit) {
+  BvWordList words={0};uint32_t capacity=0;
+  while (term_aux(list)==CID(Con)) {
+    Term item[2];bv_unpack(e,list,2,item);list=item[1];
+    if (words.code) continue;
+    if (words.count==limit) {words.code=BV_ARGUMENT;continue;}
+    if (words.count==capacity) {
+      uint32_t next=capacity ? capacity*2 : 32;if (next>limit) next=limit;
+      uint32_t* more=realloc(words.data,next*sizeof(*more));
+      if (!more) {words.code=BV_LIMIT;continue;}words.data=more;capacity=next;
+    }
+    words.data[words.count++]=(uint32_t)item[0];
+  }
+  return words;
+}
+#endif
+#ifdef CID(Device.create_shader_module)
+static Term bv_create_shader_module(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
+  BvWordList words=bv_word_list(e,f[1],BV_MAX_COPY/4);
+  uint32_t code=!owner ? BV_INVALID : words.code;
+  if (!code && (words.count<5 || words.data[0]!=0x07230203 || words.data[1]!=0x00010000 || !words.data[3] || words.data[4])) code=BV_ARGUMENT;
+  if (owner && bv_lost(owner)) {free(words.data);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create shader");}
+  BvRow* row=NULL;if (!code && !(row=bv_add(BV_SHADER,owner))) code=BV_LIMIT;
+  if (code) {free(words.data);return io_fail(e,code,"shader owner, SPIR-V 1.0 header, size or allocation");}
+  BvDevice* device=owner->context;VkShaderModule handle=VK_NULL_HANDLE;
+  VkShaderModuleCreateInfo info={.sType=VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,.codeSize=(size_t)words.count*4,.pCode=words.data};
+  VkResult result=device->CreateShaderModule(device->handle,&info,NULL,&handle);free(words.data);
+  if (result!=VK_SUCCESS) {bv_remove(row);return bv_device_error(e,owner,result,"vkCreateShaderModule");}
+  row->handle=(uint64_t)(uintptr_t)handle;return io_done(e,term_pak(CID(ShaderModule),row->id));
+}
+#endif
+#ifdef CID(Device.create_pipeline_layout)
+static Term bv_create_pipeline_layout(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[3];bv_unpack(e,f[1],3,p);
+  if (!owner) return io_fail(e,BV_INVALID,"invalid layout device");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create layout");
+  BvDevice* d=owner->context;
+  if (p[0]>1 || (p[0] && (!p[1] || (p[1]&~17u) || !p[2] || (p[2]&3) || p[2]>128 || p[2]>d->limits.maxPushConstantsSize)))
+    return io_fail(e,BV_ARGUMENT,"push range requires vertex/fragment stages and 4..128 bytes");
+  BvRow* row=bv_add(BV_LAYOUT,owner);if (!row) return io_fail(e,BV_LIMIT,"layout registry allocation");
+  VkPushConstantRange push={p[1],0,p[2]};VkPipelineLayout handle=VK_NULL_HANDLE;
+  VkPipelineLayoutCreateInfo info={.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,.pushConstantRangeCount=p[0],.pPushConstantRanges=p[0] ? &push : NULL};
+  VkResult result=d->CreatePipelineLayout(d->handle,&info,NULL,&handle);
+  if (result!=VK_SUCCESS) {bv_remove(row);return bv_device_error(e,owner,result,"vkCreatePipelineLayout");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.layout=(BvPushRange){p[0] ? p[1] : 0,p[0] ? p[2] : 0};
+  return io_done(e,term_pak(CID(PipelineLayout),row->id));
+}
+#endif
+#ifdef CID(Device.create_graphics_pipeline)
+static int bv_vertex_format(BvRow* owner,uint32_t format,uint32_t* bytes,uint32_t* alignment) {
+  switch (format) {
+    case VK_FORMAT_R32_SFLOAT:*bytes=4;break;
+    case VK_FORMAT_R32G32_SFLOAT:*bytes=8;break;
+    case VK_FORMAT_R32G32B32_SFLOAT:*bytes=12;break;
+    case VK_FORMAT_R32G32B32A32_SFLOAT:*bytes=16;break;
+    case VK_FORMAT_R8G8B8A8_UNORM:*bytes=4;break;
+    default:return 0;
+  }
+  *alignment=format==VK_FORMAT_R8G8B8A8_UNORM ? 1 : 4;
+  BvDevice* d=owner->context;BvInstance* i=owner->parent->context;VkFormatProperties properties;
+  i->formats(d->physical,format,&properties);return (properties.bufferFeatures&VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT)!=0;
+}
+static Term bv_create_graphics_pipeline(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[14];bv_unpack(e,f[1],14,p);
+  BvRow* layout=bv_child(p[0],BV_LAYOUT,owner),*pass=bv_child(p[1],BV_RENDER_PASS,owner);
+  BvRow* vertex=bv_child(p[2],BV_SHADER,owner),*fragment=bv_child(p[3],BV_SHADER,owner);
+  BvDevice* d=owner ? owner->context : NULL;
+  uint32_t code=(!owner || !layout || !pass || !vertex || !fragment) ? BV_INVALID : !(d->queue_flags&VK_QUEUE_GRAPHICS_BIT) ? BV_ARGUMENT : 0;
+  VkVertexInputBindingDescription bindings[64];BvVertexRequirement required[64];uint32_t nb=0,na=0;
+  VkVertexInputAttributeDescription attributes[256];Term list=p[4];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],b[3];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],3,b);
+    if (code) continue;
+    if (nb==64 || nb>=d->limits.maxVertexInputBindings) {code=BV_LIMIT;continue;}
+    if (b[0]>=d->limits.maxVertexInputBindings || b[1]>d->limits.maxVertexInputBindingStride || b[2]>VK_VERTEX_INPUT_RATE_INSTANCE) {code=BV_ARGUMENT;continue;}
+    for(uint32_t j=0;j<nb;j++) if (bindings[j].binding==b[0]) code=BV_ARGUMENT;
+    if (code) continue;
+    bindings[nb]=(VkVertexInputBindingDescription){b[0],b[1],b[2]};required[nb++]=(BvVertexRequirement){b[0],b[1],b[2],1,1};
+  }
+  list=p[5];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],a[4];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],4,a);
+    if (code) continue;
+    uint32_t bytes,align,binding=nb;
+    if (na==256 || na>=d->limits.maxVertexInputAttributes) {code=BV_LIMIT;continue;}
+    if (a[0]>=d->limits.maxVertexInputAttributes || a[3]>d->limits.maxVertexInputAttributeOffset || !bv_vertex_format(owner,a[2],&bytes,&align)) {code=BV_ARGUMENT;continue;}
+    for(uint32_t j=0;j<nb;j++) if (required[j].binding==a[1]) binding=j;
+    for(uint32_t j=0;j<na;j++) if (attributes[j].location==a[0]) code=BV_ARGUMENT;
+    if (binding==nb || (a[3]%align) || a[3]>UINT32_MAX-bytes) {code=BV_ARGUMENT;continue;}
+    if (required[binding].stride%align) {code=BV_ARGUMENT;continue;}
+    if (code) continue;
+    if (required[binding].alignment<align) required[binding].alignment=align;
+    if (required[binding].first_end<a[3]+bytes) required[binding].first_end=a[3]+bytes;
+    attributes[na++]=(VkVertexInputAttributeDescription){a[0],a[1],a[2],a[3]};
+  }
+  if (!code && ((p[6]!=VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST && p[6]!=VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP) || (p[7]&~3u) || p[8]>VK_FRONT_FACE_CLOCKWISE ||
+      p[9]>1 || p[10]>1 || p[11]>1 || p[12]>VK_COMPARE_OP_ALWAYS || (p[13]&~15u) ||
+      (p[9] && (p[10] || p[11]) && pass->object.pass.count==pass->object.pass.colors))) code=BV_ARGUMENT;
+  if (owner && bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create graphics pipeline");
+  if (code) return io_fail(e,code,"graphics pipeline owner, vertex schema, formats, state or limits");
+  BvVertexRequirement* requirements=nb ? malloc(nb*sizeof(*requirements)) : NULL;
+  VkPipelineColorBlendAttachmentState* colors=pass->object.pass.colors ? calloc(pass->object.pass.colors,sizeof(*colors)) : NULL;
+  if ((nb && !requirements) || (pass->object.pass.colors && !colors)) {free(requirements);free(colors);return io_fail(e,BV_LIMIT,"pipeline metadata allocation");}
+  if (nb) memcpy(requirements,required,nb*sizeof(*requirements));
+  for(uint32_t j=0;j<pass->object.pass.colors;j++) colors[j].colorWriteMask=p[13];
+  BvRow* row=bv_add(BV_PIPELINE,owner);BvDep* layout_dep=malloc(sizeof(*layout_dep)),*pass_dep=malloc(sizeof(*pass_dep));
+  if (!row || !layout_dep || !pass_dep) {if(row)bv_remove(row);free(layout_dep);free(pass_dep);free(requirements);free(colors);return io_fail(e,BV_LIMIT,"pipeline registry allocation");}
+  *layout_dep=(BvDep){.target=layout,.role=BV_DEP_PIPELINE_LAYOUT,.next=pass_dep};*pass_dep=(BvDep){.target=pass,.role=BV_DEP_PIPELINE_PASS};
+  row->deps=layout_dep;row->object.pipeline=(BvPipeline){nb,requirements};
+  VkPipelineShaderStageCreateInfo stages[2]={
+    {.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,.stage=VK_SHADER_STAGE_VERTEX_BIT,.module=(VkShaderModule)(uintptr_t)vertex->handle,.pName="main"},
+    {.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,.stage=VK_SHADER_STAGE_FRAGMENT_BIT,.module=(VkShaderModule)(uintptr_t)fragment->handle,.pName="main"}};
+  VkPipelineVertexInputStateCreateInfo vi={.sType=VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,.vertexBindingDescriptionCount=nb,.pVertexBindingDescriptions=bindings,.vertexAttributeDescriptionCount=na,.pVertexAttributeDescriptions=attributes};
+  VkPipelineInputAssemblyStateCreateInfo ia={.sType=VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,.topology=p[6]};
+  VkPipelineViewportStateCreateInfo vp={.sType=VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,.viewportCount=1,.scissorCount=1};
+  VkPipelineRasterizationStateCreateInfo rs={.sType=VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,.polygonMode=VK_POLYGON_MODE_FILL,.cullMode=p[7],.frontFace=p[8],.lineWidth=1};
+  VkPipelineMultisampleStateCreateInfo ms={.sType=VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT};
+  VkPipelineDepthStencilStateCreateInfo depth={.sType=VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,.depthTestEnable=p[9] && p[10],.depthWriteEnable=p[9] && p[11],.depthCompareOp=p[12]};
+  VkPipelineColorBlendStateCreateInfo blend={.sType=VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,.attachmentCount=pass->object.pass.colors,.pAttachments=colors};
+  VkDynamicState states[]={VK_DYNAMIC_STATE_VIEWPORT,VK_DYNAMIC_STATE_SCISSOR};
+  VkPipelineDynamicStateCreateInfo dynamic={.sType=VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,.dynamicStateCount=2,.pDynamicStates=states};
+  VkGraphicsPipelineCreateInfo info={.sType=VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,.stageCount=2,.pStages=stages,.pVertexInputState=&vi,.pInputAssemblyState=&ia,.pViewportState=&vp,.pRasterizationState=&rs,.pMultisampleState=&ms,.pDepthStencilState=&depth,.pColorBlendState=&blend,.pDynamicState=&dynamic,.layout=(VkPipelineLayout)(uintptr_t)layout->handle,.renderPass=(VkRenderPass)(uintptr_t)pass->handle,.basePipelineIndex=-1};
+  VkPipeline handle=VK_NULL_HANDLE;VkResult result=d->CreateGraphicsPipelines(d->handle,VK_NULL_HANDLE,1,&info,NULL,&handle);free(colors);
+  if (result!=VK_SUCCESS) {if (handle) d->DestroyPipeline(d->handle,handle,NULL);bv_remove(row);return bv_device_error(e,owner,result,"vkCreateGraphicsPipelines");}
+  row->handle=(uint64_t)(uintptr_t)handle;return io_done(e,term_pak(CID(GraphicsPipeline),row->id));
+}
+#endif
+#if defined(CID(Device.destroy_shader_module)) || defined(CID(Device.destroy_pipeline_layout)) || defined(CID(Device.destroy_graphics_pipeline))
+static Term bv_destroy_graphics_resource(Env e,Term* f,BvKind kind) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),kind,owner);
+  if (!owner || !row) return io_fail(e,BV_INVALID,"graphics resource ownership");
+  if (bv_referenced(row)) return io_fail(e,BV_LIFETIME,"graphics resource has incoming dependencies");
+  BvDevice* d=owner->context;
+  if (kind==BV_SHADER) d->DestroyShaderModule(d->handle,(VkShaderModule)(uintptr_t)row->handle,NULL);
+  else if (kind==BV_LAYOUT) d->DestroyPipelineLayout(d->handle,(VkPipelineLayout)(uintptr_t)row->handle,NULL);
+  else d->DestroyPipeline(d->handle,(VkPipeline)(uintptr_t)row->handle,NULL);
+  bv_remove(row);return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.destroy_shader_module)
+static Term bv_destroy_shader_module(Env e,Term* f,IoWork* w) {return bv_destroy_graphics_resource(e,f,BV_SHADER);}
+#endif
+#ifdef CID(Device.destroy_pipeline_layout)
+static Term bv_destroy_pipeline_layout(Env e,Term* f,IoWork* w) {return bv_destroy_graphics_resource(e,f,BV_LAYOUT);}
+#endif
+#ifdef CID(Device.destroy_graphics_pipeline)
+static Term bv_destroy_graphics_pipeline(Env e,Term* f,IoWork* w) {return bv_destroy_graphics_resource(e,f,BV_PIPELINE);}
+#endif
+
 // Map whole allocations so cache ranges satisfy nonCoherentAtomSize alignment.
 static int bv_map_range(BvRow* memory,uint64_t offset,uint32_t count) {
   return (memory->flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) && offset<=memory->size &&
@@ -1954,6 +2115,24 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(CommandBuffer.end_render_pass)
   io_eff(CID(CommandBuffer.end_render_pass), bv_cmd_end_render_pass);
+#endif
+#ifdef CID(Device.create_shader_module)
+  io_eff(CID(Device.create_shader_module), bv_create_shader_module);
+#endif
+#ifdef CID(Device.destroy_shader_module)
+  io_eff(CID(Device.destroy_shader_module), bv_destroy_shader_module);
+#endif
+#ifdef CID(Device.create_pipeline_layout)
+  io_eff(CID(Device.create_pipeline_layout), bv_create_pipeline_layout);
+#endif
+#ifdef CID(Device.destroy_pipeline_layout)
+  io_eff(CID(Device.destroy_pipeline_layout), bv_destroy_pipeline_layout);
+#endif
+#ifdef CID(Device.create_graphics_pipeline)
+  io_eff(CID(Device.create_graphics_pipeline), bv_create_graphics_pipeline);
+#endif
+#ifdef CID(Device.destroy_graphics_pipeline)
+  io_eff(CID(Device.destroy_graphics_pipeline), bv_destroy_graphics_pipeline);
 #endif
 // END GENERATED REGISTRATIONS
 }

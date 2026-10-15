@@ -35,7 +35,7 @@ def build(sanitize=False):
     if emitted.count(anchor) != 1:
         raise ValueError("Native reference allocator moved")
     emitted = emitted.replace(anchor, allocator + "\n" + anchor)
-    emitted = emitted.replace("BvUse* use=malloc(sizeof(*use));", "BvUse* use=bv_test_alloc(sizeof(*use));")
+    emitted = emitted.replace("BvDep* use=malloc(sizeof(*use));", "BvDep* use=bv_test_alloc(sizeof(*use));")
     for variable in ("regions", "memory", "buffers", "resources"):
         emitted = emitted.replace(f"realloc({variable},", f"bv_test_realloc({variable},")
     emitted = emitted.replace("static void __attribute__((constructor)) bv_register(void)", checks + "\nstatic void __attribute__((constructor)) bv_register(void)")

@@ -25,17 +25,25 @@ typedef struct {
 typedef enum { BV_CALLER, BV_CONVENIENCE_PRIVATE } BvFenceLifetime;
 typedef struct { BvFenceLifetime lifetime; } BvFence;
 typedef enum { BV_HEALTHY, BV_LOST } BvHealth;
-typedef struct BvUse { BvRow* resource; struct BvUse* next; } BvUse;
+typedef enum { BV_DEP_RECORDED, BV_DEP_BINDING, BV_DEP_VIEW_IMAGE,
+  BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW } BvDepRole;
+typedef struct BvDep {
+  BvRow* target;
+  BvDepRole role;
+  uint64_t offset;
+  struct BvDep* next;
+} BvDep;
 struct BvRow {
   uint32_t id;
   BvKind kind;
-  BvRow *parent, *next, *bound;
-  uint64_t handle, size, offset;
+  BvRow *parent, *next;
+  uint64_t handle, size;
+  VkMemoryRequirements requirements;
   uint32_t flags, memory_type;
   BvCommand command;
   BvFence fence;
   void* context;
-  BvUse* uses;
+  BvDep* deps;
 };
 static BvRow* bv_rows;
 static uint32_t bv_next_id = 1;
@@ -78,6 +86,8 @@ typedef struct {
   VkPhysicalDevice physical;
   VkQueue queue;
   uint32_t family, queue_flags;
+  VkQueueFamilyProperties queue_properties;
+  VkPhysicalDeviceLimits limits;
   VkPhysicalDeviceMemoryProperties memory;
 #define BV_FIELD(name) PFN_vk##name name;
   BV_DEVICE_FUNCTIONS(BV_FIELD)
@@ -127,7 +137,7 @@ static void bv_remove(BvRow* row) {
   BvRow** link = &bv_rows;
   while (*link != row) link = &(*link)->next;
   *link = row->next;
-  while (row->uses) { BvUse* use = row->uses; row->uses = use->next; free(use); }
+  while (row->deps) { BvDep* use = row->deps; row->deps = use->next; free(use); }
   free(row);
 }
 static BvRow* bv_child(uint32_t id, BvKind kind, BvRow* owner) {
@@ -178,11 +188,27 @@ static VkResult bv_idle(BvRow* owner) {
   }
   return result;
 }
+static BvDep* bv_dependency(const BvRow* row,BvDepRole role) {
+  for (BvDep* dep=row->deps;dep;dep=dep->next) if (dep->role==role) return dep;
+  return NULL;
+}
+static BvRow* bv_bound_memory(const BvRow* row) {
+  BvDep* binding=bv_dependency(row,BV_DEP_BINDING);
+  return binding ? binding->target : NULL;
+}
+static uint64_t bv_bound_offset(const BvRow* row) {
+  return bv_dependency(row,BV_DEP_BINDING)->offset;
+}
+static int bv_reaches_depth(const BvRow* row,const BvRow* target,unsigned remaining) {
+  if (row==target) return 1;
+  if (!remaining) return 0;
+  for (BvDep* dep=row->deps;dep;dep=dep->next)
+    if (bv_reaches_depth(dep->target,target,remaining-1)) return 1;
+  return 0;
+}
 static int bv_memory_busy(BvRow* memory) {
   BvRow* command=bv_active(memory->parent,NULL);
-  if (command) for (BvUse* use=command->uses;use;use=use->next)
-    if (use->resource==memory || use->resource->bound==memory) return 1;
-  return 0;
+  return command && bv_reaches_depth(command,memory,4);
 }
 static BvRow* bv_public_fence(uint32_t id) {
   BvRow* fence=bv_get(id,BV_FENCE);
@@ -190,26 +216,26 @@ static BvRow* bv_public_fence(uint32_t id) {
 }
 static int bv_referenced(BvRow* buffer) {
   for (BvRow* row = bv_rows; row; row = row->next)
-    for (BvUse* use = row->uses; use; use = use->next)
-      if (use->resource == buffer) return 1;
+    for (BvDep* use = row->deps; use; use = use->next)
+      if (use->target == buffer) return 1;
   return 0;
 }
-static void bv_free_refs(BvUse* uses) {
-  while (uses) { BvUse* next=uses->next; free(uses); uses=next; }
+static void bv_free_refs(BvDep* uses) {
+  while (uses) { BvDep* next=uses->next; free(uses); uses=next; }
 }
 static int bv_prepare_refs(BvRow* command, uint32_t count, BvRow** resources) {
-  BvUse* staged=NULL;
+  BvDep* staged=NULL;
   for (uint32_t j=0;j<count;j++) {
     int found=0;
-    for (BvUse* u=command->uses;u;u=u->next) found |= u->resource==resources[j];
-    for (BvUse* u=staged;u;u=u->next) found |= u->resource==resources[j];
+    for (BvDep* u=command->deps;u;u=u->next) found |= u->target==resources[j];
+    for (BvDep* u=staged;u;u=u->next) found |= u->target==resources[j];
     if (found) continue;
-    BvUse* use=malloc(sizeof(*use));
+    BvDep* use=malloc(sizeof(*use));
     if (!use) { bv_free_refs(staged); return 0; }
-    use->resource=resources[j]; use->next=staged; staged=use;
+    use->target=resources[j]; use->role=BV_DEP_RECORDED; use->offset=0; use->next=staged; staged=use;
   }
   while (staged) {
-    BvUse* next=staged->next; staged->next=command->uses; command->uses=staged; staged=next;
+    BvDep* next=staged->next; staged->next=command->deps; command->deps=staged; staged=next;
   }
   return 1;
 }
@@ -645,7 +671,8 @@ static Term bv_create_device(Env e, Term* f, IoWork* w) {
   if (!queues) {bv_names_free(extensions);return io_fail(e,BV_LIMIT,"queue allocation failed");}
   instance->queues(handle,&count,queues);
   int valid=queues[(uint32_t)info[0]].queueCount>0;
-  uint32_t queue_flags=queues[(uint32_t)info[0]].queueFlags;free(queues);
+  VkQueueFamilyProperties queue_properties=queues[(uint32_t)info[0]];
+  uint32_t queue_flags=queue_properties.queueFlags;free(queues);
   if (!valid) {bv_names_free(extensions);return io_fail(e,BV_ARGUMENT,"empty queue family");}
   float priority=1.0f;
   VkDeviceQueueCreateInfo queue={.sType=VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -659,7 +686,8 @@ static Term bv_create_device(Env e, Term* f, IoWork* w) {
   BvDevice* context=calloc(1,sizeof(*context));
   PFN_vkDestroyDevice destroy=(PFN_vkDestroyDevice)instance->get_device(device,"vkDestroyDevice");
   if (!context) {destroy(device,NULL);return io_fail(e,BV_LIMIT,"device allocation failed");}
-  context->handle=device;context->physical=handle;context->family=(uint32_t)info[0];context->queue_flags=queue_flags;
+  context->handle=device;context->physical=handle;context->family=(uint32_t)info[0];context->queue_flags=queue_flags;context->queue_properties=queue_properties;
+  VkPhysicalDeviceProperties properties;instance->properties(handle,&properties);context->limits=properties.limits;
   int complete=1;
 #define BV_LOAD(name) context->name=(PFN_vk##name)instance->get_device(device,"vk" #name); complete &= context->name!=NULL;
   BV_DEVICE_FUNCTIONS(BV_LOAD)
@@ -709,6 +737,7 @@ static Term bv_create_buffer(Env e, Term* f, IoWork* w) {
   BvRow* row=bv_add(BV_BUFFER,owner);
   if (!row) {device->DestroyBuffer(device->handle,buffer,NULL);return io_fail(e,BV_LIMIT,"buffer registry full");}
   row->handle=(uint64_t)(uintptr_t)buffer;row->size=size;row->flags=(uint32_t)info[2];
+  device->GetBufferMemoryRequirements(device->handle,buffer,&row->requirements);
   return io_done(e,term_pak(CID(Buffer),row->id));
 }
 #endif
@@ -730,7 +759,7 @@ static Term bv_buffer_requirements(Env e, Term* f, IoWork* w) {
   if (!owner || !buffer) return io_fail(e,BV_INVALID,"invalid buffer or device");
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_buffer_requirements");
   BvDevice* device=owner->context;VkMemoryRequirements requirements;
-  device->GetBufferMemoryRequirements(device->handle,(VkBuffer)(uintptr_t)buffer->handle,&requirements);
+  requirements=buffer->requirements;
   return io_done(e,io_tup(e,bv_words(e,requirements.size),
     io_tup(e,bv_words(e,requirements.alignment),requirements.memoryTypeBits)));
 }
@@ -757,8 +786,7 @@ static Term bv_free_memory(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
   BvRow* memory=bv_child(bv_key(e,f[1]),BV_MEMORY,owner);
   if (!owner || !memory) return io_fail(e,BV_INVALID,"invalid memory or device");
-  for (BvRow* row=bv_rows;row;row=row->next)
-    if (row->bound==memory) return io_fail(e,BV_LIFETIME,"destroy bound buffers before freeing memory");
+  if (bv_referenced(memory)) return io_fail(e,BV_LIFETIME,"destroy bound resources before freeing memory");
   BvDevice* device=owner->context;
   device->FreeMemory(device->handle,(VkDeviceMemory)(uintptr_t)memory->handle,NULL);
   bv_remove(memory);return bv_ok(e);
@@ -770,17 +798,20 @@ static Term bv_bind_buffer_memory(Env e, Term* f, IoWork* w) {
   BvRow* buffer=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);
   BvRow* memory=bv_child(bv_key(e,f[2]),BV_MEMORY,owner);uint64_t offset=bv_u64(e,f[3]);
   if (!owner || !buffer || !memory) return io_fail(e,BV_INVALID,"buffer and memory must belong to device");
-  if (buffer->bound) return io_fail(e,BV_LIFETIME,"buffer is already bound");
+  if (bv_bound_memory(buffer)) return io_fail(e,BV_LIFETIME,"buffer is already bound");
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_bind_buffer_memory");
   BvDevice* device=owner->context;VkMemoryRequirements requirements;
-  device->GetBufferMemoryRequirements(device->handle,(VkBuffer)(uintptr_t)buffer->handle,&requirements);
+  requirements=buffer->requirements;
   if (offset>memory->size || requirements.size>memory->size-offset || offset%requirements.alignment ||
       !(requirements.memoryTypeBits & (1u<<memory->memory_type)))
     return io_fail(e,BV_ARGUMENT,"memory binding violates size, alignment, or memory type requirements");
+  BvDep* binding=malloc(sizeof(*binding));
+  if (!binding) return io_fail(e,BV_LIMIT,"binding allocation failed");
+  *binding=(BvDep){.target=memory,.role=BV_DEP_BINDING,.offset=offset};
   VkResult result=device->BindBufferMemory(device->handle,(VkBuffer)(uintptr_t)buffer->handle,
     (VkDeviceMemory)(uintptr_t)memory->handle,offset);
-  if (result!=VK_SUCCESS) return bv_device_error(e,owner,result,"vkBindBufferMemory");
-  buffer->bound=memory;buffer->offset=offset;return bv_ok(e);
+  if (result!=VK_SUCCESS) {free(binding);return bv_device_error(e,owner,result,"vkBindBufferMemory");}
+  buffer->deps=binding;return bv_ok(e);
 }
 #endif
 
@@ -947,7 +978,7 @@ static Term bv_cmd_fill_buffer(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_command_device(command);BvRow* buffer=bv_child(id,BV_BUFFER,owner);
   if (!command || !buffer) return io_fail(e,BV_INVALID,"command and buffer must belong to same device");
   if (bv_lost(bv_command_device(command))) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_cmd_fill_buffer");
-  if (command->command.phase!=BV_RECORDING || !buffer->bound) return io_fail(e,BV_LIFETIME,"fill needs recording command and bound buffer");
+  if (command->command.phase!=BV_RECORDING || !bv_bound_memory(buffer)) return io_fail(e,BV_LIFETIME,"fill needs recording command and bound buffer");
   if (size==VK_WHOLE_SIZE && offset<buffer->size) size=(buffer->size-offset)&~UINT64_C(3);
   if (!size || offset>buffer->size || size>buffer->size-offset || ((offset|size)&3) || !(buffer->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT))
     return io_fail(e,BV_ARGUMENT,"invalid fill offset, size, alignment, or usage");
@@ -966,7 +997,7 @@ static Term bv_cmd_copy_buffer(Env e, Term* f, IoWork* w) {
   BvRow* src=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);
   BvRow* dst=bv_child(bv_key(e,f[2]),BV_BUFFER,owner);
   uint32_t code=(!command || !src || !dst) ? BV_INVALID :
-    (command->command.phase!=BV_RECORDING || !src->bound || !dst->bound) ? BV_LIFETIME :
+    (command->command.phase!=BV_RECORDING || !bv_bound_memory(src) || !bv_bound_memory(dst)) ? BV_LIFETIME :
     (!(src->flags & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) || !(dst->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT)) ? BV_ARGUMENT : 0;
   VkBufferCopy* regions=NULL; uint32_t count=0; Term list=f[3];
   while (term_aux(list)==CID(Con)) {
@@ -985,8 +1016,8 @@ static Term bv_cmd_copy_buffer(Env e, Term* f, IoWork* w) {
   for (uint32_t j=0;!code && j<count;j++) {
     for (uint32_t k=0;k<count;k++) {
       if ((j!=k && bv_overlap(regions[j].dstOffset,regions[j].size,regions[k].dstOffset,regions[k].size)) ||
-          (src->bound==dst->bound && bv_overlap(src->offset+regions[j].srcOffset,regions[j].size,
-            dst->offset+regions[k].dstOffset,regions[k].size))) {code=BV_ARGUMENT;break;}
+          (bv_bound_memory(src)==bv_bound_memory(dst) && bv_overlap(bv_bound_offset(src)+regions[j].srcOffset,regions[j].size,
+            bv_bound_offset(dst)+regions[k].dstOffset,regions[k].size))) {code=BV_ARGUMENT;break;}
     }
   }
   BvRow* resources[]={src,dst};
@@ -1028,7 +1059,7 @@ static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
     uint64_t offset=((uint64_t)(uint32_t)fields[2]<<32)|(uint32_t)fields[1];
     uint64_t size=((uint64_t)(uint32_t)fields[4]<<32)|(uint32_t)fields[3];
     if (!buffer) {code=BV_INVALID;continue;}
-    if (!buffer->bound) {code=BV_LIFETIME;continue;}
+    if (!bv_bound_memory(buffer)) {code=BV_LIFETIME;continue;}
     if (size==VK_WHOLE_SIZE && offset<buffer->size) size=buffer->size-offset;
     if (!size || offset>buffer->size || size>buffer->size-offset ||
         !bv_access(src,(uint32_t)fields[5]) || !bv_access(dst,(uint32_t)fields[6])) {code=BV_ARGUMENT;continue;}
@@ -1164,7 +1195,7 @@ static Term bv_reset_command_buffer(Env e,Term* f,IoWork* w) {
   VkResult result=bv_device_result(owner,device->ResetCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle,0));
   command->command.phase=result==VK_SUCCESS ? BV_INITIAL : BV_COMMAND_INVALID;
   if (result!=VK_SUCCESS) return bv_vk_error(e,result,"vkResetCommandBuffer");
-  bv_free_refs(command->uses);command->uses=NULL;return bv_ok(e);
+  bv_free_refs(command->deps);command->deps=NULL;return bv_ok(e);
 }
 #endif
 #ifdef CID(Device.submit_and_wait)

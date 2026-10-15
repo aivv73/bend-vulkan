@@ -23,6 +23,49 @@ type CommandBuffer is Data:
 type Fence is Data:
   Fence{key: U32}
 
+type ImageHandle is Data:
+  ImageHandle{key: U32}
+type ImageView is Data:
+  ImageView{key: U32}
+type RenderPass is Data:
+  RenderPass{key: U32}
+type Framebuffer is Data:
+  Framebuffer{key: U32}
+type Extent2D is Data:
+  Extent2D{width: U32, height: U32}
+type Offset2D is Data:
+  Offset2D{x: U32, y: U32}
+type RenderArea is Data:
+  RenderArea{offset: Offset2D, extent: Extent2D}
+type ImageFormatInfo is Data:
+  ImageFormatInfo{format: U32, image_type: U32, tiling: U32, usage: U32, flags: U32}
+type ImageFormatProperties is Data:
+  ImageFormatProperties{max_width: U32, max_height: U32, max_depth: U32, max_mip_levels: U32, max_array_layers: U32, sample_counts: U32, max_resource_size: W.U64}
+type ImageCreateInfo is Data:
+  ImageCreateInfo{format: U32, extent: Extent2D, mip_levels: U32, array_layers: U32, usage: U32}
+type ImageSubresourceRange is Data:
+  ImageSubresourceRange{aspect_mask: U32, base_mip_level: U32, level_count: U32, base_array_layer: U32, layer_count: U32}
+type ImageSubresourceLayers is Data:
+  ImageSubresourceLayers{aspect_mask: U32, mip_level: U32, base_array_layer: U32, layer_count: U32}
+type ImageViewCreateInfo is Data:
+  ImageViewCreateInfo{image: ImageHandle, view_type: U32, range: ImageSubresourceRange}
+type ImageMemoryBarrier is Data:
+  ImageMemoryBarrier{image: ImageHandle, range: ImageSubresourceRange, old_layout: U32, new_layout: U32, src_access: U32, dst_access: U32}
+type BufferImageCopy is Data:
+  BufferImageCopy{buffer_offset: W.U64, buffer_row_length: U32, buffer_image_height: U32, image_subresource: ImageSubresourceLayers, image_offset: Offset2D, image_extent: Extent2D}
+type ClearColor is Data:
+  ClearColor{r: F32, g: F32, b: F32, a: F32}
+type ClearValue is Data:
+  ColorClear{value: ClearColor}
+  DepthClear{depth: F32}
+  UnusedClear{}
+type AttachmentInfo is Data:
+  AttachmentInfo{format: U32, load_op: U32, store_op: U32}
+type RenderPassCreateInfo is Type:
+  RenderPassCreateInfo{colors: List<AttachmentInfo>, depth: Maybe<AttachmentInfo>}
+type FramebufferCreateInfo is Type:
+  FramebufferCreateInfo{render_pass: RenderPass, attachments: List<ImageView>, extent: Extent2D}
+
 type BufferCopy is Data:
   BufferCopy{src_offset: W.U64, dst_offset: W.U64, size: W.U64}
 

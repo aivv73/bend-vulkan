@@ -46,17 +46,17 @@ static void bv_test_upload_result(Env e,BvRow* owner,BvRow* memory,bool terms,ui
 static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
   BvRow* owner=bv_command_device(command);BvDevice* device=owner->context;
   PFN_vkCmdCopyBuffer copy=device->CmdCopyBuffer;device->CmdCopyBuffer=bv_test_copy;
-  BvUse* before=command->uses;
+  BvDep* before=command->deps;
   for (unsigned fail=1;fail<=2;fail++) {
     bv_test_alloc_at=0;bv_test_alloc_fail=fail;
     Term args[]={term_pak(CID(CommandBuffer),command->id),term_pak(CID(Buffer),src->id),term_pak(CID(Buffer),dst->id),bv_test_regions(e,0,0,1)};
     bv_test_result(e,bv_cmd_copy_buffer(e,args,NULL),BV_LIMIT);
-    assert(command->uses==before && bv_test_copy_calls==0);
+    assert(command->deps==before && bv_test_copy_calls==0);
   }
   bv_test_alloc_fail=0;bv_test_realloc_at=0;bv_test_realloc_fail=1;
   Term copy_oom[]={term_pak(CID(CommandBuffer),command->id),term_pak(CID(Buffer),src->id),term_pak(CID(Buffer),dst->id),bv_test_regions(e,0,0,1)};
   bv_test_result(e,bv_cmd_copy_buffer(e,copy_oom,NULL),BV_LIMIT);
-  assert(command->uses==before && bv_test_copy_calls==0);bv_test_realloc_fail=0;
+  assert(command->deps==before && bv_test_copy_calls==0);bv_test_realloc_fail=0;
   PFN_vkCmdPipelineBarrier barrier=device->CmdPipelineBarrier;device->CmdPipelineBarrier=bv_test_barrier;
   for (unsigned fail=1;fail<=3;fail++) {
     bv_test_realloc_at=0;bv_test_realloc_fail=fail;
@@ -66,27 +66,27 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
       io_node(e,CID(Con),bv_node(e,CID(MemoryBarrier),2,mf),term_pak(CID(Nil),0)),
       io_node(e,CID(Con),bv_node(e,CID(BufferMemoryBarrier),7,bf),term_pak(CID(Nil),0))};
     bv_test_result(e,bv_cmd_pipeline_barrier(e,args,NULL),BV_LIMIT);
-    assert(command->uses==before && bv_test_barrier_calls==0);
+    assert(command->deps==before && bv_test_barrier_calls==0);
   }
   bv_test_realloc_fail=0;device->CmdPipelineBarrier=barrier;device->CmdCopyBuffer=copy;
   PFN_vkMapMemory map=device->MapMemory;PFN_vkFlushMappedMemoryRanges flush=device->FlushMappedMemoryRanges;
   uint8_t saved[64];void* mapped=NULL;
-  assert(bv_map(owner,src->bound,&mapped)==VK_SUCCESS);memcpy(saved,mapped,sizeof(saved));
-  device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)src->bound->handle);
+  assert(bv_map(owner,bv_bound_memory(src),&mapped)==VK_SUCCESS);memcpy(saved,mapped,sizeof(saved));
+  device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)bv_bound_memory(src)->handle);
   device->MapMemory=bv_test_map_error;
-  bv_test_upload_result(e,owner,src->bound,false,(uint32_t)VK_ERROR_MEMORY_MAP_FAILED);
-  bv_test_upload_result(e,owner,src->bound,true,(uint32_t)VK_ERROR_MEMORY_MAP_FAILED);
+  bv_test_upload_result(e,owner,bv_bound_memory(src),false,(uint32_t)VK_ERROR_MEMORY_MAP_FAILED);
+  bv_test_upload_result(e,owner,bv_bound_memory(src),true,(uint32_t)VK_ERROR_MEMORY_MAP_FAILED);
   device->MapMemory=map;device->FlushMappedMemoryRanges=bv_test_flush_error;
-  uint32_t flags=src->bound->flags;src->bound->flags &= ~VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-  bv_test_upload_result(e,owner,src->bound,false,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
-  src->bound->flags=flags;device->FlushMappedMemoryRanges=flush;
-  bv_test_upload_result(e,owner,src->bound,true,0);
-  assert(bv_map(owner,src->bound,&mapped)==VK_SUCCESS);memcpy(mapped,saved,sizeof(saved));
+  uint32_t flags=bv_bound_memory(src)->flags;bv_bound_memory(src)->flags &= ~VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+  bv_test_upload_result(e,owner,bv_bound_memory(src),false,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
+  bv_bound_memory(src)->flags=flags;device->FlushMappedMemoryRanges=flush;
+  bv_test_upload_result(e,owner,bv_bound_memory(src),true,0);
+  assert(bv_map(owner,bv_bound_memory(src),&mapped)==VK_SUCCESS);memcpy(mapped,saved,sizeof(saved));
   if (!(flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
-    VkMappedMemoryRange range={.sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,.memory=(VkDeviceMemory)(uintptr_t)src->bound->handle,.size=VK_WHOLE_SIZE};
+    VkMappedMemoryRange range={.sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,.memory=(VkDeviceMemory)(uintptr_t)bv_bound_memory(src)->handle,.size=VK_WHOLE_SIZE};
     assert(flush(device->handle,1,&range)==VK_SUCCESS);
   }
-  device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)src->bound->handle);
+  device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)bv_bound_memory(src)->handle);
   puts("Injected metadata/map/flush checks and packed/Term array ownership passed");
 }
 /* CAPABILITY PROBES */
@@ -97,7 +97,7 @@ static Term bv_test_copy_buffer(Env e,Term* f,IoWork* w) {
     ran=1;BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);BvRow* src=bv_get(bv_key(e,f[1]),BV_BUFFER);
     BvRow* dst=NULL;
     for (BvRow* r=bv_rows;r;r=r->next)
-      if (r->kind==BV_BUFFER && r->parent==src->parent && r->bound && r->bound!=src->bound) {dst=r;break;}
+      if (r->kind==BV_BUFFER && r->parent==src->parent && bv_bound_memory(r) && bv_bound_memory(r)!=bv_bound_memory(src)) {dst=r;break;}
     assert(dst);bv_test_unit2(e,command,src,dst);bv_test_capabilities(e,src->parent);bv_test_unit3(e,command,src,dst);
   }
   return bv_cmd_copy_buffer(e,f,w);

@@ -40,6 +40,8 @@ def main():
     rejected = run("bend", "tests/array_rejection.bend", text=True, capture_output=True, timeout=60)
     if "Interpreted array ownership rejection passed" not in rejected.stdout:
         raise SystemExit("Interpreted array ownership probe omitted its success marker")
+    run("bend", "tests/image_abi.bend", "-o", str(BUILD / "image-abi"))
+    run(str(BUILD / "image-abi"), timeout=60)
     discovery_output = ""
     for source, name, expected in (
         ("examples/discover.bend", "discover", "Loader API version bits:"),

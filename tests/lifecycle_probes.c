@@ -119,49 +119,49 @@ static void bv_test_loss_scope(Env e) {
 static void bv_test_unit3(Env e,BvRow* recording,BvRow* src,BvRow* dst) {
   BvRow* owner=bv_command_device(recording);BvDevice* device=owner->context;
   BvRow* pool=bv_test_pool(e,owner);BvRow* command=bv_test_command(e,owner,pool);BvRow* fence=bv_test_fence(e,owner);
-  bv_test_record(e,command,src,dst);BvUse* refs=command->uses;assert(refs && refs->next && !refs->next->next);
+  bv_test_record(e,command,src,dst);BvDep* refs=command->deps;assert(refs && refs->next && !refs->next->next);
   PFN_vkQueueSubmit submit=device->QueueSubmit;PFN_vkWaitForFences wait=device->WaitForFences;PFN_vkDeviceWaitIdle idle=device->DeviceWaitIdle;
   PFN_vkResetCommandBuffer reset=device->ResetCommandBuffer;
   device->QueueSubmit=bv_test_submit;device->WaitForFences=bv_test_wait;
   VkResult oom[]={VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY};
   for (unsigned j=0;j<2;j++) {
     bv_test_submit_result=oom[j];bv_test_submit_call(e,owner,command,fence,(uint32_t)oom[j]);
-    assert(command->command.phase==BV_EXECUTABLE && !bv_active(owner,NULL) && command->uses==refs && !bv_test_wait_calls);
+    assert(command->command.phase==BV_EXECUTABLE && !bv_active(owner,NULL) && command->deps==refs && !bv_test_wait_calls);
   }
   bv_test_submit_result=VK_ERROR_UNKNOWN;bv_test_submit_call(e,owner,command,fence,(uint32_t)VK_ERROR_UNKNOWN);
-  assert(command->command.phase==BV_UNCERTAIN && bv_memory_busy(src->bound));
+  assert(command->command.phase==BV_UNCERTAIN && bv_memory_busy(bv_bound_memory(src)));
   Term waitargs[]={bv_test_handle(fence),bv_words(e,0)};bv_test_result(e,bv_fence_wait(e,waitargs,NULL),BV_LIFETIME);
   bv_test_one(e,bv_fence_status,fence,BV_LIFETIME);assert(!bv_test_wait_calls);
   device->DeviceWaitIdle=bv_test_idle_error;bv_test_idle_result=VK_ERROR_OUT_OF_HOST_MEMORY;
   bv_test_one(e,bv_device_wait_idle,owner,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
   BvRow* entry=owner->parent->parent;bv_test_one(e,bv_entry_close,entry,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
-  assert(bv_get(entry->id,BV_ENTRY)==entry && bv_active(owner,fence)==command && command->uses==refs);
+  assert(bv_get(entry->id,BV_ENTRY)==entry && bv_active(owner,fence)==command && command->deps==refs);
   device->DeviceWaitIdle=idle;bv_test_one(e,bv_device_wait_idle,owner,0);
-  assert(command->command.phase==BV_COMMAND_INVALID && !bv_memory_busy(src->bound) && command->uses==refs);
+  assert(command->command.phase==BV_COMMAND_INVALID && !bv_memory_busy(bv_bound_memory(src)) && command->deps==refs);
   device->ResetCommandBuffer=bv_test_reset_error;bv_test_one(e,bv_reset_command_buffer,command,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
-  assert(command->command.phase==BV_COMMAND_INVALID && command->uses==refs && bv_referenced(src));
-  device->ResetCommandBuffer=reset;bv_test_one(e,bv_reset_command_buffer,command,0);assert(!command->uses);
+  assert(command->command.phase==BV_COMMAND_INVALID && command->deps==refs && bv_referenced(src));
+  device->ResetCommandBuffer=reset;bv_test_one(e,bv_reset_command_buffer,command,0);assert(!command->deps);
   PFN_vkBeginCommandBuffer begin=device->BeginCommandBuffer;device->BeginCommandBuffer=bv_test_begin_error;
   bv_test_one(e,bv_begin_command_buffer,command,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(command->command.phase==BV_COMMAND_INVALID);
   device->BeginCommandBuffer=begin;bv_test_one(e,bv_reset_command_buffer,command,0);
   bv_test_one(e,bv_begin_command_buffer,command,0);
   Term copy[]={bv_test_handle(command),bv_test_handle(src),bv_test_handle(dst),bv_test_regions(e,0,0,1)};bv_test_result(e,bv_cmd_copy_buffer(e,copy,NULL),0);
   PFN_vkEndCommandBuffer end=device->EndCommandBuffer;device->EndCommandBuffer=bv_test_end_error;
-  bv_test_one(e,bv_end_command_buffer,command,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(command->uses);
+  bv_test_one(e,bv_end_command_buffer,command,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);assert(command->deps);
   device->EndCommandBuffer=end;bv_test_one(e,bv_reset_command_buffer,command,0);
-  bv_test_record(e,command,src,dst);refs=command->uses;
+  bv_test_record(e,command,src,dst);refs=command->deps;
   bv_test_submit_result=VK_SUCCESS;bv_test_submit_call(e,owner,command,fence,0);bv_test_wait_result=VK_TIMEOUT;
   uint64_t timeouts[]={0,UINT64_C(1)<<32,UINT64_MAX};
   for (unsigned j=0;j<3;j++) {
     Term args[]={bv_test_handle(fence),bv_words(e,timeouts[j])};bv_test_status(e,bv_fence_wait(e,args,NULL),VK_TIMEOUT);
-    assert(bv_test_timeout==timeouts[j] && command->command.phase==BV_PENDING && bv_memory_busy(src->bound));
+    assert(bv_test_timeout==timeouts[j] && command->command.phase==BV_PENDING && bv_memory_busy(bv_bound_memory(src)));
   }
   bv_test_wait_result=VK_ERROR_OUT_OF_HOST_MEMORY;
   Term badwait[]={bv_test_handle(fence),bv_words(e,5)};bv_test_result(e,bv_fence_wait(e,badwait,NULL),(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
-  assert(command->uses==refs && bv_active(owner,fence)==command);
+  assert(command->deps==refs && bv_active(owner,fence)==command);
   bv_test_wait_result=VK_SUCCESS;
   Term goodwait[]={bv_test_handle(fence),bv_words(e,5)};bv_test_status(e,bv_fence_wait(e,goodwait,NULL),VK_SUCCESS);
-  assert(command->command.phase==BV_COMPLETED && command->uses==refs && !bv_memory_busy(src->bound));
+  assert(command->command.phase==BV_COMPLETED && command->deps==refs && !bv_memory_busy(bv_bound_memory(src)));
   bv_test_one(e,bv_reset_command_buffer,command,0);bv_test_record(e,command,src,dst);bv_test_submit_call(e,owner,command,fence,0);
   PFN_vkGetFenceStatus status=device->GetFenceStatus;device->GetFenceStatus=bv_test_status_success;
   bv_test_status(e,bv_fence_status(e,(Term[]){bv_test_handle(fence)},NULL),0);assert(command->command.phase==BV_COMPLETED);

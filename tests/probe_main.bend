@@ -8,6 +8,7 @@ import ./images.bend as Images
 import ./offscreen.bend as Offscreen
 import ./rendering.bend as Rendering
 import ./graphics_resources.bend as Graphics
+import ../examples/indexed_offscreen.bend as Indexed
 import ./image_repeated.bend as ImageRepeated
 import ./image_formats.bend as ImageFormats
 import ../examples/buffer_roundtrip.bend as Demo
@@ -34,6 +35,8 @@ def main() -> IO(Unit):
     V.or_exit(Unit,image_formats)
     graphics : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Graphics.run(entry))
     V.or_exit(Unit,graphics)
+    indexed : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Indexed.run(entry))
+    V.or_exit(Unit,indexed)
     live : V.VkResult(U32) <- V.debug_live_objects()
     count : U32 <- V.or_exit(U32,live)
     checked : V.VkResult(Unit) <- Demo.require(U32.is_eq(count,0),"Controlled scope leaked")

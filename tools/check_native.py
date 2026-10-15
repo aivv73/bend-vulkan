@@ -61,6 +61,9 @@ def build(sanitize=False):
     emitted, graphics = re.subn(r"(io_eff\(CID_\w+, )bv_create_graphics_pipeline(\);)", r"\1test_create_graphics_pipeline\2", emitted)
     if graphics != 1:
         raise ValueError("Graphics pipeline probe registration moved")
+    emitted, bindings = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_bind_graphics_pipeline(\);)", r"\1test_bind_graphics_pipeline\2", emitted)
+    if bindings != 1:
+        raise ValueError("Graphics binding probe registration moved")
     emitted, live = re.subn(r"(io_eff\(CID_\w+, )bv_live_objects(\);)", r"\1test_live_objects\2", emitted)
     if live != 1:
         raise ValueError("Registry cleanup probe registration moved")
@@ -82,6 +85,7 @@ def build(sanitize=False):
                    "Controlled image graph idle-error retry",
                    "Real disjoint buffer/optimal-image suballocation",
                    "Controlled graphics creation allocation-before-dispatch",
+                   "Controlled graphics readiness, signed extremes",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

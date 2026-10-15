@@ -22,8 +22,15 @@ typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN
 typedef enum { BV_OUTSIDE, BV_INSIDE } BvRenderTag;
 typedef struct { BvRenderTag tag; union { struct { BvRow* framebuffer; } inside; } data; } BvRenderScope;
 typedef struct {
+  BvRenderScope scope;
+  BvRow* pipeline;
+  uint64_t vertices_ready,index_remaining;
+  uint32_t index_width;
+  bool index_ready,viewport_ready,scissor_ready,push_ready;
+} BvRecording;
+typedef struct {
   BvCommandPhase phase;
-  union { struct { BvRenderScope scope; } recording; struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
+  union { BvRecording recording; struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
 } BvCommand;
 typedef enum { BV_CALLER, BV_CONVENIENCE_PRIVATE } BvFenceLifetime;
 typedef struct { BvFenceLifetime lifetime; } BvFence;
@@ -91,6 +98,8 @@ typedef struct {
   X(CmdBeginRenderPass) X(CmdEndRenderPass) \
   X(CreateShaderModule) X(DestroyShaderModule) X(CreatePipelineLayout) X(DestroyPipelineLayout) \
   X(CreateGraphicsPipelines) X(DestroyPipeline) \
+  X(CmdBindPipeline) X(CmdSetViewport) X(CmdSetScissor) X(CmdBindVertexBuffers) \
+  X(CmdBindIndexBuffer) X(CmdPushConstants) X(CmdDrawIndexed) \
   X(AllocateMemory) X(FreeMemory) X(BindBufferMemory) X(MapMemory) X(UnmapMemory) \
   X(FlushMappedMemoryRanges) X(InvalidateMappedMemoryRanges) \
   X(CreateCommandPool) X(DestroyCommandPool) X(AllocateCommandBuffers) \
@@ -1202,7 +1211,7 @@ static Term bv_cmd_end_render_pass(Env e,Term* f,IoWork* w) {
 }
 #endif
 
-#ifdef CID(Device.create_shader_module)
+#if defined(CID(Device.create_shader_module)) || defined(CID(CommandBuffer.push_constants))
 typedef struct { uint32_t* data,count,code; } BvWordList;
 static BvWordList bv_word_list(Env e,Term list,uint32_t limit) {
   BvWordList words={0};uint32_t capacity=0;
@@ -1352,6 +1361,119 @@ static Term bv_destroy_pipeline_layout(Env e,Term* f,IoWork* w) {return bv_destr
 #endif
 #ifdef CID(Device.destroy_graphics_pipeline)
 static Term bv_destroy_graphics_pipeline(Env e,Term* f,IoWork* w) {return bv_destroy_graphics_resource(e,f,BV_PIPELINE);}
+#endif
+
+static uint32_t bv_graphics_recording(BvRow* command) {
+  if (!command) return BV_INVALID;
+  BvRow* owner=bv_command_device(command);BvDevice* d=owner->context;
+  if (bv_lost(owner)) return (uint32_t)VK_ERROR_DEVICE_LOST;
+  if (command->command.phase!=BV_RECORDING) return BV_LIFETIME;
+  return d->queue_flags&VK_QUEUE_GRAPHICS_BIT ? 0 : BV_ARGUMENT;
+}
+#ifdef CID(CommandBuffer.bind_graphics_pipeline)
+static Term bv_cmd_bind_graphics_pipeline(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* pipeline=bv_child(bv_key(e,f[1]),BV_PIPELINE,owner);uint32_t code=bv_graphics_recording(command);
+  if (!code && !pipeline) code=BV_INVALID;
+  if (!code && !bv_prepare_refs(command,1,&pipeline)) code=BV_LIMIT;
+  if (code) return io_fail(e,code,"bind pipeline owner, recording or reference allocation");
+  BvDevice* d=owner->context;d->CmdBindPipeline((VkCommandBuffer)(uintptr_t)command->handle,VK_PIPELINE_BIND_POINT_GRAPHICS,(VkPipeline)(uintptr_t)pipeline->handle);
+  BvRecording* r=&command->command.submission.recording;r->pipeline=pipeline;r->vertices_ready=0;
+  r->push_ready=!bv_dependency(pipeline,BV_DEP_PIPELINE_LAYOUT)->target->object.layout.bytes;return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.set_viewport)
+static Term bv_cmd_set_viewport(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);Term p[6];bv_unpack(e,f[1],6,p);uint32_t code=bv_graphics_recording(command);
+  VkViewport v={f32_unbox(p[0]),f32_unbox(p[1]),f32_unbox(p[2]),f32_unbox(p[3]),f32_unbox(p[4]),f32_unbox(p[5])};
+  for(unsigned j=0;j<6;j++) if(!isfinite(f32_unbox(p[j]))) code=code ? code : BV_ARGUMENT;
+  if (code) return io_fail(e,code,"viewport recording or finite values");
+  BvDevice* d=bv_command_device(command)->context;VkPhysicalDeviceLimits* l=&d->limits;
+  if (v.width<=0 || v.height<=0 || v.width>l->maxViewportDimensions[0] || v.height>l->maxViewportDimensions[1] ||
+      v.x<l->viewportBoundsRange[0] || v.y<l->viewportBoundsRange[0] || (double)v.x+v.width>l->viewportBoundsRange[1] ||
+      (double)v.y+v.height>l->viewportBoundsRange[1] || v.minDepth<0 || v.minDepth>1 || v.maxDepth<0 || v.maxDepth>1)
+    return io_fail(e,BV_ARGUMENT,"viewport dimensions, bounds or depth range");
+  d->CmdSetViewport((VkCommandBuffer)(uintptr_t)command->handle,0,1,&v);command->command.submission.recording.viewport_ready=true;return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.set_scissor)
+static Term bv_cmd_set_scissor(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);Term p[4];bv_unpack(e,f[1],4,p);uint32_t code=bv_graphics_recording(command);
+  if (!code && (p[0]>INT32_MAX || p[1]>INT32_MAX || p[2]>INT32_MAX-(uint32_t)p[0] || p[3]>INT32_MAX-(uint32_t)p[1])) code=BV_ARGUMENT;
+  if (code) return io_fail(e,code,"scissor recording, nonnegative offsets or signed extent overflow");
+  VkRect2D area={{p[0],p[1]},{p[2],p[3]}};BvDevice* d=bv_command_device(command)->context;
+  d->CmdSetScissor((VkCommandBuffer)(uintptr_t)command->handle,0,1,&area);command->command.submission.recording.scissor_ready=true;return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.bind_vertex_buffer)
+static Term bv_cmd_bind_vertex_buffer(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  uint32_t binding=f[1],code=bv_graphics_recording(command);BvRow* buffer=bv_child(bv_key(e,f[2]),BV_BUFFER,owner);uint64_t offset=bv_u64(e,f[3]);
+  if (!code && !buffer) code=BV_INVALID;
+  BvRecording* r=command ? &command->command.submission.recording : NULL;
+  if (!code && (!r->pipeline || !bv_bound_memory(buffer))) code=BV_LIFETIME;
+  uint32_t ordinal=0;
+  if (!code) {
+    BvPipeline* pipeline=&r->pipeline->object.pipeline;
+    while (ordinal<pipeline->count && pipeline->required[ordinal].binding!=binding) ordinal++;
+    if (ordinal==pipeline->count) code=BV_ARGUMENT;
+    else {
+      BvVertexRequirement* req=&pipeline->required[ordinal];
+      if (!(buffer->flags&VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) || offset>=buffer->size || offset%req->alignment || req->first_end>buffer->size-offset) code=BV_ARGUMENT;
+    }
+  }
+  if (!code && !bv_prepare_refs(command,1,&buffer)) code=BV_LIMIT;
+  if (code) return io_fail(e,code,"vertex binding owner, pipeline, memory, usage, alignment, first record or allocation");
+  BvDevice* d=owner->context;VkBuffer handle=(VkBuffer)(uintptr_t)buffer->handle;
+  d->CmdBindVertexBuffers((VkCommandBuffer)(uintptr_t)command->handle,binding,1,&handle,&offset);
+  r->vertices_ready|=UINT64_C(1)<<ordinal;return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.bind_index_buffer)
+static Term bv_cmd_bind_index_buffer(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* buffer=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);uint64_t offset=bv_u64(e,f[2]);uint32_t type=f[3],code=bv_graphics_recording(command);
+  if (!code && !buffer) code=BV_INVALID;
+  if (!code && !bv_bound_memory(buffer)) code=BV_LIFETIME;
+  uint32_t width=type==VK_INDEX_TYPE_UINT16 ? 2 : 4;
+  if (!code && (type>VK_INDEX_TYPE_UINT32 || !(buffer->flags&VK_BUFFER_USAGE_INDEX_BUFFER_BIT) || offset>=buffer->size || offset%width)) code=BV_ARGUMENT;
+  if (!code && !bv_prepare_refs(command,1,&buffer)) code=BV_LIMIT;
+  if (code) return io_fail(e,code,"index binding owner, memory, type, usage, alignment, range or allocation");
+  BvDevice* d=owner->context;d->CmdBindIndexBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,offset,type);
+  BvRecording* r=&command->command.submission.recording;r->index_ready=true;r->index_remaining=buffer->size-offset;r->index_width=width;return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.push_constants)
+static Term bv_cmd_push_constants(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);BvWordList words=bv_word_list(e,f[1],32);uint32_t code=bv_graphics_recording(command);
+  BvRecording* r=command ? &command->command.submission.recording : NULL;
+  if (!code && !r->pipeline) code=BV_LIFETIME;
+  BvRow* layout=!code ? bv_dependency(r->pipeline,BV_DEP_PIPELINE_LAYOUT)->target : NULL;
+  if (!code) code=words.code;
+  if (!code && (!layout->object.layout.bytes || words.count*4!=layout->object.layout.bytes)) code=BV_ARGUMENT;
+  if (!code) {
+    BvDevice* d=bv_command_device(command)->context;
+    d->CmdPushConstants((VkCommandBuffer)(uintptr_t)command->handle,(VkPipelineLayout)(uintptr_t)layout->handle,layout->object.layout.stages,0,layout->object.layout.bytes,words.data);
+    r->push_ready=true;
+  }
+  free(words.data);return code ? io_fail(e,code,"push constants require bound pipeline and complete declared word block") : bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.draw_indexed)
+static Term bv_cmd_draw_indexed(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);Term p[5];bv_unpack(e,f[1],5,p);uint32_t code=bv_graphics_recording(command);
+  if (code) return io_fail(e,code,"indexed draw requires graphics recording");
+  BvRecording* r=&command->command.submission.recording;
+  if (r->scope.tag!=BV_INSIDE || !r->pipeline || !r->index_ready || !r->viewport_ready || !r->scissor_ready || !r->push_ready)
+    return io_fail(e,BV_LIFETIME,"indexed draw requires pass, pipeline, index, dynamic state and complete pushes");
+  BvPipeline* pipeline=&r->pipeline->object.pipeline;
+  uint64_t mask=pipeline->count==64 ? UINT64_MAX : (UINT64_C(1)<<pipeline->count)-1;
+  if ((r->vertices_ready&mask)!=mask || bv_dependency(r->pipeline,BV_DEP_PIPELINE_PASS)->target!=bv_dependency(r->scope.data.inside.framebuffer,BV_DEP_FRAMEBUFFER_PASS)->target)
+    return io_fail(e,BV_LIFETIME,"indexed draw vertex readiness or exact pass identity");
+  if ((uint64_t)(uint32_t)p[2]+(uint32_t)p[0]>r->index_remaining/r->index_width) return io_fail(e,BV_ARGUMENT,"indexed draw index span");
+  uint32_t bits=p[3];int32_t base;memcpy(&base,&bits,sizeof(base));
+  BvDevice* d=bv_command_device(command)->context;d->CmdDrawIndexed((VkCommandBuffer)(uintptr_t)command->handle,p[0],p[1],p[2],base,p[4]);return bv_ok(e);
+}
 #endif
 
 // Map whole allocations so cache ranges satisfy nonCoherentAtomSize alignment.
@@ -1506,7 +1628,8 @@ static Term bv_begin_command_buffer(Env e, Term* f, IoWork* w) {
   BvDevice* device=bv_command_device(command)->context;
   VkCommandBufferBeginInfo info={.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
   VkResult result=device->BeginCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle,&info);
-  if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;return bv_device_error(e,bv_command_device(command),result,"vkBeginCommandBuffer");}
+  if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;memset(&command->command.submission,0,sizeof(command->command.submission));return bv_device_error(e,bv_command_device(command),result,"vkBeginCommandBuffer");}
+  memset(&command->command.submission,0,sizeof(command->command.submission));
   command->command.phase=BV_RECORDING;command->command.submission.recording.scope=(BvRenderScope){.tag=BV_OUTSIDE};return bv_ok(e);
 }
 #endif
@@ -1782,8 +1905,8 @@ static Term bv_end_command_buffer(Env e, Term* f, IoWork* w) {
   if (!bv_outside(command)) return io_fail(e,BV_LIFETIME,"command buffer is not recording");
   BvDevice* device=bv_command_device(command)->context;
   VkResult result=device->EndCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle);
-  if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;return bv_device_error(e,bv_command_device(command),result,"vkEndCommandBuffer");}
-  command->command.phase=BV_EXECUTABLE;return bv_ok(e);
+  if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;memset(&command->command.submission,0,sizeof(command->command.submission));return bv_device_error(e,bv_command_device(command),result,"vkEndCommandBuffer");}
+  command->command.phase=BV_EXECUTABLE;memset(&command->command.submission,0,sizeof(command->command.submission));return bv_ok(e);
 }
 #endif
 static uint32_t bv_new_fence(BvRow* owner,int signaled,BvFenceLifetime lifetime,BvRow** out,VkResult* status) {
@@ -1806,8 +1929,10 @@ static Term bv_submit_core(Env e,BvRow* owner,BvRow* command,BvRow* fence) {
   VkSubmitInfo submit={.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO,.commandBufferCount=1,.pCommandBuffers=&handle};
   result=bv_device_result(owner,device->QueueSubmit(device->queue,1,&submit,(VkFence)(uintptr_t)fence->handle));
   if (result==VK_SUCCESS) {
+    memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_PENDING;command->command.submission.pending.fence=fence;
   } else if (result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST) {
+    memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_UNCERTAIN;command->command.submission.uncertain.fence=fence;
   }
   return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkQueueSubmit");
@@ -2133,6 +2258,27 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(Device.destroy_graphics_pipeline)
   io_eff(CID(Device.destroy_graphics_pipeline), bv_destroy_graphics_pipeline);
+#endif
+#ifdef CID(CommandBuffer.bind_graphics_pipeline)
+  io_eff(CID(CommandBuffer.bind_graphics_pipeline), bv_cmd_bind_graphics_pipeline);
+#endif
+#ifdef CID(CommandBuffer.set_viewport)
+  io_eff(CID(CommandBuffer.set_viewport), bv_cmd_set_viewport);
+#endif
+#ifdef CID(CommandBuffer.set_scissor)
+  io_eff(CID(CommandBuffer.set_scissor), bv_cmd_set_scissor);
+#endif
+#ifdef CID(CommandBuffer.bind_vertex_buffer)
+  io_eff(CID(CommandBuffer.bind_vertex_buffer), bv_cmd_bind_vertex_buffer);
+#endif
+#ifdef CID(CommandBuffer.bind_index_buffer)
+  io_eff(CID(CommandBuffer.bind_index_buffer), bv_cmd_bind_index_buffer);
+#endif
+#ifdef CID(CommandBuffer.push_constants)
+  io_eff(CID(CommandBuffer.push_constants), bv_cmd_push_constants);
+#endif
+#ifdef CID(CommandBuffer.draw_indexed)
+  io_eff(CID(CommandBuffer.draw_indexed), bv_cmd_draw_indexed);
 #endif
 // END GENERATED REGISTRATIONS
 }

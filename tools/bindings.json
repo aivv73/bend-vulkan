@@ -66,5 +66,12 @@
   ["Device.create_pipeline_layout", [["device", "Device"], ["info", "PipelineLayoutCreateInfo"]], "PipelineLayout", "create_pipeline_layout"],
   ["Device.destroy_pipeline_layout", [["device", "Device"], ["layout", "PipelineLayout"]], "Unit", "destroy_pipeline_layout"],
   ["Device.create_graphics_pipeline", [["device", "Device"], ["info", "GraphicsPipelineCreateInfo"]], "GraphicsPipeline", "create_graphics_pipeline"],
-  ["Device.destroy_graphics_pipeline", [["device", "Device"], ["pipeline", "GraphicsPipeline"]], "Unit", "destroy_graphics_pipeline"]
+  ["Device.destroy_graphics_pipeline", [["device", "Device"], ["pipeline", "GraphicsPipeline"]], "Unit", "destroy_graphics_pipeline"],
+  ["CommandBuffer.bind_graphics_pipeline", [["command", "CommandBuffer"], ["pipeline", "GraphicsPipeline"]], "Unit", "cmd_bind_graphics_pipeline"],
+  ["CommandBuffer.set_viewport", [["command", "CommandBuffer"], ["viewport", "Viewport"]], "Unit", "cmd_set_viewport"],
+  ["CommandBuffer.set_scissor", [["command", "CommandBuffer"], ["area", "RenderArea"]], "Unit", "cmd_set_scissor"],
+  ["CommandBuffer.bind_vertex_buffer", [["command", "CommandBuffer"], ["binding", "U32"], ["buffer", "Buffer"], ["offset", "W.U64"]], "Unit", "cmd_bind_vertex_buffer"],
+  ["CommandBuffer.bind_index_buffer", [["command", "CommandBuffer"], ["buffer", "Buffer"], ["offset", "W.U64"], ["index_type", "U32"]], "Unit", "cmd_bind_index_buffer"],
+  ["CommandBuffer.push_constants", [["command", "CommandBuffer"], ["words", "List<U32>"]], "Unit", "cmd_push_constants"],
+  ["CommandBuffer.draw_indexed", [["command", "CommandBuffer"], ["draw", "IndexedDraw"]], "Unit", "cmd_draw_indexed"]
 ]

@@ -438,6 +438,34 @@ def Device.create_graphics_pipeline(device: Device, info: GraphicsPipelineCreate
 def Device.destroy_graphics_pipeline(device: Device, pipeline: GraphicsPipeline) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
+
+def CommandBuffer.bind_graphics_pipeline(command: CommandBuffer, pipeline: GraphicsPipeline) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.set_viewport(command: CommandBuffer, viewport: Viewport) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.set_scissor(command: CommandBuffer, area: RenderArea) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.bind_vertex_buffer(command: CommandBuffer, binding: U32, buffer: Buffer, offset: W.U64) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.bind_index_buffer(command: CommandBuffer, buffer: Buffer, offset: W.U64, index_type: U32) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.push_constants(command: CommandBuffer, words: List<U32>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.draw_indexed(command: CommandBuffer, draw: IndexedDraw) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
 # END GENERATED EFFECTS
 
 def requirements_from_words(words: (U32 & U32) & ((U32 & U32) & U32)) -> MemoryRequirements:

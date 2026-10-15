@@ -5,6 +5,15 @@ static void* bv_test_alloc(size_t size) {
   if (++bv_test_alloc_at==bv_test_alloc_fail) return NULL;
   return malloc(size);
 }
+static unsigned bv_test_realloc_at,bv_test_realloc_fail;
+static void* bv_test_realloc(void* pointer,size_t size) {
+  if (++bv_test_realloc_at==bv_test_realloc_fail) return NULL;
+  return realloc(pointer,size);
+}
+static unsigned bv_test_barrier_calls;
+static VKAPI_ATTR void VKAPI_CALL bv_test_barrier(VkCommandBuffer c,VkPipelineStageFlags a,VkPipelineStageFlags b,VkDependencyFlags f,uint32_t nm,const VkMemoryBarrier* m,uint32_t nb,const VkBufferMemoryBarrier* buffers,uint32_t ni,const VkImageMemoryBarrier* images) {
+  bv_test_barrier_calls++;
+}
 static unsigned bv_test_copy_calls;
 static VKAPI_ATTR void VKAPI_CALL bv_test_copy(VkCommandBuffer c,VkBuffer a,VkBuffer b,uint32_t n,const VkBufferCopy* r) {
   bv_test_copy_calls++;
@@ -27,12 +36,12 @@ static Term bv_test_regions(Env e,uint64_t a,uint64_t b,uint64_t n) {
 }
 static void bv_test_upload_result(Env e,BvRow* owner,BvRow* memory,bool terms,uint32_t expected) {
   Term values[]={16909060,134678021,202050057,269422093};
-  Term array=blk_new(e,terms,0,2,4,values);
+  Term array=term_keep(e,blk_new(e,terms,0,2,4,values),1);
   Term args[]={term_pak(CID(Device),owner->id),term_pak(CID(DeviceMemory),memory->id),bv_words(e,0),bv_words(e,7),array};
   Term returned=bv_write_memory_words(e,args,NULL),pair[2];bv_unpack(e,returned,2,pair);
   assert(pair[0]==array);
   for (uint32_t j=0;j<4;j++) assert(blk_read(e.mem,terms,blk_loc(e.mem,pair[0]),j)==values[j]);
-  bv_test_result(e,pair[1],expected);term_sink(e,pair[0]);
+  bv_test_result(e,pair[1],expected);term_sink(e,pair[0]);term_sink(e,array);
 }
 static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
   BvRow* owner=bv_command_device(command);BvDevice* device=owner->context;
@@ -44,7 +53,22 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
     bv_test_result(e,bv_cmd_copy_buffer(e,args,NULL),BV_LIMIT);
     assert(command->uses==before && bv_test_copy_calls==0);
   }
-  bv_test_alloc_fail=0;device->CmdCopyBuffer=copy;
+  bv_test_alloc_fail=0;bv_test_realloc_at=0;bv_test_realloc_fail=1;
+  Term copy_oom[]={term_pak(CID(CommandBuffer),command->id),term_pak(CID(Buffer),src->id),term_pak(CID(Buffer),dst->id),bv_test_regions(e,0,0,1)};
+  bv_test_result(e,bv_cmd_copy_buffer(e,copy_oom,NULL),BV_LIMIT);
+  assert(command->uses==before && bv_test_copy_calls==0);bv_test_realloc_fail=0;
+  PFN_vkCmdPipelineBarrier barrier=device->CmdPipelineBarrier;device->CmdPipelineBarrier=bv_test_barrier;
+  for (unsigned fail=1;fail<=3;fail++) {
+    bv_test_realloc_at=0;bv_test_realloc_fail=fail;
+    Term mf[]={VK_ACCESS_TRANSFER_WRITE_BIT,VK_ACCESS_TRANSFER_READ_BIT};
+    Term bf[]={src->id,0,0,1,0,VK_ACCESS_TRANSFER_WRITE_BIT,VK_ACCESS_TRANSFER_READ_BIT};
+    Term args[]={term_pak(CID(CommandBuffer),command->id),VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,
+      io_node(e,CID(Con),bv_node(e,CID(MemoryBarrier),2,mf),term_pak(CID(Nil),0)),
+      io_node(e,CID(Con),bv_node(e,CID(BufferMemoryBarrier),7,bf),term_pak(CID(Nil),0))};
+    bv_test_result(e,bv_cmd_pipeline_barrier(e,args,NULL),BV_LIMIT);
+    assert(command->uses==before && bv_test_barrier_calls==0);
+  }
+  bv_test_realloc_fail=0;device->CmdPipelineBarrier=barrier;device->CmdCopyBuffer=copy;
   PFN_vkMapMemory map=device->MapMemory;PFN_vkFlushMappedMemoryRanges flush=device->FlushMappedMemoryRanges;
   uint8_t saved[64];void* mapped=NULL;
   assert(bv_map(owner,src->bound,&mapped)==VK_SUCCESS);memcpy(saved,mapped,sizeof(saved));
@@ -65,6 +89,7 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
   device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)src->bound->handle);
   puts("Injected metadata/map/flush checks and packed/Term array ownership passed");
 }
+/* LIFECYCLE PROBES */
 static Term bv_test_copy_buffer(Env e,Term* f,IoWork* w) {
   static int ran;
   if (!ran) {
@@ -72,7 +97,7 @@ static Term bv_test_copy_buffer(Env e,Term* f,IoWork* w) {
     BvRow* dst=NULL;
     for (BvRow* r=bv_rows;r;r=r->next)
       if (r->kind==BV_BUFFER && r->parent==src->parent && r->bound && r->bound!=src->bound) {dst=r;break;}
-    assert(dst);bv_test_unit2(e,command,src,dst);
+    assert(dst);bv_test_unit2(e,command,src,dst);bv_test_unit3(e,command,src,dst);
   }
   return bv_cmd_copy_buffer(e,f,w);
 }

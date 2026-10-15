@@ -30,5 +30,12 @@
   ["CommandBuffer.end", [["command", "CommandBuffer"]], "Unit", "end_command_buffer"],
   ["Device.submit_and_wait", [["device", "Device"], ["command", "CommandBuffer"]], "Unit", "submit_and_wait"],
   ["debug_live_objects", [], "U32", "live_objects"],
-  ["debug_u64_roundtrip", [["value", "W.U64"]], "(U32 & U32)", "u64_roundtrip"]
+  ["debug_u64_roundtrip", [["value", "W.U64"]], "(U32 & U32)", "u64_roundtrip"],
+  ["Device.create_fence", [["device", "Device"], ["signaled", "Bool"]], "Fence", "create_fence"],
+  ["Device.destroy_fence", [["device", "Device"], ["fence", "Fence"]], "Unit", "destroy_fence"],
+  ["Device.submit", [["device", "Device"], ["command", "CommandBuffer"], ["fence", "Fence"]], "Unit", "submit"],
+  ["Fence.status", [["fence", "Fence"]], "U32", "fence_status"],
+  ["Fence.wait", [["fence", "Fence"], ["timeout_ns", "W.U64"]], "U32", "fence_wait"],
+  ["Fence.reset", [["fence", "Fence"]], "Unit", "fence_reset"],
+  ["CommandBuffer.reset", [["command", "CommandBuffer"]], "Unit", "reset_command_buffer"]
 ]

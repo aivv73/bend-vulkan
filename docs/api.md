@@ -85,25 +85,48 @@ Handle keys are checked process-local identifiers. They provide no raw Vulkan ha
 | `CommandBuffer.copy_buffer(command, src, dst, regions)` | Record nonempty byte ranges from `List<BufferCopy>` |
 | `CommandBuffer.pipeline_barrier(command, src_stage, dst_stage, memory, buffers)` | Record explicit memory and buffer barriers |
 | `CommandBuffer.end(command)` | End recording |
-| `Device.submit_and_wait(device, command)` | Queue submission followed by `vkQueueWaitIdle` |
+| `Device.create_fence(device, signaled)` | A caller-owned fence |
+| `Device.submit(device, command, fence)` | Submit one executable command with an unsignaled same-device fence |
+| `Fence.status(fence)` | U32 `VK_SUCCESS` or `VK_NOT_READY` |
+| `Fence.wait(fence, timeout_ns)` | U32 `VK_SUCCESS` or `VK_TIMEOUT`, with a full U64 nanosecond timeout |
+| `Fence.reset(fence)` | Reset an unassociated fence |
+| `Device.destroy_fence(device, fence)` | Destroy an unassociated caller-owned fence |
+| `CommandBuffer.reset(command)` | Reset a nonpending command and release recorded references after success |
+| `Device.submit_and_wait(device, command)` | The same submission/completion core with a persistent private fence and infinite wait |
 | `Device.destroy_command_pool(device, pool)` | Pool teardown and invalidation of its command buffers |
 
-Command buffers are one-shot. They progress through initial, recording, executable, and submitted states.
-Failed recording moves a command buffer to an invalid state. Destroy its pool to release it.
-A fill requires bound memory, `VK_BUFFER_USAGE_TRANSFER_DST_BIT`, four-byte alignment, and a nonempty valid range.
-Recorded resource references are deduplicated and remain live until their command pool is destroyed.
-Barrier arguments and all new reference nodes are validated and allocated before recording.
-Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both queue-family indices.
-Stage and access masks accept supported core Vulkan 1.0 bits. Geometry and tessellation stages require unavailable optional features.
-`ALL_COMMANDS` excludes host access. The fill caller records its transfer-to-host barrier explicitly.
-Copies require bound buffers, source/destination transfer usages, and positive in-bounds ranges.
-They reject overlapping destinations and physical source/destination overlap across every region, including buffers bound to the same allocation.
-Byte copies impose no four-byte alignment rule.
-The selected queue family must support transfer commands. The examples use a graphics queue.
-The API has no asynchronous submission, command reset, individual command-buffer free, or semaphore operations.
-If submission or a queue wait fails without device loss, memory copies, resource destruction, and further submissions require a successful `Device.wait_idle` first.
+`begin` records with `ONE_TIME_SUBMIT`. Commands have Initial, Recording, Executable, Pending, Uncertain, Completed, and Invalid states.
+Only Initial commands can begin. Successful individual reset returns a command to Initial, including during recording.
+Observed completion makes a one-time command Completed. Reset and re-record before submitting it again.
+A failed driver reset makes the command Invalid and retains its references.
+Pools enable `RESET_COMMAND_BUFFER`. Whole-pool reset and individual command free are absent.
 
-`Entry.close` waits for devices, destroys pools and buffers, frees allocations, destroys devices and instances, and unloads the library.
+A fill requires bound memory, `VK_BUFFER_USAGE_TRANSFER_DST_BIT`, four-byte alignment, and a nonempty valid range.
+Copies require bound buffers, source/destination transfer usages, and positive in-bounds ranges.
+They reject overlapping destinations and physical source/destination overlap across every region, including distinct buffers sharing an allocation.
+Byte copies impose no four-byte alignment rule.
+Recorded references are deduplicated and survive completion and recording/reset failures.
+Successful command reset or pool destruction releases them. Referenced buffers cannot be destroyed before that release.
+
+Barrier arguments and every new reference node are validated and allocated before recording.
+Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both family indices. Ownership transfers are absent.
+Stage/access validation accepts supported core Vulkan 1.0 bits. Optional geometry and tessellation features remain disabled.
+`ALL_COMMANDS` excludes HOST. The fill caller records its transfer-to-host barrier explicitly.
+The selected queue must support transfers. There is one selected queue and at most one Pending or Uncertain command per device.
+
+Pending/Uncertain commands reject command reset, affected pool destruction, associated fence reset/destruction, and further submission.
+Protection remains deterministic until a caller observes completion, even if the GPU has already finished.
+Host access rejects entire allocations reached through active references and buffer bindings, including aliases.
+Unrelated allocations remain usable. No destructor or mapping operation polls for completion.
+
+Fence SUCCESS and successful device idle complete Pending work. TIMEOUT, NOT_READY, and ordinary wait errors preserve protection.
+Known submission OOM leaves command and fence unchanged. Other submit errors enter Uncertain.
+Uncertain fence status/wait rejects with `BV_LIFETIME`. Successful idle recovery makes that command Invalid without claiming execution succeeded.
+Device loss is sticky, returns exact `VK_ERROR_DEVICE_LOST` bits, invalidates commands, detaches associations, and permits ordered destruction.
+The convenience fence is private, lazily allocated once per device, and destroyed at device teardown.
+Fabricated public fence keys cannot reset, destroy, or submit that private fence.
+
+`Entry.close` waits for devices, destroys pools, fences, and buffers, frees allocations, destroys devices and instances, and unloads the library.
 If waiting returns an error other than device loss, cleanup leaves the remaining entry tree live for an explicit retry.
 Repeated explicit destruction returns an invalid-handle error.
 

@@ -45,6 +45,7 @@ def main():
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
+        ("tests/repeated.bend", "repeated", "32 repeated GPU transfers and 32 private-fence reuses passed"),
     ):
         binary = BUILD / name
         run("bend", source, "-o", str(binary))

@@ -20,6 +20,9 @@ type CommandPool is Data:
 type CommandBuffer is Data:
   CommandBuffer{key: U32}
 
+type Fence is Data:
+  Fence{key: U32}
+
 type BufferCopy is Data:
   BufferCopy{src_offset: W.U64, dst_offset: W.U64, size: W.U64}
 
@@ -204,6 +207,34 @@ def debug_live_objects() -> IO(VkResult(U32)):
   import "./src/native.js"
 
 def debug_u64_roundtrip(value: W.U64) -> IO(VkResult((U32 & U32))):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_fence(device: Device, signaled: Bool) -> IO(VkResult(Fence)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_fence(device: Device, fence: Fence) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.submit(device: Device, command: CommandBuffer, fence: Fence) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Fence.status(fence: Fence) -> IO(VkResult(U32)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Fence.wait(fence: Fence, timeout_ns: W.U64) -> IO(VkResult(U32)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Fence.reset(fence: Fence) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.reset(command: CommandBuffer) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 # END GENERATED EFFECTS

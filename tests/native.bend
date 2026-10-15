@@ -4,6 +4,7 @@ import ../src/core.bend as Core
 import ../src/constants.bend as vk
 import ../deps/bend-collections/src/math/u64.bend as W
 import ../examples/buffer_roundtrip.bend as Demo
+import ./array_rejection.bend as A
 
 def check_error(-A: Type, expected: U32, result: V.VkResult(A)) -> V.Action(Unit):
   match result:
@@ -106,6 +107,18 @@ def run_checks(+entry: V.Entry) -> V.Action(Unit):
     +other : V.Device <- V.Instance.create_device(instance, physical, V.DeviceCreateInfo{family, []})
     +foreign_buffer : V.Buffer <- V.Device.create_buffer(other, V.BufferCreateInfo{W.of_u32(16), 2})
     expect_error(V.MemoryRequirements, 1610612738, V.Device.get_buffer_memory_requirements(device, foreign_buffer))
+    +foreign_memory : V.DeviceMemory <- V.Device.allocate_memory(other, W.of_u32(64), 0)
+    words : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit), V.Device.write_memory_words(device, foreign_memory, W.zero(), W.of_u32(1), A.words()))
+    A.check_owned(words, 1610612738)
+    V.Device.free_memory(other, foreign_memory)
+    +foreign_fence : V.Fence <- V.Device.create_fence(other, False{})
+    expect_error(Unit, 1610612738, V.Device.destroy_fence(device, foreign_fence))
+    +check_pool : V.CommandPool <- V.Device.create_command_pool(device)
+    +check_command : V.CommandBuffer <- V.Device.allocate_command_buffer(device, check_pool)
+    expect_error(Unit, 1610612738, V.Device.submit(device, check_command, foreign_fence))
+    V.Device.destroy_command_pool(device, check_pool)
+    V.Device.destroy_fence(other, foreign_fence)
+    expect_error(U32, 1610612738, V.Fence.wait(foreign_fence, W.zero()))
     V.Device.destroy_buffer(other, foreign_buffer)
     V.Device.destroy(other)
     expect_error(V.Buffer, 1610612739, V.Device.create_buffer(device, V.BufferCreateInfo{W.zero(), 2}))
@@ -124,6 +137,10 @@ def abandon_resources(+instance: V.Instance, physical: V.PhysicalDevice, +device
     +command : V.CommandBuffer <- V.Device.allocate_command_buffer(device, pool)
     V.CommandBuffer.begin(command)
     V.CommandBuffer.fill_buffer(command, buffer, W.zero(), Core.whole_size(), 0)
+    V.CommandBuffer.pipeline_barrier(command, 4096, 16384, [V.MemoryBarrier{4096,8192}], [])
+    V.CommandBuffer.end(command)
+    +fence : V.Fence <- V.Device.create_fence(device, False{})
+    V.Device.submit(device, command, fence)
     IO.pure(V.VkResult(Unit), Fail{(73, "intentional callback failure")})
 
 # Return a failure with a bound allocation and recorded commands still live.
@@ -142,6 +159,7 @@ def abandon_buffer(+entry: V.Entry) -> V.Action(Unit):
 def all_checks() -> V.Action(Unit):
   do V.Action<Unit>:
     check_u64()
+    expect_error(Unit, 73, IO.pure(V.VkResult(Unit), V.Entry.finish(Unit, Fail{(73,"body failure")}, Fail{(4294967292,"loss cleanup")})))
     +entry : V.Entry <- V.Entry.load()
     V.Entry.close(entry)
     expect_error(Unit, 1610612738, V.Entry.close(entry))

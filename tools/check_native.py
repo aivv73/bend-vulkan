@@ -12,9 +12,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 def build(sanitize=False):
     source = ROOT / "build/transfers-probes.c"
     binary = source.with_suffix("")
-    subprocess.run(["bend", "tests/transfers.bend", "-o", str(source)], cwd=ROOT, check=True)
+    subprocess.run(["bend", "tests/probe_main.bend", "-o", str(source)], cwd=ROOT, check=True)
     emitted = source.read_text()
-    probes = (ROOT / "tests/probes.c").read_text()
+    probes = (ROOT / "tests/probes.c").read_text().replace(
+        "/* LIFECYCLE PROBES */", (ROOT / "tests/lifecycle_probes.c").read_text())
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -25,13 +26,15 @@ def build(sanitize=False):
         return matches[0]
 
     probes = re.sub(r"CID\(([^)]+)\)", cid, probes)
-    split = probes.index("static unsigned bv_test_copy_calls;")
+    split = probes.index("static unsigned bv_test_barrier_calls;")
     allocator, checks = probes[:split], probes[split:]
     anchor = "static int bv_prepare_refs("
     if emitted.count(anchor) != 1:
         raise ValueError("Native reference allocator moved")
     emitted = emitted.replace(anchor, allocator + "\n" + anchor)
     emitted = emitted.replace("BvUse* use=malloc(sizeof(*use));", "BvUse* use=bv_test_alloc(sizeof(*use));")
+    for variable in ("regions", "memory", "buffers", "resources"):
+        emitted = emitted.replace(f"realloc({variable},", f"bv_test_realloc({variable},")
     emitted = emitted.replace("static void __attribute__((constructor)) bv_register(void)", checks + "\nstatic void __attribute__((constructor)) bv_register(void)")
     emitted = re.sub(r"(io_eff\(CID_\w+, )bv_cmd_copy_buffer(\);)", r"\1bv_test_copy_buffer\2", emitted)
     source.write_text(emitted)

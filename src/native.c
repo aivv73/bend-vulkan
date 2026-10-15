@@ -55,7 +55,7 @@ typedef struct {
   X(FlushMappedMemoryRanges) X(InvalidateMappedMemoryRanges) \
   X(CreateCommandPool) X(DestroyCommandPool) X(AllocateCommandBuffers) \
   X(BeginCommandBuffer) X(EndCommandBuffer) X(CmdFillBuffer) \
-  X(CmdPipelineBarrier) X(QueueSubmit) X(QueueWaitIdle)
+  X(CmdCopyBuffer) X(CmdPipelineBarrier) X(QueueSubmit) X(QueueWaitIdle)
 typedef struct {
   VkDevice handle;
   VkPhysicalDevice physical;
@@ -626,6 +626,39 @@ static Term bv_write_memory(Env e, Term* f, IoWork* w) {
   free(bytes);return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"write_memory / map or flush");
 }
 #endif
+#ifdef CID(Device.write_memory_words)
+static Term bv_write_memory_words(Env e, Term* f, IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
+  BvRow* memory=bv_child(bv_key(e,f[1]),BV_MEMORY,owner);
+  uint64_t offset=bv_u64(e,f[2]), count=bv_u64(e,f[3]); Term words=f[4], result;
+  if (!owner || !memory) result=io_fail(e,BV_INVALID,"write_memory_words: invalid device or memory");
+  else if (owner->state) result=io_fail(e,BV_LIFETIME,"write_memory_words: unresolved work");
+  else if (term_tag(words)!=TAG_BUF && term_tag(words)!=TAG_ARR)
+    result=io_fail(e,BV_ARGUMENT,"write_memory_words: expected U32 array");
+  else if (count>BV_MAX_COPY || count>SIZE_MAX) result=io_fail(e,BV_LIMIT,"write_memory_words: 16 MiB chunk limit");
+  else if (count>(UINT64_C(1)<<blk_cls(words))*4 || !bv_map_range(memory,offset,(uint32_t)count))
+    result=io_fail(e,BV_ARGUMENT,"write_memory_words: array capacity or mapped range");
+  else if (!count) result=bv_ok(e);
+  else {
+    void* mapped=NULL; BvDevice* device=owner->context; VkResult status=bv_map(owner,memory,&mapped);
+    if (status==VK_SUCCESS) {
+      uint64_t location=blk_loc(e.mem,words); bool terms=term_tag(words)==TAG_ARR;
+      for (uint32_t j=0;j<(uint32_t)count;j++) {
+        uint32_t value=(uint32_t)blk_read(e.mem,terms,location,j/4);
+        ((uint8_t*)mapped)[(size_t)offset+j]=(uint8_t)(value>>(8*(j%4)));
+      }
+      if (!(memory->flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+        VkMappedMemoryRange range={.sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+          .memory=(VkDeviceMemory)(uintptr_t)memory->handle,.offset=0,.size=VK_WHOLE_SIZE};
+        status=device->FlushMappedMemoryRanges(device->handle,1,&range);
+      }
+      device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)memory->handle);
+    }
+    result=status==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,status,"write_memory_words / map or flush");
+  }
+  return io_tup(e,words,result);
+}
+#endif
 #ifdef CID(Device.read_memory)
 static Term bv_read_memory(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
@@ -714,6 +747,49 @@ static Term bv_cmd_fill_buffer(Env e, Term* f, IoWork* w) {
   BvDevice* device=owner->context;
   device->CmdFillBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,offset,size,(uint32_t)f[4]);
   return bv_ok(e);
+}
+#endif
+static int bv_overlap(uint64_t a, uint64_t na, uint64_t b, uint64_t nb) {
+  return a<=b ? b-a<na : a-b<nb;
+}
+#ifdef CID(CommandBuffer.copy_buffer)
+static Term bv_cmd_copy_buffer(Env e, Term* f, IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND); BvRow* owner=bv_command_device(command);
+  BvRow* src=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);
+  BvRow* dst=bv_child(bv_key(e,f[2]),BV_BUFFER,owner);
+  uint32_t code=(!command || !src || !dst) ? BV_INVALID :
+    (command->state!=1 || !src->bound || !dst->bound) ? BV_LIFETIME :
+    (!(src->flags & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) || !(dst->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT)) ? BV_ARGUMENT : 0;
+  VkBufferCopy* regions=NULL; uint32_t count=0; Term list=f[3];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],fields[6]; bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],6,fields);
+    if (code) continue;
+    uint64_t a=((uint64_t)(uint32_t)fields[1]<<32)|(uint32_t)fields[0];
+    uint64_t b=((uint64_t)(uint32_t)fields[3]<<32)|(uint32_t)fields[2];
+    uint64_t n=((uint64_t)(uint32_t)fields[5]<<32)|(uint32_t)fields[4];
+    if (!n || a>src->size || n>src->size-a || b>dst->size || n>dst->size-b) {code=BV_ARGUMENT;continue;}
+    if (count>=4096) {code=BV_LIMIT;continue;}
+    VkBufferCopy* more=realloc(regions,(count+1)*sizeof(*regions));
+    if (!more) {code=BV_LIMIT;continue;} regions=more;
+    regions[count++]=(VkBufferCopy){.srcOffset=a,.dstOffset=b,.size=n};
+  }
+  if (!code && !count) code=BV_ARGUMENT;
+  for (uint32_t j=0;!code && j<count;j++) {
+    for (uint32_t k=0;k<count;k++) {
+      if ((j!=k && bv_overlap(regions[j].dstOffset,regions[j].size,regions[k].dstOffset,regions[k].size)) ||
+          (src->bound==dst->bound && bv_overlap(src->offset+regions[j].srcOffset,regions[j].size,
+            dst->offset+regions[k].dstOffset,regions[k].size))) {code=BV_ARGUMENT;break;}
+    }
+  }
+  BvRow* resources[]={src,dst};
+  if (!code && !bv_prepare_refs(command,2,resources)) code=BV_LIMIT;
+  if (!code) {
+    BvDevice* device=owner->context;
+    device->CmdCopyBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)src->handle,
+      (VkBuffer)(uintptr_t)dst->handle,count,regions);
+  }
+  free(regions);
+  return code ? io_fail(e,code,"copy_buffer: invalid state, usage, range, alias overlap, or allocation") : bv_ok(e);
 }
 #endif
 #ifdef CID(CommandBuffer.pipeline_barrier)
@@ -868,6 +944,9 @@ static void __attribute__((constructor)) bv_register(void) {
 #ifdef CID(Device.write_memory)
   io_eff(CID(Device.write_memory), bv_write_memory);
 #endif
+#ifdef CID(Device.write_memory_words)
+  io_eff(CID(Device.write_memory_words), bv_write_memory_words);
+#endif
 #ifdef CID(Device.read_memory)
   io_eff(CID(Device.read_memory), bv_read_memory);
 #endif
@@ -885,6 +964,9 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(CommandBuffer.fill_buffer)
   io_eff(CID(CommandBuffer.fill_buffer), bv_cmd_fill_buffer);
+#endif
+#ifdef CID(CommandBuffer.copy_buffer)
+  io_eff(CID(CommandBuffer.copy_buffer), bv_cmd_copy_buffer);
 #endif
 #ifdef CID(CommandBuffer.pipeline_barrier)
   io_eff(CID(CommandBuffer.pipeline_barrier), bv_cmd_pipeline_barrier);

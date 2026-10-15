@@ -3,7 +3,7 @@
 The public module is `Vulkan.bend`. Vulkan constants are zero-argument definitions in `src/constants.bend`, with their original `VK_` names.
 `src/core.bend` provides API-version encoding, flag predicates, queue-family selection, memory-type selection, and U64 limb conversion.
 
-Every native operation returns `IO(VkResult(A))`. `VkResult(A)` is `Result<&1, &1, (U32 & String), A>`.
+Operations return `IO(VkResult(A))`, except `write_memory_words`, which returns its array beside the result. `VkResult(A)` is `Result<&1, &1, (U32 & String), A>`.
 The `U32` in an error is the exact two's-complement bit pattern of a Vulkan `VkResult`, or a wrapper error from the table below.
 The string names the failed operation or invalid input.
 
@@ -49,6 +49,7 @@ The memory query currently exposes memory types, without heap sizes or device li
 | `Device.allocate_memory(device, size, memory_type_index)` | An allocation |
 | `Device.bind_buffer_memory(device, buffer, memory, offset)` | A binding after size, alignment, type, and owner checks |
 | `Device.write_memory(device, memory, offset, bytes)` | Checked host write, including flush for noncoherent memory |
+| `Device.write_memory_words(device, memory, offset, byte_length, words)` | Original `Array<U32>` beside `VkResult(Unit)` |
 | `Device.read_memory(device, memory, offset, count)` | Byte list, including invalidation for noncoherent memory |
 | `Device.destroy_buffer(device, buffer)` | Buffer teardown |
 | `Device.free_memory(device, memory)` | Allocation teardown, rejecting bound buffers |
@@ -64,6 +65,11 @@ A byte list contains U32 values from 0 through 255. Copies require host-visible 
 Each read or write maps the whole allocation temporarily and copies a checked subrange.
 `read_memory` takes a U32 byte count. Both copy operations are limited to 16 MiB per call.
 Memory allocation sizes and copy offsets retain all 64 bits.
+Packed uploads emit each word's low-order byte first and truncate the final partial word.
+The explicit U64 byte length must fit the array capacity, allocation range, and 16 MiB chunk limit.
+Zero bytes at an in-bounds offset is valid. Every outcome returns the unchanged array, including the interpreted backend's native-only error.
+A flush failure can leave mapped destination bytes changed.
+No Bend heap pointer survives the operation.
 
 The wrapper checks common lifetime and memory-access errors. Callers remain responsible for Vulkan validity requirements for chosen flags, extensions, and resource use.
 Handle keys are checked process-local identifiers. They provide no raw Vulkan handle interoperation or access-control guarantee.
@@ -76,6 +82,7 @@ Handle keys are checked process-local identifiers. They provide no raw Vulkan ha
 | `Device.allocate_command_buffer(device, pool)` | One primary command buffer |
 | `CommandBuffer.begin(command)` | Begin one-time recording |
 | `CommandBuffer.fill_buffer(command, buffer, offset, size, data)` | Record a transfer fill |
+| `CommandBuffer.copy_buffer(command, src, dst, regions)` | Record nonempty byte ranges from `List<BufferCopy>` |
 | `CommandBuffer.pipeline_barrier(command, src_stage, dst_stage, memory, buffers)` | Record explicit memory and buffer barriers |
 | `CommandBuffer.end(command)` | End recording |
 | `Device.submit_and_wait(device, command)` | Queue submission followed by `vkQueueWaitIdle` |
@@ -89,6 +96,9 @@ Barrier arguments and all new reference nodes are validated and allocated before
 Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both queue-family indices.
 Stage and access masks accept supported core Vulkan 1.0 bits. Geometry and tessellation stages require unavailable optional features.
 `ALL_COMMANDS` excludes host access. The fill caller records its transfer-to-host barrier explicitly.
+Copies require bound buffers, source/destination transfer usages, and positive in-bounds ranges.
+They reject overlapping destinations and physical source/destination overlap across every region, including buffers bound to the same allocation.
+Byte copies impose no four-byte alignment rule.
 The selected queue family must support transfer commands. The examples use a graphics queue.
 The API has no asynchronous submission, command reset, individual command-buffer free, or semaphore operations.
 If submission or a queue wait fails without device loss, memory copies, resource destruction, and further submissions require a successful `Device.wait_idle` first.

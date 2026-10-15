@@ -56,3 +56,7 @@ def queue_go(families: List<(U32 & U32)>, +required: U32, +index: U32) -> Maybe<
 
 def find_queue_family(families: List<(U32 & U32)>, required: U32) -> Maybe<U32>:
   queue_go(families, required, 0)
+
+# Packed uploads emit the low-order byte first.
+def word_byte(word: U32, byte_index: U32) -> U32:
+  U32.and(U32.shrn(word, U32.to_nat(U32.mul(8, U32.and(byte_index, 3)))), 255)

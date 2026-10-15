@@ -37,10 +37,14 @@ def main():
     output = unsupported.stdout + unsupported.stderr
     if unsupported.returncode == 0 or "Vulkan error 1610612737: Vulkan requires a native build" not in output:
         raise SystemExit("JavaScript backend did not report the expected native-only error:\n" + output)
+    rejected = run("bend", "tests/array_rejection.bend", text=True, capture_output=True, timeout=60)
+    if "Interpreted array ownership rejection passed" not in rejected.stdout:
+        raise SystemExit("Interpreted array ownership probe omitted its success marker")
     for source, name, expected in (
         ("examples/discover.bend", "discover", "Loader API version bits:"),
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
+        ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
     ):
         binary = BUILD / name
         run("bend", source, "-o", str(binary))
@@ -59,6 +63,7 @@ def main():
         env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")
         # Vulkan drivers may retain process-global allocations. The tests check our registry count.
         run(str(binary), env=env, timeout=60)
+    run(sys.executable, "tools/check_native.py", *(["--sanitize"] if args.sanitize else []))
     print("Generation, proofs, and native Vulkan integration passed.")
 
 

@@ -20,6 +20,9 @@ type CommandPool is Data:
 type CommandBuffer is Data:
   CommandBuffer{key: U32}
 
+type BufferCopy is Data:
+  BufferCopy{src_offset: W.U64, dst_offset: W.U64, size: W.U64}
+
 type MemoryBarrier is Data:
   MemoryBarrier{src_access: U32, dst_access: U32}
 type BufferMemoryBarrier is Data:
@@ -152,6 +155,10 @@ def Device.write_memory(device: Device, memory: DeviceMemory, offset: W.U64, byt
   import "./src/native.c"
   import "./src/native.js"
 
+def Device.write_memory_words(device: Device, memory: DeviceMemory, offset: W.U64, byte_length: W.U64, words: Array<U32>) -> IO(Array<U32> & VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
 def Device.read_memory(device: Device, memory: DeviceMemory, offset: W.U64, count: U32) -> IO(VkResult(List<U32>)):
   import "./src/native.c"
   import "./src/native.js"
@@ -173,6 +180,10 @@ def CommandBuffer.begin(command: CommandBuffer) -> IO(VkResult(Unit)):
   import "./src/native.js"
 
 def CommandBuffer.fill_buffer(command: CommandBuffer, buffer: Buffer, offset: W.U64, size: W.U64, data: U32) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.copy_buffer(command: CommandBuffer, src: Buffer, dst: Buffer, regions: List<BufferCopy>) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 

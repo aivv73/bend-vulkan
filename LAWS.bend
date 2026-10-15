@@ -40,3 +40,9 @@ law version_fields:
 
 law result_device_lost_bits:
   {vk.VK_ERROR_DEVICE_LOST() == 4294967292 : U32}
+
+law packed_word_bytes:
+  {(Core.word_byte(16909060, 0), (Core.word_byte(16909060, 1), (Core.word_byte(16909060, 2), Core.word_byte(16909060, 3)))) == (4, (3, (2, 1))) : U32 & (U32 & (U32 & U32))}
+
+law packed_index_wraps:
+  {Core.word_byte(16909060, 4) == 4 : U32}

@@ -41,3 +41,9 @@ def Laws.version_fields():
 
 def Laws.result_device_lost_bits():
   {==}
+
+def Laws.packed_word_bytes():
+  {==}
+
+def Laws.packed_index_wraps():
+  {==}

@@ -46,13 +46,28 @@ def main():
     effects = []
     registrations = []
     js = ["// Generated native-only backend registrations."]
-    for name, arguments, result, native in bindings:
+    for binding in bindings:
+        name, arguments, result, native, *policies = binding
+        policy = policies[0] if policies else {}
+        if len(policies) > 1 or set(policy) - {"return_owner"}:
+            raise ValueError(f"unsupported binding policy for {name}")
+        owner = policy.get("return_owner")
+        if owner is not None and (type(owner) is not int or not 0 <= owner < len(arguments)
+                                  or arguments[owner][1] != "Array<U32>"):
+            raise ValueError(f"invalid returned array owner for {name}")
         params = ", ".join(f"{key}: {kind}" for key, kind in arguments)
-        effects.extend([f"def {name}({params}) -> IO(VkResult({result})):",
+        output = f"VkResult({result})"
+        if owner is not None:
+            output = f"{arguments[owner][1]} & {output}"
+        effects.extend([f"def {name}({params}) -> IO({output}):",
                         '  import "./src/native.c"',
                         '  import "./src/native.js"', ""])
         registrations.extend([f"#ifdef CID({name})",
             f"  io_eff(CID({name}), bv_{native});", "#endif"])
+        failure = '{ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }'
+        if owner is not None:
+            js.append(f'io_eff(CID({name}), (...args) => io_tup(args[{owner}], {failure}));')
+            continue
         js.append(f'io_eff(CID({name}), () => ({{ $: CID(Fail), error: io_tup(1610612737, "Vulkan requires a native build: bend example.bend -o build/example") }}));')
     public = ROOT / "Vulkan.bend"
     before, tail = public.read_text().split("# BEGIN GENERATED EFFECTS\n")

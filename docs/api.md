@@ -115,6 +115,9 @@ Handle keys are checked process-local identifiers. They provide no raw Vulkan ha
 | `Device.submit_and_wait(device, command)` | The same submission/completion core with a persistent private fence and infinite wait |
 | `Device.destroy_command_pool(device, pool)` | Pool teardown and invalidation of its command buffers |
 
+`Fence.wait`, `Device.submit_and_wait`, `Device.wait_idle`, and waits during scoped cleanup or shutdown run synchronously on the IO event loop.
+These waits block other IO effects until they return. A finite `Fence.wait` timeout bounds that call's blocking.
+
 `begin` records with `ONE_TIME_SUBMIT`. Commands have Initial, Recording, Executable, Pending, Uncertain, Completed, and Invalid states.
 Only Initial commands can begin. Successful individual reset returns a command to Initial, including during recording.
 Observed completion makes a one-time command Completed. Reset and re-record before submitting it again.

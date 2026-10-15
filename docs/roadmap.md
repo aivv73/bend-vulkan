@@ -5,15 +5,15 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Only milestone 0 is implemented. Proposed API names below describe capabilities, not existing declarations.
+Milestones 0 and 1 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
 | Milestone | Status | Wrapper capability | Acceptance result |
 | --- | --- | --- | --- |
 | 0. Native foundation | Implemented | Loader, checked handles, buffers, memory, synchronous fill | Exact host and GPU buffer readback |
-| 1. General transfers and completion | Next | Bulk uploads, explicit barriers, buffer copies, fences, command reuse | Repeated upload, copy, and readback with bounded live resources |
-| 2. Offscreen images | Planned | Images, memory binding, views, layouts, render targets, readback | Clear and read back a known color image |
+| 1. General transfers and completion | Implemented | Bulk uploads, explicit barriers, buffer copies, fences, command reuse | Repeated upload, copy, and readback with bounded live resources |
+| 2. Offscreen images | Next | Images, memory binding, views, layouts, render targets, readback | Clear and read back a known color image |
 | 3. Indexed graphics | Planned | SPIR-V modules, graphics pipelines, vertex/index binding, depth, push constants | Indexed geometry renders with verified occlusion |
 | 4. Voxel mesh consumer | Planned | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
 | 5. Interactive presentation | Planned | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
@@ -223,5 +223,5 @@ Finish each milestone's acceptance result before starting its dependent mileston
 
 ## Start here
 
-Implement milestone 1 as a sequence of verifiable changes: explicit barriers, buffer copy with bulk upload, then fence-backed submission and command reuse.
-Migrate the existing fill example during those changes. Keep its exact GPU readback as the baseline while adding general recording behavior.
+Start milestone 2 with image creation, memory allocation and binding, views, and explicit layout transitions.
+Clear a known color image, copy it to a host-readable buffer, and verify every pixel after readback.

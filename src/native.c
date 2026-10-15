@@ -214,13 +214,12 @@ static int bv_prepare_refs(BvRow* command, uint32_t count, BvRow** resources) {
   return 1;
 }
 
-// Optional geometry and tessellation features are never enabled by create_device.
-static uint32_t bv_stages(BvDevice* device, uint32_t mask) {
-  const uint32_t graphics=VK_PIPELINE_STAGE_VERTEX_INPUT_BIT|VK_PIPELINE_STAGE_VERTEX_SHADER_BIT|
+static uint32_t bv_baseline_stages(BvDevice* device, uint32_t mask) {
+  const uint32_t baseline_graphics=VK_PIPELINE_STAGE_VERTEX_INPUT_BIT|VK_PIPELINE_STAGE_VERTEX_SHADER_BIT|
     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT|
     VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   uint32_t allowed=VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT|VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT|VK_PIPELINE_STAGE_HOST_BIT;
-  if (device->queue_flags & VK_QUEUE_GRAPHICS_BIT) allowed |= graphics;
+  if (device->queue_flags & VK_QUEUE_GRAPHICS_BIT) allowed |= baseline_graphics;
   if (device->queue_flags & VK_QUEUE_COMPUTE_BIT) allowed |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
   if (device->queue_flags & (VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT)) allowed |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
   if (device->queue_flags & (VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT|VK_QUEUE_TRANSFER_BIT)) allowed |= VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -228,7 +227,7 @@ static uint32_t bv_stages(BvDevice* device, uint32_t mask) {
   uint32_t expanded=mask & allowed;
   if (mask & VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT) {
     if (!(device->queue_flags & VK_QUEUE_GRAPHICS_BIT)) return 0;
-    expanded |= graphics|VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+    expanded |= baseline_graphics|VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
   }
   if (mask & VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) expanded |= allowed & ~VK_PIPELINE_STAGE_HOST_BIT;
   return expanded;
@@ -1007,8 +1006,8 @@ static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
   BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);
   BvRow* owner=bv_command_device(command);
   BvDevice* device=owner ? owner->context : NULL;
-  uint32_t src=device ? bv_stages(device,(uint32_t)f[1]) : 0;
-  uint32_t dst=device ? bv_stages(device,(uint32_t)f[2]) : 0;
+  uint32_t src=device ? bv_baseline_stages(device,(uint32_t)f[1]) : 0;
+  uint32_t dst=device ? bv_baseline_stages(device,(uint32_t)f[2]) : 0;
   uint32_t code=!command ? BV_INVALID : command->command.phase!=BV_RECORDING ? BV_LIFETIME : (!src || !dst) ? BV_ARGUMENT : 0;
   VkMemoryBarrier* memory=NULL; VkBufferMemoryBarrier* buffers=NULL; BvRow** resources=NULL;
   uint32_t nm=0,nb=0; Term list=f[3];
@@ -1189,7 +1188,6 @@ static Term bv_submit_and_wait(Env e,Term* f,IoWork* w) {
   term_sink(e,result);
   result=bv_fence_observe(e,device->convenience,1,UINT64_MAX);
   if (term_aux(result)==CID(Fail)) return result;
-  // An infinite driver wait must complete before this convenience reports success.
   Term status[1];bv_unpack(e,result,1,status);
   return (uint32_t)status[0]==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,(VkResult)(uint32_t)status[0],"submit_and_wait / incomplete infinite wait");
 }

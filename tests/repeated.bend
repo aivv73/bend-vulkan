@@ -181,21 +181,21 @@ def exercise(+device: V.Device, source: V.Buffer & V.DeviceMemory, middle: V.Buf
 
 def with_guard(+instance: V.Instance,+physical: V.PhysicalDevice,+device: V.Device,source: V.Buffer & V.DeviceMemory,middle: V.Buffer & V.DeviceMemory,destination: V.Buffer & V.DeviceMemory) -> V.Action(Unit):
   do V.Action<Unit>:
-    guard : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3)
+    guard : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3,2)
     +probe : V.Buffer <- V.Device.create_buffer(device,V.BufferCreateInfo{W.of_u32(64),3})
     req : V.MemoryRequirements <- V.Device.get_buffer_memory_requirements(device,probe)
-    unrelated : V.DeviceMemory <- Transfer.allocate(instance,physical,device,req)
+    unrelated : V.DeviceMemory <- Transfer.allocate(instance,physical,device,req,2)
     V.Device.destroy_buffer(device,probe)
     exercise(device,source,middle,destination,guard,unrelated)
 
 def with_destination(+instance: V.Instance,+physical: V.PhysicalDevice,+device: V.Device,source: V.Buffer & V.DeviceMemory,middle: V.Buffer & V.DeviceMemory) -> V.Action(Unit):
   do V.Action<Unit>:
-    destination : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3)
+    destination : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3,2)
     with_guard(instance,physical,device,source,middle,destination)
 
 def with_middle(+instance: V.Instance,+physical: V.PhysicalDevice,+device: V.Device,source: V.Buffer & V.DeviceMemory) -> V.Action(Unit):
   do V.Action<Unit>:
-    middle : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3)
+    middle : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3,1)
     with_destination(instance,physical,device,source,middle)
 
 def run(+entry: V.Entry) -> V.Action(Unit):
@@ -206,7 +206,7 @@ def run(+entry: V.Entry) -> V.Action(Unit):
     families : List<(U32 & U32)> <- V.Instance.get_physical_device_queue_family_properties(instance,physical)
     family : U32 <- Demo.choose(Core.find_queue_family(families,1),"No graphics queue")
     +device : V.Device <- V.Instance.create_device(instance,physical,V.DeviceCreateInfo{family,[]})
-    source : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3)
+    source : V.Buffer & V.DeviceMemory <- Transfer.buffer(instance,physical,device,3,2)
     with_middle(instance,physical,device,source)
 
 def main() -> IO(Unit):

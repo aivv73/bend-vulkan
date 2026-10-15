@@ -24,12 +24,18 @@ If cleanup alone fails, the scope returns that failure.
 | --- | --- |
 | `Entry.load()` | A loader entry |
 | `Entry.enumerate_instance_version(entry)` | Loader API version, with a Vulkan 1.0 fallback |
+| `Entry.enumerate_instance_layers(entry)` | Layer names, specification/implementation versions, and descriptions |
+| `Entry.enumerate_instance_extensions(entry, layer)` | Extension names and specification versions |
 | `Entry.create_instance(entry, info)` | An instance |
 | `Entry.close(entry)` | Cascading resource teardown and library unload |
 | `Instance.enumerate_physical_devices(instance)` | A list of physical devices |
 | `Instance.get_physical_device_properties(instance, physical)` | Name, API version, driver version, vendor ID, device ID, and type |
 | `Instance.get_physical_device_queue_family_properties(instance, physical)` | A list of `(flags, queue_count)` pairs indexed by family |
 | `Instance.get_physical_device_memory_properties(instance, physical)` | A list of `Core.MemoryType{property_flags, heap_index}` indexed by memory type |
+| `Instance.enumerate_device_extensions(instance, physical, layer)` | Device extension names and specification versions |
+| `Instance.get_physical_device_memory_heaps(instance, physical)` | `MemoryHeap{size, flags}` values |
+| `Instance.get_physical_device_format_properties(instance, physical, format)` | Linear/optimal tiling and buffer feature masks |
+| `Instance.get_physical_device_limits(instance, physical)` | The selected `PhysicalDeviceLimits` fields |
 | `Instance.create_device(instance, physical, info)` | A device with one queue at priority 1.0 |
 | `Instance.destroy(instance)` | Instance teardown, rejecting live devices |
 
@@ -38,7 +44,21 @@ If cleanup alone fails, the scope returns that failure.
 `DeviceCreateInfo{queue_family_index, extensions}` selects one queue and enables no optional device features.
 Strings containing NUL are rejected. Allocation callbacks are null.
 Physical devices are interned within an instance and invalidated when the instance is destroyed.
-The memory query currently exposes memory types, without heap sizes or device limits.
+Layer arguments are `Maybe<String>`. `None` queries global extensions. `Some{name}` forwards that explicit layer name.
+Names containing NUL reject. Empty enumerations are valid. Counts are bounded to 4096 and VK_INCOMPLETE retries to eight attempts.
+A final Vulkan error, including VK_INCOMPLETE, retains its exact bits. Extension queries preserve the loader's result for the requested layer.
+Format queries accept core Vulkan 1.0 enum values 0 through 184 and return raw feature masks.
+Discovery does not enable extensions, features, or layers.
+
+`PhysicalDeviceLimits` has these ten U32 fields in order:
+
+- `max_image_dimension_2d`, `max_framebuffer_width`, and `max_framebuffer_height`.
+- `max_color_attachments` and `max_push_constants_size`.
+- `max_vertex_input_attributes`, `max_vertex_input_bindings`, `max_vertex_input_attribute_offset`, and `max_vertex_input_binding_stride`.
+- `max_memory_allocation_count`.
+
+Its final three fields are upstream W.U64 values, `non_coherent_atom_size`, `optimal_buffer_copy_offset_alignment`, and `optimal_buffer_copy_row_pitch_alignment`.
+Copy-alignment limits do not impose an alignment restriction on buffer-to-buffer byte copies.
 
 ## Buffers and memory
 
@@ -61,9 +81,9 @@ Sizes, offsets, and alignments are `bend-collections` `W.U64` values.
 `Core.find_memory_type(types, memory_type_bits, required_flags)` returns the first eligible index or `None`.
 `Core.find_queue_family(families, required_flags)` skips empty queues and returns the first matching family.
 
-A byte list contains U32 values from 0 through 255. Copies require host-visible memory.
-Each read or write maps the whole allocation temporarily and copies a checked subrange.
-`read_memory` takes a U32 byte count. Both copy operations are limited to 16 MiB per call.
+A byte list contains U32 values from 0 through 255. Host reads and writes require host-visible memory.
+Each host operation maps the whole allocation temporarily and copies a checked subrange.
+`read_memory` takes a U32 byte count. Host reads and both upload paths are limited to 16 MiB per call.
 Memory allocation sizes and copy offsets retain all 64 bits.
 Packed uploads emit each word's low-order byte first and truncate the final partial word.
 The explicit U64 byte length must fit the array capacity, allocation range, and 16 MiB chunk limit.
@@ -134,4 +154,5 @@ Repeated explicit destruction returns an invalid-handle error.
 
 `debug_live_objects()` returns the live native-registry row count.
 `debug_u64_roundtrip(value)` returns two limbs after conversion through a native `uint64_t`.
-`Device.buffer_requirements_raw` and `Instance.memory_types_raw` are FFI adapters used by the public query operations.
+`Device.buffer_requirements_raw`, `Instance.memory_types_raw`, `Instance.memory_heaps_raw`, and `Instance.limits_raw` are FFI adapters used by the public queries.
+`LimitsWords()` names the nested raw limb tuple. Applications use `PhysicalDeviceLimits`.

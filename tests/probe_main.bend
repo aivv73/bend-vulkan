@@ -1,12 +1,15 @@
 import Base
 import ../Vulkan.bend as V
 import ./native.bend as Native
+import ./discovery.bend as Discovery
 import ./transfers.bend as Transfer
 import ./repeated.bend as Repeated
 import ../examples/buffer_roundtrip.bend as Demo
 
 def main() -> IO(Unit):
   do IO<Unit>:
+    discovery : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Discovery.run(entry))
+    V.or_exit(Unit,discovery)
     base : V.VkResult(Unit) <- Native.all_checks()
     V.or_exit(Unit,base)
     transfer : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Transfer.run(entry))

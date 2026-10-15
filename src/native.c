@@ -45,6 +45,8 @@ typedef struct {
   PFN_vkGetInstanceProcAddr get;
   PFN_vkCreateInstance create;
   PFN_vkEnumerateInstanceVersion version;
+  PFN_vkEnumerateInstanceLayerProperties layers;
+  PFN_vkEnumerateInstanceExtensionProperties extensions;
 } BvEntry;
 
 typedef struct {
@@ -54,6 +56,8 @@ typedef struct {
   PFN_vkGetPhysicalDeviceProperties properties;
   PFN_vkGetPhysicalDeviceQueueFamilyProperties queues;
   PFN_vkGetPhysicalDeviceMemoryProperties memory;
+  PFN_vkEnumerateDeviceExtensionProperties extensions;
+  PFN_vkGetPhysicalDeviceFormatProperties formats;
   PFN_vkCreateDevice create_device;
   PFN_vkGetDeviceProcAddr get_device;
 } BvInstance;
@@ -335,8 +339,10 @@ static Term bv_entry_load(Env e, Term* f, IoWork* w) {
   if (entry->get) {
     entry->create = (PFN_vkCreateInstance)entry->get(VK_NULL_HANDLE, "vkCreateInstance");
     entry->version = (PFN_vkEnumerateInstanceVersion)entry->get(VK_NULL_HANDLE, "vkEnumerateInstanceVersion");
+    entry->layers = (PFN_vkEnumerateInstanceLayerProperties)entry->get(VK_NULL_HANDLE, "vkEnumerateInstanceLayerProperties");
+    entry->extensions = (PFN_vkEnumerateInstanceExtensionProperties)entry->get(VK_NULL_HANDLE, "vkEnumerateInstanceExtensionProperties");
   }
-  if (!entry->get || !entry->create) {
+  if (!entry->get || !entry->create || !entry->layers || !entry->extensions) {
     bv_remove(row); free(entry); dlclose(library);
     return io_fail(e, 0x60000001u, "missing Vulkan loader entry points");
   }
@@ -412,12 +418,14 @@ static Term bv_create_instance(Env e, Term* f, IoWork* w) {
   BV_INSTANCE_LOAD(properties, GetPhysicalDeviceProperties);
   BV_INSTANCE_LOAD(queues, GetPhysicalDeviceQueueFamilyProperties);
   BV_INSTANCE_LOAD(memory, GetPhysicalDeviceMemoryProperties);
+  BV_INSTANCE_LOAD(extensions, EnumerateDeviceExtensionProperties);
+  BV_INSTANCE_LOAD(formats, GetPhysicalDeviceFormatProperties);
   BV_INSTANCE_LOAD(create_device, CreateDevice);
   BV_INSTANCE_LOAD(get_device, GetDeviceProcAddr);
 #undef BV_INSTANCE_LOAD
   BvRow* row = NULL;
   if (destroy && instance->enumerate && instance->properties && instance->queues &&
-      instance->memory && instance->create_device && instance->get_device) row=bv_add(BV_INSTANCE, owner);
+      instance->memory && instance->extensions && instance->formats && instance->create_device && instance->get_device) row=bv_add(BV_INSTANCE, owner);
   if (!row) { if (destroy) destroy(handle,NULL); free(instance); return io_fail(e,BV_LIMIT,"instance dispatch unavailable"); }
   row->context=instance; row->handle=(uint64_t)(uintptr_t)handle;
   return io_done(e,term_pak(CID(Instance),row->id));
@@ -502,6 +510,126 @@ static Term bv_memory_types(Env e, Term* f, IoWork* w) {
   return io_done(e,list);
 }
 #endif
+static char* bv_optional_layer(Env e,Term optional,int* valid) {
+  if (term_aux(optional)==CID(None)) return NULL;
+  Term fields[1];bv_unpack(e,optional,1,fields);
+  uint64_t length=0;char* layer=io_cstr(e,fields[0],&length);
+  if (io_nul(layer,length)) *valid=0;
+  return layer;
+}
+typedef enum { BV_LAYERS, BV_INSTANCE_EXTENSIONS, BV_DEVICE_EXTENSIONS } BvEnumerationKind;
+typedef struct { BvEnumerationKind kind;BvEntry* entry;BvInstance* instance;VkPhysicalDevice physical; } BvEnumeration;
+static VkResult bv_enumerate_call(BvEnumeration query,const char* layer,uint32_t* count,void* data) {
+  switch (query.kind) {
+    case BV_LAYERS: return query.entry->layers(count,data);
+    case BV_INSTANCE_EXTENSIONS: return query.entry->extensions(layer,count,data);
+    case BV_DEVICE_EXTENSIONS: return query.instance->extensions(query.physical,layer,count,data);
+  }
+  return VK_ERROR_INITIALIZATION_FAILED;
+}
+static uint32_t bv_enumerate(BvEnumeration query,const char* layer,size_t stride,uint32_t* count,void** data,VkResult* status) {
+  *data=NULL;*count=0;*status=VK_INCOMPLETE;
+  for (unsigned retry=0;retry<8;retry++) {
+    free(*data);*data=NULL;
+    *status=bv_enumerate_call(query,layer,count,NULL);
+    if (*status!=VK_SUCCESS && *status!=VK_INCOMPLETE) return 0;
+    if (!*count && *status==VK_SUCCESS) return 0;
+    if (*count>4096 || *count>SIZE_MAX/stride) return BV_LIMIT;
+    if (!*count) continue;
+    *data=calloc(*count,stride);
+    if (!*data) return BV_LIMIT;
+    *status=bv_enumerate_call(query,layer,count,*data);
+    if (*status!=VK_INCOMPLETE) return 0;
+  }
+  return 0;
+}
+#ifdef CID(Entry.enumerate_instance_layers)
+static Term bv_instance_layers(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_ENTRY);
+  if (!owner) return io_fail(e,BV_INVALID,"enumerate_instance_layers: invalid entry");
+  BvEnumeration query={.kind=BV_LAYERS,.entry=owner->context};
+  uint32_t count=0;void* data=NULL;VkResult status;
+  uint32_t code=bv_enumerate(query,NULL,sizeof(VkLayerProperties),&count,&data,&status);
+  if (code || status!=VK_SUCCESS) {free(data);return code ? io_fail(e,code,"layer enumeration allocation limit") : bv_vk_error(e,status,"vkEnumerateInstanceLayerProperties");}
+  VkLayerProperties* values=data;Term list=term_pak(CID(Nil),0);
+  for (uint32_t j=count;j>0;j--) {
+    VkLayerProperties* p=&values[j-1];
+    Term fields[]={io_str(e,p->layerName,strnlen(p->layerName,VK_MAX_EXTENSION_NAME_SIZE)),p->specVersion,p->implementationVersion,
+      io_str(e,p->description,strnlen(p->description,VK_MAX_DESCRIPTION_SIZE))};
+    list=io_node(e,CID(Con),bv_node(e,CID(LayerProperties),4,fields),list);
+  }
+  free(data);return io_done(e,list);
+}
+#endif
+#if defined(CID(Entry.enumerate_instance_extensions)) || defined(CID(Instance.enumerate_device_extensions))
+static Term bv_extension_properties(Env e,BvEnumeration query,char* layer,int valid) {
+  if (!valid) {free(layer);return io_fail(e,BV_ARGUMENT,"extension layer contains NUL");}
+  uint32_t count=0;void* data=NULL;VkResult status;
+  uint32_t code=bv_enumerate(query,layer,sizeof(VkExtensionProperties),&count,&data,&status);free(layer);
+  if (code || status!=VK_SUCCESS) {free(data);return code ? io_fail(e,code,"extension enumeration allocation limit") :
+    bv_vk_error(e,status,query.kind==BV_INSTANCE_EXTENSIONS ? "vkEnumerateInstanceExtensionProperties" : "vkEnumerateDeviceExtensionProperties");}
+  VkExtensionProperties* values=data;Term list=term_pak(CID(Nil),0);
+  for (uint32_t j=count;j>0;j--) {
+    VkExtensionProperties* p=&values[j-1];
+    Term fields[]={io_str(e,p->extensionName,strnlen(p->extensionName,VK_MAX_EXTENSION_NAME_SIZE)),p->specVersion};
+    list=io_node(e,CID(Con),bv_node(e,CID(ExtensionProperties),2,fields),list);
+  }
+  free(data);return io_done(e,list);
+}
+#endif
+#ifdef CID(Entry.enumerate_instance_extensions)
+static Term bv_instance_extensions(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_ENTRY);int valid=1;char* layer=bv_optional_layer(e,f[1],&valid);
+  if (!owner) {free(layer);return io_fail(e,BV_INVALID,"enumerate_instance_extensions: invalid entry");}
+  return bv_extension_properties(e,(BvEnumeration){.kind=BV_INSTANCE_EXTENSIONS,.entry=owner->context},layer,valid);
+}
+#endif
+#ifdef CID(Instance.enumerate_device_extensions)
+static Term bv_device_extensions(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);BvRow* physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
+  int valid=1;char* layer=bv_optional_layer(e,f[2],&valid);
+  if (!owner || !physical) {free(layer);return io_fail(e,BV_INVALID,"enumerate_device_extensions: invalid physical device");}
+  return bv_extension_properties(e,(BvEnumeration){.kind=BV_DEVICE_EXTENSIONS,.instance=owner->context,
+    .physical=(VkPhysicalDevice)(uintptr_t)physical->handle},layer,valid);
+}
+#endif
+#ifdef CID(Instance.memory_heaps_raw)
+static Term bv_memory_heaps(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);BvRow* physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
+  if (!owner || !physical) return io_fail(e,BV_INVALID,"memory_heaps: invalid physical device");
+  BvInstance* instance=owner->context;VkPhysicalDeviceMemoryProperties properties;
+  instance->memory((VkPhysicalDevice)(uintptr_t)physical->handle,&properties);
+  Term list=term_pak(CID(Nil),0);
+  for (uint32_t j=properties.memoryHeapCount;j>0;j--)
+    list=io_node(e,CID(Con),io_tup(e,bv_words(e,properties.memoryHeaps[j-1].size),properties.memoryHeaps[j-1].flags),list);
+  return io_done(e,list);
+}
+#endif
+#ifdef CID(Instance.get_physical_device_format_properties)
+static Term bv_format_properties(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);BvRow* physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
+  if (!owner || !physical) return io_fail(e,BV_INVALID,"format_properties: invalid physical device");
+  if ((uint32_t)f[2]>VK_FORMAT_ASTC_12x12_SRGB_BLOCK) return io_fail(e,BV_ARGUMENT,"format_properties: expected core Vulkan 1.0 format");
+  BvInstance* instance=owner->context;VkFormatProperties properties;
+  instance->formats((VkPhysicalDevice)(uintptr_t)physical->handle,(VkFormat)(uint32_t)f[2],&properties);
+  Term fields[]={properties.linearTilingFeatures,properties.optimalTilingFeatures,properties.bufferFeatures};
+  return io_done(e,bv_node(e,CID(FormatProperties),3,fields));
+}
+#endif
+#ifdef CID(Instance.limits_raw)
+static Term bv_physical_limits(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);BvRow* physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
+  if (!owner || !physical) return io_fail(e,BV_INVALID,"limits: invalid physical device");
+  BvInstance* instance=owner->context;VkPhysicalDeviceProperties properties;
+  instance->properties((VkPhysicalDevice)(uintptr_t)physical->handle,&properties);VkPhysicalDeviceLimits* p=&properties.limits;
+  uint32_t values[]={p->maxImageDimension2D,p->maxFramebufferWidth,p->maxFramebufferHeight,p->maxColorAttachments,p->maxPushConstantsSize,
+    p->maxVertexInputAttributes,p->maxVertexInputBindings,p->maxVertexInputAttributeOffset,p->maxVertexInputBindingStride,p->maxMemoryAllocationCount};
+  Term result=io_tup(e,bv_words(e,p->nonCoherentAtomSize),io_tup(e,bv_words(e,p->optimalBufferCopyOffsetAlignment),bv_words(e,p->optimalBufferCopyRowPitchAlignment)));
+  for (unsigned j=10;j>0;j--) result=io_tup(e,values[j-1],result);
+  return io_done(e,result);
+}
+#endif
+
 #ifdef CID(Instance.create_device)
 static Term bv_create_device(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);
@@ -1196,6 +1324,24 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(CommandBuffer.reset)
   io_eff(CID(CommandBuffer.reset), bv_reset_command_buffer);
+#endif
+#ifdef CID(Entry.enumerate_instance_layers)
+  io_eff(CID(Entry.enumerate_instance_layers), bv_instance_layers);
+#endif
+#ifdef CID(Entry.enumerate_instance_extensions)
+  io_eff(CID(Entry.enumerate_instance_extensions), bv_instance_extensions);
+#endif
+#ifdef CID(Instance.enumerate_device_extensions)
+  io_eff(CID(Instance.enumerate_device_extensions), bv_device_extensions);
+#endif
+#ifdef CID(Instance.memory_heaps_raw)
+  io_eff(CID(Instance.memory_heaps_raw), bv_memory_heaps);
+#endif
+#ifdef CID(Instance.get_physical_device_format_properties)
+  io_eff(CID(Instance.get_physical_device_format_properties), bv_format_properties);
+#endif
+#ifdef CID(Instance.limits_raw)
+  io_eff(CID(Instance.limits_raw), bv_physical_limits);
 #endif
 // END GENERATED REGISTRATIONS
 }

@@ -11,6 +11,7 @@ GROUPS = (
     "VkBufferUsageFlagBits", "VkMemoryPropertyFlagBits",
     "VkCommandPoolCreateFlagBits", "VkCommandBufferUsageFlagBits",
     "VkSharingMode", "VkPipelineStageFlagBits", "VkAccessFlagBits",
+    "VkFormat", "VkFormatFeatureFlagBits", "VkMemoryHeapFlagBits",
 )
 
 

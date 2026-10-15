@@ -1,59 +1,96 @@
 # Bend Vulkan dispatch and ownership
 
-Bend 2.0.37 accepts custom IO effects but cannot extend its opaque host-handle types.
-Ordinary constructors can cross the FFI, and callers can construct those values themselves.
-The wrapper therefore keeps Vulkan pointers and dispatch tables in C and exposes checked identifiers in distinct Bend handle types.
+Bend 2.0.37 cannot extend its opaque host-handle types. Ordinary Data constructors are copyable and forgeable.
+The wrapper keeps native handles and dispatch in C and exposes distinct checked U32 registry keys.
+`Entry.with` closes the resource tree after a callback returns either success or failure.
+Allocation, binding, stage/access masks, timeouts, and reset remain explicit caller choices.
 
-## Caller's view
+## Registry and dependencies
 
-The allocation sequence remains explicit: create a buffer, query its requirements, select a compatible memory type, allocate memory, and bind it.
-The public API also exposes command pools, command buffers, and submission.
-`examples/buffer_roundtrip.bend` is the executable usage specification.
-The `Action` monad propagates returned failures to `Entry.with`, which performs dependency-ordered cleanup.
+An Entry owns the loader library and global dispatch. An Instance owns instance dispatch and interned physical-device rows.
+A Device owns device dispatch, one selected queue, and its resources. Pools own command buffers.
+Buffers retain their bound allocations. Commands retain generic, deduplicated references to recorded resources.
+Keys are monotonic and never reused, including after failed creation. Native pointers never come from public keys.
+Every effect and registry mutation runs on Bend's IO event loop. Pure preparation can run in parallel.
+Dependent Vulkan effects remain sequenced because they mutate the same queue and resource tree.
 
-## Native ownership
+Recording validates every argument and reserves all reference nodes and marshaling arrays before any void `vkCmd*` dispatch.
+Fill retains its buffer. Copy retains both buffers. Buffer barriers retain each mentioned buffer.
+References survive completion and failed recording/reset. Successful individual reset or pool destruction releases them.
+This keeps buffer destruction independent of whether hardware has finished but completion remains unobserved.
+Copy overlap checks use allocation identity plus buffer binding offsets across all source/destination regions.
 
-Each registry row has a kind, parent, and process-wide monotonic U32 key.
-Keys never repeat, even after destruction or an unsuccessful operation. Exhausting the key space fails allocation.
-These keys are registry identifiers, separate from Vulkan's native handle representation.
-All Vulkan byte sizes and offsets use upstream `bend-collections` U64.
+## Command-owned completion
 
-An Entry owns `dlopen` and global functions obtained through `vkGetInstanceProcAddr`.
-An Instance owns instance functions obtained with its `VkInstance`.
-A Device owns device functions obtained through `vkGetDeviceProcAddr`.
-Parent rows outlive children. Buffer bindings and recorded command references add the dependencies required for destruction checks.
-Physical-device rows are borrowed from their instance and interned across repeated enumeration.
+The command has one tagged state:
 
-All registry mutations and Vulkan effects run on Bend's IO event loop.
-The initial submission API waits before returning. It introduces no shared writer across Bend parallel evaluation or helper threads.
-Pure preparation can use Bend parallel calls. Dependent Vulkan state transitions remain sequenced through IO.
+| State | Meaning |
+| --- | --- |
+| Initial | Can begin recording |
+| Recording | Can record and end |
+| Executable | Can submit |
+| Pending with a fence | Vulkan accepted the submission; completion is unobserved |
+| Uncertain with a fence | An unexpected submit error requires idle recovery |
+| Completed | Completion was observed for this one-time recording |
+| Invalid | Reset is required before another recording |
 
-## FFI representation
+`begin` preserves `ONE_TIME_SUBMIT`. A Completed command cannot resubmit.
+Successful reset returns any nonactive command to Initial and clears references. Failed reset invalidates the command and retains references.
+Pools enable individual command reset. There is no public whole-pool reset or usage mode.
 
-The installed compiler emits packed constructors for single U32 handles and flattens the two limbs inside `BufferCreateInfo`.
-The native boundary follows those emitted layouts rather than treating every constructor as a boxed object.
-Imported constructor aliases cannot appear in this compiler's `CID` macros.
-Native outputs that contain U64 values therefore cross as limb tuples, and pure Bend adapters reconstruct the dependency's actual U64.
-No second U64 arithmetic implementation is present.
+The command union is the sole submission association. Registry scans find a device's active command or a fence's association.
+The device has Healthy/Lost health and a private convenience-fence cache. A fence has a native handle and caller/private lifetime.
+There is no device pending flag, fence backpointer, cached signal bit, or second submission registry.
+One selected queue and at most one Pending or Uncertain command keep these linear scans bounded by the live registry.
 
-The effect ABI is internal to Bend. The native registrations use the two-argument `io_eff` emitted by Bend 2.0.37.
-The integration tests exercise packed handles, the flattened buffer config, all U64 limbs, strings, lists, nested tuples, and result values.
-Changing compiler versions requires rebuilding and rerunning those checks.
+Fence SUCCESS and successful device idle use the same completion transition.
+Timeouts, NOT_READY, and ordinary errors retain Pending protection. Submit OOM leaves command and fence unchanged.
+Unexpected submit errors enter Uncertain. Fence status/wait rejects that state because submission may never have occurred.
+Successful idle recovery makes Uncertain work Invalid without claiming execution or readback succeeded.
+Device loss is sticky. It invalidates every command, detaches associations, and permits dependency-ordered teardown with exact loss bits.
 
-## Synthesis decision
+Host mapping follows active command references through buffer bindings and rejects the entire reached allocation, including aliases.
+Unrelated allocations remain usable. Reset, destruction, mapping, and further submit never poll for completion implicitly.
+`submit_and_wait` uses the same submit/observe functions with U64_MAX and one lazily allocated persistent private fence per device.
+Public fence lookup rejects private rows, including fabricated keys. Only device teardown destroys the cached fence.
 
-Three independent designs compared affine owners, Data references, explicit mapped views, and temporary copy-based mapping.
-All proposed native ownership checks. The selected base was candidate 3's Data references, entry scope, and copy-based mapping.
-Candidate 2 contributed physical-device interning and strict stale-key errors. Candidate 1 contributed dependency-aware cleanup and completion checks.
-An independent cross-judge also selected candidate 3 and approved monotonic U32 registry keys and the U64 limb adapter.
+## Cleanup and errors
 
-The implementation adds reusable command recording and synchronous GPU fill submission to the initial discovery and allocation subset.
-The GPU example verifies driver execution, while `tests/native.bend` checks invalid inputs and successful and failed scope cleanup.
+Entry cleanup observes idle first, then destroys pools, fences, buffers, allocations, devices, physical rows, instances, and the loader.
+An ordinary idle error leaves unsafe resources and the entry live for explicit retry. Known loss permits teardown and returns exact loss.
+A callback failure keeps its original code and appends a cleanup failure's diagnostic.
+Explicit device destruction requires public children gone and also destroys its private convenience fence.
 
-Raw pointer-valued handles would allow fabricated constructors to reach driver pointers.
-Affine wrappers alone would still allow drops without native destruction and would require threading owners through every result.
-Explicit mapped views would add pointer and cache lifetime states to the first API.
-The chosen copy operations hide those states while preserving explicit Vulkan allocation choices.
+Vulkan results retain their exact two's-complement U32 bits. Fence status/wait return ordinary SUCCESS, NOT_READY, or TIMEOUT inside Done.
+Wrapper failures have distinct invalid-handle, argument, lifetime, and allocation-limit codes.
+Checks cover this subset's native boundary. The application still owns Vulkan synchronization correctness and capability negotiation.
 
-The costs are registry lookup overhead, copied host byte lists, a synchronous queue, and a limited initial API.
-Native handle adoption, full Vulkan registry generation, graphics, compute pipelines, and platform integration remain outside this implementation.
+## Compiler ABI and packed uploads
+
+The compiler packs single-U32 handles and flattens nested Data fields in buffer configs, copies, and buffer barriers.
+C follows emitted layouts. Imported U64 constructors cannot appear in native CID macros.
+Heap sizes and selected limits cross as nested U32 limb tuples. Pure adapters reconstruct the pinned bend-collections U64.
+All sizes, offsets, alignments, and nanosecond timeouts use that upstream type. Existing byte-list read counts remain U32.
+
+Packed uploads return `Array<U32> & VkResult(Unit)` on every path. The generator records the owner argument explicitly in its manifest.
+Native code reads packed TAG_BUF slots or Term-backed TAG_ARR slots with emitted block helpers and resolves shared blocks.
+Capacity is the block's logical word count, rather than its heap span. No Bend heap pointer survives the immediate operation.
+Words emit low-order bytes first. An explicit byte length truncates a partial final word and must fit capacity, allocation range, SIZE_MAX, and 16 MiB.
+Each operation maps the whole allocation, maintains whole-allocation noncoherent cache ranges when needed, and unmaps every mapped path.
+A flush error may leave destination bytes modified while returning the original words unchanged.
+
+## Discovery and scope
+
+Entry dispatch enumerates layers and instance extensions. Instance dispatch queries device extensions, heaps, core-1.0 formats, and thirteen selected limits.
+Enumeration accepts empty results, bounds count allocations, and retries VK_INCOMPLETE at most eight times.
+Optional layer names pass to Vulkan explicitly. Queries return capabilities without enabling them.
+The registry extract retains its original source SHA256 and adds core format, format-feature, and memory-heap constants from that same source.
+
+The fixed compiler version is part of this ABI contract. Real effect-return tests cover native and interpreted array ownership.
+Test-only C probes substitute dispatch and metadata allocation in an emitted translation unit. Production code exposes no injection hooks.
+Those probes distinguish controlled errors and loss from driver execution.
+Separate native runs verify literal GPU readback, 32 changing staging/copy/readback cycles, command/fence reuse, and stable registry rows.
+Pure laws cover packing and limb conversion, not driver behavior.
+
+Linear registry scans, allocation-wide host exclusion, and one-time recordings keep one ownership model for this milestone.
+Multiple queues, multiple active submissions, images, shaders, graphics, descriptors, and presentation remain outside this subset.

@@ -109,4 +109,209 @@ SPDX-License-Identifier: Apache-2.0 OR MIT</comment>
     <enum bitpos="15" name="VK_ACCESS_MEMORY_READ_BIT" comment="Controls coherency of memory reads" />
     <enum bitpos="16" name="VK_ACCESS_MEMORY_WRITE_BIT" comment="Controls coherency of memory writes" />
   </enums>
+  <enums name="VkFormat" type="enum" comment="Vulkan format definitions">
+    <enum value="0" name="VK_FORMAT_UNDEFINED" />
+    <enum value="1" name="VK_FORMAT_R4G4_UNORM_PACK8" />
+    <enum value="2" name="VK_FORMAT_R4G4B4A4_UNORM_PACK16" />
+    <enum value="3" name="VK_FORMAT_B4G4R4A4_UNORM_PACK16" />
+    <enum value="4" name="VK_FORMAT_R5G6B5_UNORM_PACK16" />
+    <enum value="5" name="VK_FORMAT_B5G6R5_UNORM_PACK16" />
+    <enum value="6" name="VK_FORMAT_R5G5B5A1_UNORM_PACK16" />
+    <enum value="7" name="VK_FORMAT_B5G5R5A1_UNORM_PACK16" />
+    <enum value="8" name="VK_FORMAT_A1R5G5B5_UNORM_PACK16" />
+    <enum value="9" name="VK_FORMAT_R8_UNORM" />
+    <enum value="10" name="VK_FORMAT_R8_SNORM" />
+    <enum value="11" name="VK_FORMAT_R8_USCALED" />
+    <enum value="12" name="VK_FORMAT_R8_SSCALED" />
+    <enum value="13" name="VK_FORMAT_R8_UINT" />
+    <enum value="14" name="VK_FORMAT_R8_SINT" />
+    <enum value="15" name="VK_FORMAT_R8_SRGB" />
+    <enum value="16" name="VK_FORMAT_R8G8_UNORM" />
+    <enum value="17" name="VK_FORMAT_R8G8_SNORM" />
+    <enum value="18" name="VK_FORMAT_R8G8_USCALED" />
+    <enum value="19" name="VK_FORMAT_R8G8_SSCALED" />
+    <enum value="20" name="VK_FORMAT_R8G8_UINT" />
+    <enum value="21" name="VK_FORMAT_R8G8_SINT" />
+    <enum value="22" name="VK_FORMAT_R8G8_SRGB" />
+    <enum value="23" name="VK_FORMAT_R8G8B8_UNORM" />
+    <enum value="24" name="VK_FORMAT_R8G8B8_SNORM" />
+    <enum value="25" name="VK_FORMAT_R8G8B8_USCALED" />
+    <enum value="26" name="VK_FORMAT_R8G8B8_SSCALED" />
+    <enum value="27" name="VK_FORMAT_R8G8B8_UINT" />
+    <enum value="28" name="VK_FORMAT_R8G8B8_SINT" />
+    <enum value="29" name="VK_FORMAT_R8G8B8_SRGB" />
+    <enum value="30" name="VK_FORMAT_B8G8R8_UNORM" />
+    <enum value="31" name="VK_FORMAT_B8G8R8_SNORM" />
+    <enum value="32" name="VK_FORMAT_B8G8R8_USCALED" />
+    <enum value="33" name="VK_FORMAT_B8G8R8_SSCALED" />
+    <enum value="34" name="VK_FORMAT_B8G8R8_UINT" />
+    <enum value="35" name="VK_FORMAT_B8G8R8_SINT" />
+    <enum value="36" name="VK_FORMAT_B8G8R8_SRGB" />
+    <enum value="37" name="VK_FORMAT_R8G8B8A8_UNORM" />
+    <enum value="38" name="VK_FORMAT_R8G8B8A8_SNORM" />
+    <enum value="39" name="VK_FORMAT_R8G8B8A8_USCALED" />
+    <enum value="40" name="VK_FORMAT_R8G8B8A8_SSCALED" />
+    <enum value="41" name="VK_FORMAT_R8G8B8A8_UINT" />
+    <enum value="42" name="VK_FORMAT_R8G8B8A8_SINT" />
+    <enum value="43" name="VK_FORMAT_R8G8B8A8_SRGB" />
+    <enum value="44" name="VK_FORMAT_B8G8R8A8_UNORM" />
+    <enum value="45" name="VK_FORMAT_B8G8R8A8_SNORM" />
+    <enum value="46" name="VK_FORMAT_B8G8R8A8_USCALED" />
+    <enum value="47" name="VK_FORMAT_B8G8R8A8_SSCALED" />
+    <enum value="48" name="VK_FORMAT_B8G8R8A8_UINT" />
+    <enum value="49" name="VK_FORMAT_B8G8R8A8_SINT" />
+    <enum value="50" name="VK_FORMAT_B8G8R8A8_SRGB" />
+    <enum value="51" name="VK_FORMAT_A8B8G8R8_UNORM_PACK32" />
+    <enum value="52" name="VK_FORMAT_A8B8G8R8_SNORM_PACK32" />
+    <enum value="53" name="VK_FORMAT_A8B8G8R8_USCALED_PACK32" />
+    <enum value="54" name="VK_FORMAT_A8B8G8R8_SSCALED_PACK32" />
+    <enum value="55" name="VK_FORMAT_A8B8G8R8_UINT_PACK32" />
+    <enum value="56" name="VK_FORMAT_A8B8G8R8_SINT_PACK32" />
+    <enum value="57" name="VK_FORMAT_A8B8G8R8_SRGB_PACK32" />
+    <enum value="58" name="VK_FORMAT_A2R10G10B10_UNORM_PACK32" />
+    <enum value="59" name="VK_FORMAT_A2R10G10B10_SNORM_PACK32" />
+    <enum value="60" name="VK_FORMAT_A2R10G10B10_USCALED_PACK32" />
+    <enum value="61" name="VK_FORMAT_A2R10G10B10_SSCALED_PACK32" />
+    <enum value="62" name="VK_FORMAT_A2R10G10B10_UINT_PACK32" />
+    <enum value="63" name="VK_FORMAT_A2R10G10B10_SINT_PACK32" />
+    <enum value="64" name="VK_FORMAT_A2B10G10R10_UNORM_PACK32" />
+    <enum value="65" name="VK_FORMAT_A2B10G10R10_SNORM_PACK32" />
+    <enum value="66" name="VK_FORMAT_A2B10G10R10_USCALED_PACK32" />
+    <enum value="67" name="VK_FORMAT_A2B10G10R10_SSCALED_PACK32" />
+    <enum value="68" name="VK_FORMAT_A2B10G10R10_UINT_PACK32" />
+    <enum value="69" name="VK_FORMAT_A2B10G10R10_SINT_PACK32" />
+    <enum value="70" name="VK_FORMAT_R16_UNORM" />
+    <enum value="71" name="VK_FORMAT_R16_SNORM" />
+    <enum value="72" name="VK_FORMAT_R16_USCALED" />
+    <enum value="73" name="VK_FORMAT_R16_SSCALED" />
+    <enum value="74" name="VK_FORMAT_R16_UINT" />
+    <enum value="75" name="VK_FORMAT_R16_SINT" />
+    <enum value="76" name="VK_FORMAT_R16_SFLOAT" />
+    <enum value="77" name="VK_FORMAT_R16G16_UNORM" />
+    <enum value="78" name="VK_FORMAT_R16G16_SNORM" />
+    <enum value="79" name="VK_FORMAT_R16G16_USCALED" />
+    <enum value="80" name="VK_FORMAT_R16G16_SSCALED" />
+    <enum value="81" name="VK_FORMAT_R16G16_UINT" />
+    <enum value="82" name="VK_FORMAT_R16G16_SINT" />
+    <enum value="83" name="VK_FORMAT_R16G16_SFLOAT" />
+    <enum value="84" name="VK_FORMAT_R16G16B16_UNORM" />
+    <enum value="85" name="VK_FORMAT_R16G16B16_SNORM" />
+    <enum value="86" name="VK_FORMAT_R16G16B16_USCALED" />
+    <enum value="87" name="VK_FORMAT_R16G16B16_SSCALED" />
+    <enum value="88" name="VK_FORMAT_R16G16B16_UINT" />
+    <enum value="89" name="VK_FORMAT_R16G16B16_SINT" />
+    <enum value="90" name="VK_FORMAT_R16G16B16_SFLOAT" />
+    <enum value="91" name="VK_FORMAT_R16G16B16A16_UNORM" />
+    <enum value="92" name="VK_FORMAT_R16G16B16A16_SNORM" />
+    <enum value="93" name="VK_FORMAT_R16G16B16A16_USCALED" />
+    <enum value="94" name="VK_FORMAT_R16G16B16A16_SSCALED" />
+    <enum value="95" name="VK_FORMAT_R16G16B16A16_UINT" />
+    <enum value="96" name="VK_FORMAT_R16G16B16A16_SINT" />
+    <enum value="97" name="VK_FORMAT_R16G16B16A16_SFLOAT" />
+    <enum value="98" name="VK_FORMAT_R32_UINT" />
+    <enum value="99" name="VK_FORMAT_R32_SINT" />
+    <enum value="100" name="VK_FORMAT_R32_SFLOAT" />
+    <enum value="101" name="VK_FORMAT_R32G32_UINT" />
+    <enum value="102" name="VK_FORMAT_R32G32_SINT" />
+    <enum value="103" name="VK_FORMAT_R32G32_SFLOAT" />
+    <enum value="104" name="VK_FORMAT_R32G32B32_UINT" />
+    <enum value="105" name="VK_FORMAT_R32G32B32_SINT" />
+    <enum value="106" name="VK_FORMAT_R32G32B32_SFLOAT" />
+    <enum value="107" name="VK_FORMAT_R32G32B32A32_UINT" />
+    <enum value="108" name="VK_FORMAT_R32G32B32A32_SINT" />
+    <enum value="109" name="VK_FORMAT_R32G32B32A32_SFLOAT" />
+    <enum value="110" name="VK_FORMAT_R64_UINT" />
+    <enum value="111" name="VK_FORMAT_R64_SINT" />
+    <enum value="112" name="VK_FORMAT_R64_SFLOAT" />
+    <enum value="113" name="VK_FORMAT_R64G64_UINT" />
+    <enum value="114" name="VK_FORMAT_R64G64_SINT" />
+    <enum value="115" name="VK_FORMAT_R64G64_SFLOAT" />
+    <enum value="116" name="VK_FORMAT_R64G64B64_UINT" />
+    <enum value="117" name="VK_FORMAT_R64G64B64_SINT" />
+    <enum value="118" name="VK_FORMAT_R64G64B64_SFLOAT" />
+    <enum value="119" name="VK_FORMAT_R64G64B64A64_UINT" />
+    <enum value="120" name="VK_FORMAT_R64G64B64A64_SINT" />
+    <enum value="121" name="VK_FORMAT_R64G64B64A64_SFLOAT" />
+    <enum value="122" name="VK_FORMAT_B10G11R11_UFLOAT_PACK32" />
+    <enum value="123" name="VK_FORMAT_E5B9G9R9_UFLOAT_PACK32" />
+    <enum value="124" name="VK_FORMAT_D16_UNORM" />
+    <enum value="125" name="VK_FORMAT_X8_D24_UNORM_PACK32" />
+    <enum value="126" name="VK_FORMAT_D32_SFLOAT" />
+    <enum value="127" name="VK_FORMAT_S8_UINT" />
+    <enum value="128" name="VK_FORMAT_D16_UNORM_S8_UINT" />
+    <enum value="129" name="VK_FORMAT_D24_UNORM_S8_UINT" />
+    <enum value="130" name="VK_FORMAT_D32_SFLOAT_S8_UINT" />
+    <enum value="131" name="VK_FORMAT_BC1_RGB_UNORM_BLOCK" />
+    <enum value="132" name="VK_FORMAT_BC1_RGB_SRGB_BLOCK" />
+    <enum value="133" name="VK_FORMAT_BC1_RGBA_UNORM_BLOCK" />
+    <enum value="134" name="VK_FORMAT_BC1_RGBA_SRGB_BLOCK" />
+    <enum value="135" name="VK_FORMAT_BC2_UNORM_BLOCK" />
+    <enum value="136" name="VK_FORMAT_BC2_SRGB_BLOCK" />
+    <enum value="137" name="VK_FORMAT_BC3_UNORM_BLOCK" />
+    <enum value="138" name="VK_FORMAT_BC3_SRGB_BLOCK" />
+    <enum value="139" name="VK_FORMAT_BC4_UNORM_BLOCK" />
+    <enum value="140" name="VK_FORMAT_BC4_SNORM_BLOCK" />
+    <enum value="141" name="VK_FORMAT_BC5_UNORM_BLOCK" />
+    <enum value="142" name="VK_FORMAT_BC5_SNORM_BLOCK" />
+    <enum value="143" name="VK_FORMAT_BC6H_UFLOAT_BLOCK" />
+    <enum value="144" name="VK_FORMAT_BC6H_SFLOAT_BLOCK" />
+    <enum value="145" name="VK_FORMAT_BC7_UNORM_BLOCK" />
+    <enum value="146" name="VK_FORMAT_BC7_SRGB_BLOCK" />
+    <enum value="147" name="VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK" />
+    <enum value="148" name="VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK" />
+    <enum value="149" name="VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK" />
+    <enum value="150" name="VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK" />
+    <enum value="151" name="VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK" />
+    <enum value="152" name="VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK" />
+    <enum value="153" name="VK_FORMAT_EAC_R11_UNORM_BLOCK" />
+    <enum value="154" name="VK_FORMAT_EAC_R11_SNORM_BLOCK" />
+    <enum value="155" name="VK_FORMAT_EAC_R11G11_UNORM_BLOCK" />
+    <enum value="156" name="VK_FORMAT_EAC_R11G11_SNORM_BLOCK" />
+    <enum value="157" name="VK_FORMAT_ASTC_4x4_UNORM_BLOCK" />
+    <enum value="158" name="VK_FORMAT_ASTC_4x4_SRGB_BLOCK" />
+    <enum value="159" name="VK_FORMAT_ASTC_5x4_UNORM_BLOCK" />
+    <enum value="160" name="VK_FORMAT_ASTC_5x4_SRGB_BLOCK" />
+    <enum value="161" name="VK_FORMAT_ASTC_5x5_UNORM_BLOCK" />
+    <enum value="162" name="VK_FORMAT_ASTC_5x5_SRGB_BLOCK" />
+    <enum value="163" name="VK_FORMAT_ASTC_6x5_UNORM_BLOCK" />
+    <enum value="164" name="VK_FORMAT_ASTC_6x5_SRGB_BLOCK" />
+    <enum value="165" name="VK_FORMAT_ASTC_6x6_UNORM_BLOCK" />
+    <enum value="166" name="VK_FORMAT_ASTC_6x6_SRGB_BLOCK" />
+    <enum value="167" name="VK_FORMAT_ASTC_8x5_UNORM_BLOCK" />
+    <enum value="168" name="VK_FORMAT_ASTC_8x5_SRGB_BLOCK" />
+    <enum value="169" name="VK_FORMAT_ASTC_8x6_UNORM_BLOCK" />
+    <enum value="170" name="VK_FORMAT_ASTC_8x6_SRGB_BLOCK" />
+    <enum value="171" name="VK_FORMAT_ASTC_8x8_UNORM_BLOCK" />
+    <enum value="172" name="VK_FORMAT_ASTC_8x8_SRGB_BLOCK" />
+    <enum value="173" name="VK_FORMAT_ASTC_10x5_UNORM_BLOCK" />
+    <enum value="174" name="VK_FORMAT_ASTC_10x5_SRGB_BLOCK" />
+    <enum value="175" name="VK_FORMAT_ASTC_10x6_UNORM_BLOCK" />
+    <enum value="176" name="VK_FORMAT_ASTC_10x6_SRGB_BLOCK" />
+    <enum value="177" name="VK_FORMAT_ASTC_10x8_UNORM_BLOCK" />
+    <enum value="178" name="VK_FORMAT_ASTC_10x8_SRGB_BLOCK" />
+    <enum value="179" name="VK_FORMAT_ASTC_10x10_UNORM_BLOCK" />
+    <enum value="180" name="VK_FORMAT_ASTC_10x10_SRGB_BLOCK" />
+    <enum value="181" name="VK_FORMAT_ASTC_12x10_UNORM_BLOCK" />
+    <enum value="182" name="VK_FORMAT_ASTC_12x10_SRGB_BLOCK" />
+    <enum value="183" name="VK_FORMAT_ASTC_12x12_UNORM_BLOCK" />
+    <enum value="184" name="VK_FORMAT_ASTC_12x12_SRGB_BLOCK" />
+  </enums>
+  <enums name="VkFormatFeatureFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT" comment="Format can be used for sampled images (SAMPLED_IMAGE and COMBINED_IMAGE_SAMPLER descriptor types)" />
+    <enum bitpos="1" name="VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT" comment="Format can be used for storage images (STORAGE_IMAGE descriptor type)" />
+    <enum bitpos="2" name="VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT" comment="Format supports atomic operations in case it is used for storage images" />
+    <enum bitpos="3" name="VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT" comment="Format can be used for uniform texel buffers (TBOs)" />
+    <enum bitpos="4" name="VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT" comment="Format can be used for storage texel buffers (IBOs)" />
+    <enum bitpos="5" name="VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT" comment="Format supports atomic operations in case it is used for storage texel buffers" />
+    <enum bitpos="6" name="VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT" comment="Format can be used for vertex buffers (VBOs)" />
+    <enum bitpos="7" name="VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT" comment="Format can be used for color attachment images" />
+    <enum bitpos="8" name="VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT" comment="Format supports blending in case it is used for color attachment images" />
+    <enum bitpos="9" name="VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT" comment="Format can be used for depth/stencil attachment images" />
+    <enum bitpos="10" name="VK_FORMAT_FEATURE_BLIT_SRC_BIT" comment="Format can be used as the source image of blits with vkCmdBlitImage" />
+    <enum bitpos="11" name="VK_FORMAT_FEATURE_BLIT_DST_BIT" comment="Format can be used as the destination image of blits with vkCmdBlitImage" />
+    <enum bitpos="12" name="VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT" comment="Format can be filtered with VK_FILTER_LINEAR when being sampled" />
+  </enums>
+  <enums name="VkMemoryHeapFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_MEMORY_HEAP_DEVICE_LOCAL_BIT" comment="If set, heap represents device memory" />
+  </enums>
 </registry>

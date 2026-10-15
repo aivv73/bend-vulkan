@@ -5,6 +5,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -12,10 +13,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 def build(sanitize=False):
     source = ROOT / "build/transfers-probes.c"
     binary = source.with_suffix("")
+    source.parent.mkdir(exist_ok=True)
     subprocess.run(["bend", "tests/probe_main.bend", "-o", str(source)], cwd=ROOT, check=True)
     emitted = source.read_text()
     probes = (ROOT / "tests/probes.c").read_text().replace(
         "/* LIFECYCLE PROBES */", (ROOT / "tests/lifecycle_probes.c").read_text())
+    probes = probes.replace("/* CAPABILITY PROBES */", (ROOT / "tests/capability_probes.c").read_text())
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -36,13 +39,23 @@ def build(sanitize=False):
     for variable in ("regions", "memory", "buffers", "resources"):
         emitted = emitted.replace(f"realloc({variable},", f"bv_test_realloc({variable},")
     emitted = emitted.replace("static void __attribute__((constructor)) bv_register(void)", checks + "\nstatic void __attribute__((constructor)) bv_register(void)")
-    emitted = re.sub(r"(io_eff\(CID_\w+, )bv_cmd_copy_buffer(\);)", r"\1bv_test_copy_buffer\2", emitted)
+    emitted, registrations = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_copy_buffer(\);)", r"\1bv_test_copy_buffer\2", emitted)
+    if registrations != 1:
+        raise ValueError("Copy probe registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
                     "-lpthread", "-lm", "-ldl", "-o", str(binary)], cwd=ROOT, check=True)
     env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")
-    subprocess.run([str(binary)], cwd=ROOT, env=env, check=True, timeout=60)
+    completed = subprocess.run([str(binary)], cwd=ROOT, env=env, check=True, timeout=60,
+                               text=True, capture_output=True)
+    print(completed.stdout, end="", flush=True)
+    if completed.stderr:
+        print(completed.stderr, end="", file=sys.stderr)
+    for marker in ("Injected metadata/map/flush", "Injected layer/extension dispatch",
+                   "Injected submit OOM/uncertainty", "Controlled native probes and real GPU integration passed"):
+        if marker not in completed.stdout:
+            raise SystemExit(f"Missing executed probe group: {marker}")
 
 
 if __name__ == "__main__":

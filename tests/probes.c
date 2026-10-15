@@ -89,6 +89,7 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
   device->UnmapMemory(device->handle,(VkDeviceMemory)(uintptr_t)src->bound->handle);
   puts("Injected metadata/map/flush checks and packed/Term array ownership passed");
 }
+/* CAPABILITY PROBES */
 /* LIFECYCLE PROBES */
 static Term bv_test_copy_buffer(Env e,Term* f,IoWork* w) {
   static int ran;
@@ -97,7 +98,7 @@ static Term bv_test_copy_buffer(Env e,Term* f,IoWork* w) {
     BvRow* dst=NULL;
     for (BvRow* r=bv_rows;r;r=r->next)
       if (r->kind==BV_BUFFER && r->parent==src->parent && r->bound && r->bound!=src->bound) {dst=r;break;}
-    assert(dst);bv_test_unit2(e,command,src,dst);bv_test_unit3(e,command,src,dst);
+    assert(dst);bv_test_unit2(e,command,src,dst);bv_test_capabilities(e,src->parent);bv_test_unit3(e,command,src,dst);
   }
   return bv_cmd_copy_buffer(e,f,w);
 }

@@ -12,18 +12,18 @@ def upload(+device: V.Device, +memory: V.DeviceMemory, offset: W.U64, length: W.
     owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(device, memory, offset, length, A.words())
     A.check_owned(owned, expected)
 
-def allocate(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, requirements: V.MemoryRequirements) -> V.Action(V.DeviceMemory):
+def allocate(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, requirements: V.MemoryRequirements, required: U32) -> V.Action(V.DeviceMemory):
   V.MemoryRequirements{size, alignment, bits} = requirements
   do V.Action<V.DeviceMemory>:
     types : List<Core.MemoryType> <- V.Instance.get_physical_device_memory_properties(instance, physical)
-    index : U32 <- Demo.choose(Core.find_memory_type(types, bits, 2), "No host-visible memory")
+    index : U32 <- Demo.choose(Core.find_memory_type(types, bits, required), "No compatible memory type")
     V.Device.allocate_memory(device, size, index)
 
-def buffer(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, usage: U32) -> V.Action(V.Buffer & V.DeviceMemory):
+def buffer(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, usage: U32, required: U32) -> V.Action(V.Buffer & V.DeviceMemory):
   do V.Action<V.Buffer & V.DeviceMemory>:
     +buffer : V.Buffer <- V.Device.create_buffer(device, V.BufferCreateInfo{W.of_u32(64), usage})
     requirements : V.MemoryRequirements <- V.Device.get_buffer_memory_requirements(device, buffer)
-    +memory : V.DeviceMemory <- allocate(instance, physical, device, requirements)
+    +memory : V.DeviceMemory <- allocate(instance, physical, device, requirements, required)
     V.Device.bind_buffer_memory(device, buffer, memory, W.zero())
     return (buffer, memory)
 
@@ -80,12 +80,12 @@ def transfer_body(+device: V.Device, source: V.Buffer & V.DeviceMemory, destinat
 
 def transfer_destination(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, source: V.Buffer & V.DeviceMemory) -> V.Action(Unit):
   do V.Action<Unit>:
-    destination : V.Buffer & V.DeviceMemory <- buffer(instance, physical, device, 3)
+    destination : V.Buffer & V.DeviceMemory <- buffer(instance, physical, device, 3, 2)
     transfer_body(device, source, destination)
 
 def transfer_checks(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device) -> V.Action(Unit):
   do V.Action<Unit>:
-    source : V.Buffer & V.DeviceMemory <- buffer(instance, physical, device, 3)
+    source : V.Buffer & V.DeviceMemory <- buffer(instance, physical, device, 3, 2)
     transfer_destination(instance, physical, device, source)
 
 def run(+entry: V.Entry) -> V.Action(Unit):

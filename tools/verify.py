@@ -40,9 +40,11 @@ def main():
     rejected = run("bend", "tests/array_rejection.bend", text=True, capture_output=True, timeout=60)
     if "Interpreted array ownership rejection passed" not in rejected.stdout:
         raise SystemExit("Interpreted array ownership probe omitted its success marker")
+    discovery_output = ""
     for source, name, expected in (
         ("examples/discover.bend", "discover", "Loader API version bits:"),
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
+        ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
         ("tests/repeated.bend", "repeated", "32 repeated GPU transfers and 32 private-fence reuses passed"),
@@ -53,8 +55,25 @@ def main():
         print(completed.stdout, end="", flush=True)
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
+        if name == "discover":
+            discovery_output = completed.stdout
+            (BUILD / "discovery.txt").write_text(discovery_output)
         if expected not in completed.stdout:
             raise SystemExit(f"{name} omitted its success marker")
+    validation_available = "Layer: VK_LAYER_KHRONOS_validation\n" in discovery_output
+    availability = "available" if validation_available else "unavailable"
+    print(f"Khronos validation and synchronization validation: {availability}", flush=True)
+    validation_report = f"Khronos validation and synchronization validation: {availability}\n"
+    if validation_available:
+        validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
+                              VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
+        for name in ("buffer-roundtrip", "native-tests", "transfers", "repeated"):
+            completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=60)
+            diagnostics = completed.stdout + completed.stderr
+            if "Validation Error" in diagnostics or "SYNC-HAZARD" in diagnostics:
+                raise SystemExit(f"Vulkan validation failed for {name}:\n{diagnostics}")
+        validation_report += "Real GPU checks passed with validation and synchronization validation enabled.\n"
+    (BUILD / "validation.txt").write_text(validation_report)
     if args.sanitize:
         generated = BUILD / "native-tests.c"
         binary = BUILD / "native-tests-sanitized"

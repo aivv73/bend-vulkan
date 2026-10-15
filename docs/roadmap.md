@@ -42,18 +42,18 @@ The API exposes one selected queue and no general graphics pipeline yet.
 
 ## 1. General transfers and completion
 
-This is the next implementation slice. It removes the assumptions that currently restrict recording to a buffer-fill demonstration.
+This milestone is complete. Transfers use explicit barriers, owned packed uploads, fence completion, and individual command reset.
 
 Wrapper work:
 
-- [ ] Make command-buffer end finish recording without inserting a transfer-to-host barrier. Move that barrier into the fill caller.
-- [ ] Expose buffer and memory barriers with explicit stage and access masks.
-- [ ] Add buffer copies and a packed bulk-upload path with explicit byte length and Bend array ownership.
-- [ ] Add queue submission with fences, fence wait/status/reset, and command-pool or command-buffer reset.
-- [ ] Distinguish recording, executable, pending, completed, and invalid command states. Prevent reset or resource destruction while work is pending.
-- [ ] Track resources referenced by recorded commands and release those references on reset or pool destruction.
-- [ ] Query instance layers, instance/device extensions, required limits, memory heaps, and format support as the following milestones need them.
-- [ ] Keep `submit_and_wait` as a convenience over the general submission path. Migrate existing callers together with the implementation.
+- [x] Make command-buffer end finish recording without inserting a transfer-to-host barrier. Move that barrier into the fill caller.
+- [x] Expose buffer and memory barriers with explicit stage and access masks.
+- [x] Add buffer copies and a packed bulk-upload path with explicit byte length and Bend array ownership.
+- [x] Add queue submission with fences, fence wait/status/reset, and individual command-buffer reset.
+- [x] Distinguish recording, executable, pending, completed, and invalid command states. Prevent reset or resource destruction while work is pending.
+- [x] Track resources referenced by recorded commands and release those references on reset or pool destruction.
+- [x] Query instance layers, instance/device extensions, required limits, memory heaps, and format support as the following milestones need them.
+- [x] Keep `submit_and_wait` as a convenience over the general submission path. Migrate existing callers together with the implementation.
 
 Start with one queue and one submission in flight. Add additional queue selection when presentation requires it.
 Use legacy Vulkan 1.0 synchronization for this baseline. Newer synchronization APIs require a separate negotiated capability.
@@ -63,6 +63,14 @@ Completion evidence: repeatedly upload packed data, copy it through GPU buffers,
 Reuse command resources and verify that the live-object count does not grow.
 Exercise pending-resource protection and failure cleanup through actual native execution.
 The existing fill example must continue to pass with its barrier expressed explicitly.
+
+Acceptance passed with `python3 tools/verify.py --sanitize` on NVIDIA GeForce GTX 1660 with Bend 2.0.37.
+The verifier ran 32 changing packed staging uploads through a device-local intermediate buffer to literal host readback bytes.
+Command/pool/fence rows stayed fixed. A further 32 convenience submissions reused one private fence.
+Native success and accepted-pending failure scopes left zero registry rows.
+Controlled test-only probes covered exact error bits, array ownership, failed metadata allocation, submit uncertainty, reset failure, and sticky loss.
+They did not induce hardware loss. Khronos validation and synchronization validation were unavailable.
+Rerun evidence is in `tools/verify.py`, `tools/check_native.py`, and the native Bend/C checks under `tests/`.
 
 ## 2. Offscreen images
 

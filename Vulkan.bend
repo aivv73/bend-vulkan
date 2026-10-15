@@ -46,6 +46,20 @@ type BufferCreateInfo is Data:
 type PhysicalDeviceProperties is Data:
   PhysicalDeviceProperties{device_name: String, api_version: U32, driver_version: U32, vendor_id: U32, device_id: U32, device_type: U32}
 
+type LayerProperties is Data:
+  LayerProperties{name: String, spec_version: U32, implementation_version: U32, description: String}
+type ExtensionProperties is Data:
+  ExtensionProperties{name: String, spec_version: U32}
+type MemoryHeap is Data:
+  MemoryHeap{size: W.U64, flags: U32}
+type FormatProperties is Data:
+  FormatProperties{linear_tiling_features: U32, optimal_tiling_features: U32, buffer_features: U32}
+type PhysicalDeviceLimits is Data:
+  PhysicalDeviceLimits{max_image_dimension_2d: U32, max_framebuffer_width: U32, max_framebuffer_height: U32, max_color_attachments: U32, max_push_constants_size: U32, max_vertex_input_attributes: U32, max_vertex_input_bindings: U32, max_vertex_input_attribute_offset: U32, max_vertex_input_binding_stride: U32, max_memory_allocation_count: U32, non_coherent_atom_size: W.U64, optimal_buffer_copy_offset_alignment: W.U64, optimal_buffer_copy_row_pitch_alignment: W.U64}
+
+def LimitsWords() -> Type:
+  (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & (U32 & ((U32 & U32) & ((U32 & U32) & (U32 & U32)))))))))))))
+
 type MemoryRequirements is Data:
   MemoryRequirements{size: W.U64, alignment: W.U64, memory_type_bits: U32}
 
@@ -237,6 +251,30 @@ def Fence.reset(fence: Fence) -> IO(VkResult(Unit)):
 def CommandBuffer.reset(command: CommandBuffer) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
+
+def Entry.enumerate_instance_layers(entry: Entry) -> IO(VkResult(List<LayerProperties>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Entry.enumerate_instance_extensions(entry: Entry, layer: Maybe<String>) -> IO(VkResult(List<ExtensionProperties>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.enumerate_device_extensions(instance: Instance, physical: PhysicalDevice, layer: Maybe<String>) -> IO(VkResult(List<ExtensionProperties>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.memory_heaps_raw(instance: Instance, physical: PhysicalDevice) -> IO(VkResult(List<((U32 & U32) & U32)>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.get_physical_device_format_properties(instance: Instance, physical: PhysicalDevice, format: U32) -> IO(VkResult(FormatProperties)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.limits_raw(instance: Instance, physical: PhysicalDevice) -> IO(VkResult(LimitsWords())):
+  import "./src/native.c"
+  import "./src/native.js"
 # END GENERATED EFFECTS
 
 def requirements_from_words(words: (U32 & U32) & ((U32 & U32) & U32)) -> MemoryRequirements:
@@ -273,6 +311,41 @@ def Instance.get_physical_device_memory_properties(instance: Instance, physical:
   do IO<VkResult(List<Core.MemoryType>)>:
     result : VkResult(List<(U32 & U32)>) <- Instance.memory_types_raw(instance, physical)
     return memory_types_result(result)
+
+def heaps_from_words(words: List<((U32 & U32) & U32)>) -> List<MemoryHeap>:
+  match words:
+    case Nil{}:
+      Nil{}
+    case Con{(size, flags), rest}:
+      MemoryHeap{Core.size_from_words(size), flags} <> heaps_from_words(rest)
+
+def heaps_result(result: VkResult(List<((U32 & U32) & U32)>)) -> VkResult(List<MemoryHeap>):
+  match result:
+    case Fail{error}:
+      Fail{error}
+    case Done{words}:
+      Done{heaps_from_words(words)}
+
+def Instance.get_physical_device_memory_heaps(instance: Instance, physical: PhysicalDevice) -> IO(VkResult(List<MemoryHeap>)):
+  do IO<VkResult(List<MemoryHeap>)>:
+    result : VkResult(List<((U32 & U32) & U32)>) <- Instance.memory_heaps_raw(instance, physical)
+    return heaps_result(result)
+
+def limits_from_words(words: LimitsWords()) -> PhysicalDeviceLimits:
+  (a, (b, (c, (d, (e, (f, (g, (h, (i, (j, (atom, (offset, row)))))))))))) = words
+  PhysicalDeviceLimits{a,b,c,d,e,f,g,h,i,j,Core.size_from_words(atom),Core.size_from_words(offset),Core.size_from_words(row)}
+
+def limits_result(result: VkResult(LimitsWords())) -> VkResult(PhysicalDeviceLimits):
+  match result:
+    case Fail{error}:
+      Fail{error}
+    case Done{words}:
+      Done{limits_from_words(words)}
+
+def Instance.get_physical_device_limits(instance: Instance, physical: PhysicalDevice) -> IO(VkResult(PhysicalDeviceLimits)):
+  do IO<VkResult(PhysicalDeviceLimits)>:
+    result : VkResult(LimitsWords()) <- Instance.limits_raw(instance, physical)
+    return limits_result(result)
 
 def Entry.finish(-A: Type, result: VkResult(A), cleanup: VkResult(Unit)) -> VkResult(A):
   match result cleanup:

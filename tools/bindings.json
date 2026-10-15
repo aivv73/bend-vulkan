@@ -37,5 +37,11 @@
   ["Fence.status", [["fence", "Fence"]], "U32", "fence_status"],
   ["Fence.wait", [["fence", "Fence"], ["timeout_ns", "W.U64"]], "U32", "fence_wait"],
   ["Fence.reset", [["fence", "Fence"]], "Unit", "fence_reset"],
-  ["CommandBuffer.reset", [["command", "CommandBuffer"]], "Unit", "reset_command_buffer"]
+  ["CommandBuffer.reset", [["command", "CommandBuffer"]], "Unit", "reset_command_buffer"],
+  ["Entry.enumerate_instance_layers", [["entry", "Entry"]], "List<LayerProperties>", "instance_layers"],
+  ["Entry.enumerate_instance_extensions", [["entry", "Entry"], ["layer", "Maybe<String>"]], "List<ExtensionProperties>", "instance_extensions"],
+  ["Instance.enumerate_device_extensions", [["instance", "Instance"], ["physical", "PhysicalDevice"], ["layer", "Maybe<String>"]], "List<ExtensionProperties>", "device_extensions"],
+  ["Instance.memory_heaps_raw", [["instance", "Instance"], ["physical", "PhysicalDevice"]], "List<((U32 & U32) & U32)>", "memory_heaps"],
+  ["Instance.get_physical_device_format_properties", [["instance", "Instance"], ["physical", "PhysicalDevice"], ["format", "U32"]], "FormatProperties", "format_properties"],
+  ["Instance.limits_raw", [["instance", "Instance"], ["physical", "PhysicalDevice"]], "LimitsWords()", "physical_limits"]
 ]

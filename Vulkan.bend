@@ -362,6 +362,30 @@ def CommandBuffer.copy_buffer_to_image(command: CommandBuffer, src: Buffer, dst:
 def CommandBuffer.copy_image_to_buffer(command: CommandBuffer, src: ImageHandle, layout: U32, dst: Buffer, regions: List<BufferImageCopy>) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
+
+def Device.create_render_pass(device: Device, info: RenderPassCreateInfo) -> IO(VkResult(RenderPass)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_render_pass(device: Device, render_pass: RenderPass) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_framebuffer(device: Device, info: FramebufferCreateInfo) -> IO(VkResult(Framebuffer)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_framebuffer(device: Device, framebuffer: Framebuffer) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.begin_render_pass(command: CommandBuffer, framebuffer: Framebuffer, area: RenderArea, clears: List<ClearValue>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.end_render_pass(command: CommandBuffer) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
 # END GENERATED EFFECTS
 
 def requirements_from_words(words: (U32 & U32) & ((U32 & U32) & U32)) -> MemoryRequirements:

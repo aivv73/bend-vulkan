@@ -21,6 +21,7 @@ def build(sanitize=False):
     probes = probes.replace("/* CAPABILITY PROBES */", (ROOT / "tests/capability_probes.c").read_text())
     probes += "\n" + (ROOT / "tests/image_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/image_transfer_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/render_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -43,6 +44,7 @@ def build(sanitize=False):
     # Keep the emitted-test allocator itself outside the substitution.
     native = native.replace(allocator + "\n", "")
     native = native.replace("malloc(", "bv_test_alloc(").replace("calloc(", "bv_test_calloc(").replace("realloc(", "bv_test_realloc(")
+    native = re.sub(r"\bfree\(", "bv_test_free(", native)
     native = native.replace(anchor, allocator + "\n" + anchor)
     emitted = emitted[:begin] + native + emitted[end:]
     emitted = emitted.replace("static void __attribute__((constructor)) bv_register(void)", checks + "\nstatic void __attribute__((constructor)) bv_register(void)")
@@ -55,6 +57,12 @@ def build(sanitize=False):
     emitted, transfers = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_clear_color_image(\);)", r"\1test_clear_color_image\2", emitted)
     if transfers != 1:
         raise ValueError("Image transfer probe registration moved")
+    emitted, rendering = re.subn(r"(io_eff\(CID_\w+, )bv_cmd_begin_render_pass(\);)", r"\1test_begin_render_pass\2", emitted)
+    if rendering != 1:
+        raise ValueError("Render pass probe registration moved")
+    emitted, live = re.subn(r"(io_eff\(CID_\w+, )bv_live_objects(\);)", r"\1test_live_objects\2", emitted)
+    if live != 1:
+        raise ValueError("Registry cleanup probe registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
@@ -68,6 +76,7 @@ def build(sanitize=False):
     for marker in ("Injected metadata/map/flush", "Injected layer/extension dispatch",
                    "Injected submit OOM/uncertainty", "Controlled image query/create/bind/view rollback",
                    "Controlled image command F32",
+                   "Controlled pass/framebuffer allocation rollback",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

@@ -54,5 +54,11 @@
   ["CommandBuffer.clear_color_image", [["command", "CommandBuffer"], ["image", "ImageHandle"], ["layout", "U32"], ["value", "ClearColor"], ["ranges", "List<ImageSubresourceRange>"]], "Unit", "cmd_clear_color_image"],
   ["CommandBuffer.clear_depth_image", [["command", "CommandBuffer"], ["image", "ImageHandle"], ["layout", "U32"], ["depth", "F32"], ["ranges", "List<ImageSubresourceRange>"]], "Unit", "cmd_clear_depth_image"],
   ["CommandBuffer.copy_buffer_to_image", [["command", "CommandBuffer"], ["src", "Buffer"], ["dst", "ImageHandle"], ["layout", "U32"], ["regions", "List<BufferImageCopy>"]], "Unit", "cmd_copy_buffer_to_image"],
-  ["CommandBuffer.copy_image_to_buffer", [["command", "CommandBuffer"], ["src", "ImageHandle"], ["layout", "U32"], ["dst", "Buffer"], ["regions", "List<BufferImageCopy>"]], "Unit", "cmd_copy_image_to_buffer"]
+  ["CommandBuffer.copy_image_to_buffer", [["command", "CommandBuffer"], ["src", "ImageHandle"], ["layout", "U32"], ["dst", "Buffer"], ["regions", "List<BufferImageCopy>"]], "Unit", "cmd_copy_image_to_buffer"],
+  ["Device.create_render_pass", [["device", "Device"], ["info", "RenderPassCreateInfo"]], "RenderPass", "create_render_pass"],
+  ["Device.destroy_render_pass", [["device", "Device"], ["render_pass", "RenderPass"]], "Unit", "destroy_render_pass"],
+  ["Device.create_framebuffer", [["device", "Device"], ["info", "FramebufferCreateInfo"]], "Framebuffer", "create_framebuffer"],
+  ["Device.destroy_framebuffer", [["device", "Device"], ["framebuffer", "Framebuffer"]], "Unit", "destroy_framebuffer"],
+  ["CommandBuffer.begin_render_pass", [["command", "CommandBuffer"], ["framebuffer", "Framebuffer"], ["area", "RenderArea"], ["clears", "List<ClearValue>"]], "Unit", "cmd_begin_render_pass"],
+  ["CommandBuffer.end_render_pass", [["command", "CommandBuffer"]], "Unit", "cmd_end_render_pass"]
 ]

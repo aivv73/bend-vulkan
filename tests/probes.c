@@ -1,9 +1,20 @@
 #include <assert.h>
 
+static void* bv_test_pointers[8192];
+static unsigned bv_test_live_allocations;
+static void bv_test_track(void* pointer) {
+  if (!pointer) return;
+  for (unsigned j=0;j<8192;j++) if (!bv_test_pointers[j]) {bv_test_pointers[j]=pointer;bv_test_live_allocations++;return;}
+  abort();
+}
+static void bv_test_free(void* pointer) {
+  for (unsigned j=0;j<8192;j++) if (pointer && bv_test_pointers[j]==pointer) {bv_test_pointers[j]=NULL;bv_test_live_allocations--;break;}
+  free(pointer);
+}
 static unsigned bv_test_alloc_at, bv_test_alloc_fail;
 static void* bv_test_alloc(size_t size) {
   if (++bv_test_alloc_at==bv_test_alloc_fail) return NULL;
-  return malloc(size);
+  void* pointer=malloc(size);bv_test_track(pointer);return pointer;
 }
 static void* bv_test_calloc(size_t count,size_t size) {
   void* result=bv_test_alloc(count*size);if(result)memset(result,0,count*size);return result;
@@ -11,7 +22,11 @@ static void* bv_test_calloc(size_t count,size_t size) {
 static unsigned bv_test_realloc_at,bv_test_realloc_fail;
 static void* bv_test_realloc(void* pointer,size_t size) {
   if (++bv_test_realloc_at==bv_test_realloc_fail) return NULL;
-  return realloc(pointer,size);
+  unsigned index=8192;
+  for (unsigned j=0;j<8192;j++) if (pointer && bv_test_pointers[j]==pointer) {index=j;break;}
+  void* result=realloc(pointer,size);
+  if (result) {if (index<8192) bv_test_pointers[index]=result;else bv_test_track(result);}
+  return result;
 }
 static unsigned bv_test_barrier_calls;
 static VKAPI_ATTR void VKAPI_CALL bv_test_barrier(VkCommandBuffer c,VkPipelineStageFlags a,VkPipelineStageFlags b,VkDependencyFlags f,uint32_t nm,const VkMemoryBarrier* m,uint32_t nb,const VkBufferMemoryBarrier* buffers,uint32_t ni,const VkImageMemoryBarrier* images) {

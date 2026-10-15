@@ -78,7 +78,7 @@ Wrapper work:
 
 - [ ] Add image creation/destruction, memory requirements, allocation binding, and image views.
 - [ ] Add image layouts, aspect masks, subresource ranges, explicit image barriers, and supported-format queries.
-- [ ] Add color and depth attachment support through Vulkan 1.0 render passes and framebuffers.
+- [ ] Add color and depth attachment support through Vulkan 1.0 render passes and framebuffers, including begin/end and load-operation clears.
 - [ ] Add image clears, buffer-to-image copies, and image-to-buffer readback.
 - [ ] Extend cleanup to image views, framebuffer references, images, and their allocations.
 - [ ] Define readback dimensions, row stride, channel order, and color encoding explicitly.
@@ -96,7 +96,7 @@ Wrapper work:
 - [ ] Load SPIR-V words into shader modules. Keep GLSL compilation in the build process.
 - [ ] Add pipeline layouts and a small camera push-constant path.
 - [ ] Add graphics pipeline creation with vertex input, triangle topology, rasterization, depth testing, and color output state.
-- [ ] Add render-pass begin/end, viewport/scissor, pipeline binding, vertex/index buffer binding, push constants, and indexed draws.
+- [ ] Add viewport/scissor, pipeline binding, vertex/index buffer binding, push constants, and indexed draws.
 - [ ] Extend command reference tracking to the resources used by graphics draws.
 - [ ] Document byte strides, attribute formats, index types, matrix layout, coordinate conventions, and shader alignment.
 

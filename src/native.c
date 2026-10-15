@@ -38,6 +38,8 @@ typedef struct BvDep {
 } BvDep;
 typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkImageUsageFlags usage; } BvImage;
 typedef struct { VkImageViewType type; VkImageSubresourceRange range; } BvImageView;
+typedef struct { uint32_t colors,count; VkAttachmentDescription* attachments; } BvRenderPass;
+typedef struct { VkExtent2D extent; uint32_t count; BvDep** attachments; } BvFramebuffer;
 struct BvRow {
   uint32_t id;
   BvKind kind;
@@ -45,7 +47,7 @@ struct BvRow {
   uint64_t handle, size;
   VkMemoryRequirements requirements;
   uint32_t flags, memory_type;
-  union { BvImage image; BvImageView view; } object;
+  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; } object;
   BvCommand command;
   BvFence fence;
   void* context;
@@ -82,6 +84,8 @@ typedef struct {
   X(CreateBuffer) X(DestroyBuffer) X(GetBufferMemoryRequirements) \
   X(CreateImage) X(DestroyImage) X(GetImageMemoryRequirements) X(BindImageMemory) \
   X(CreateImageView) X(DestroyImageView) \
+  X(CreateRenderPass) X(DestroyRenderPass) X(CreateFramebuffer) X(DestroyFramebuffer) \
+  X(CmdBeginRenderPass) X(CmdEndRenderPass) \
   X(AllocateMemory) X(FreeMemory) X(BindBufferMemory) X(MapMemory) X(UnmapMemory) \
   X(FlushMappedMemoryRanges) X(InvalidateMappedMemoryRanges) \
   X(CreateCommandPool) X(DestroyCommandPool) X(AllocateCommandBuffers) \
@@ -148,6 +152,8 @@ static void bv_remove(BvRow* row) {
   while (*link != row) link = &(*link)->next;
   *link = row->next;
   while (row->deps) { BvDep* use = row->deps; row->deps = use->next; free(use); }
+  if (row->kind==BV_RENDER_PASS) free(row->object.pass.attachments);
+  if (row->kind==BV_FRAMEBUFFER) free(row->object.framebuffer.attachments);
   free(row);
 }
 static BvRow* bv_child(uint32_t id, BvKind kind, BvRow* owner) {
@@ -319,12 +325,14 @@ static void bv_destroy_device(BvRow* row) {
     }
   }
   device->convenience=NULL;
-  const BvKind order[]={BV_IMAGE_VIEW,BV_IMAGE,BV_BUFFER};
+  const BvKind order[]={BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
   for (unsigned j=0;j<sizeof(order)/sizeof(*order);j++)
     for (BvRow* child=bv_rows,*next;child;child=next) {
       next=child->next;
       if (child->parent!=row || child->kind!=order[j]) continue;
-      if (child->kind==BV_IMAGE_VIEW) device->DestroyImageView(device->handle,(VkImageView)(uintptr_t)child->handle,NULL);
+      if (child->kind==BV_FRAMEBUFFER) device->DestroyFramebuffer(device->handle,(VkFramebuffer)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_RENDER_PASS) device->DestroyRenderPass(device->handle,(VkRenderPass)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_IMAGE_VIEW) device->DestroyImageView(device->handle,(VkImageView)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_IMAGE) device->DestroyImage(device->handle,(VkImage)(uintptr_t)child->handle,NULL);
       else device->DestroyBuffer(device->handle,(VkBuffer)(uintptr_t)child->handle,NULL);
       bv_remove(child);
@@ -1011,6 +1019,179 @@ static int bv_image_layout(BvRow* image,uint32_t layout,int old) {
     default:return 0;
   }
 }
+
+static int bv_attachment(VkAttachmentDescription* out,uint32_t format,uint32_t load,uint32_t store,int depth) {
+  const BvFormat* f=bv_format(format);
+  if (!f || f->aspect!=(depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT) || load>VK_ATTACHMENT_LOAD_OP_DONT_CARE || store>VK_ATTACHMENT_STORE_OP_DONT_CARE) return 0;
+  VkImageLayout layout=depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  *out=(VkAttachmentDescription){.format=format,.samples=VK_SAMPLE_COUNT_1_BIT,.loadOp=load,.storeOp=store,
+    .stencilLoadOp=VK_ATTACHMENT_LOAD_OP_DONT_CARE,.stencilStoreOp=VK_ATTACHMENT_STORE_OP_DONT_CARE,.initialLayout=layout,.finalLayout=layout};
+  return 1;
+}
+#ifdef CID(Device.create_render_pass)
+static Term bv_create_render_pass(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term info[5];bv_unpack(e,f[1],5,info);
+  BvDevice* device=owner ? owner->context : NULL;
+  uint32_t code=!owner ? BV_INVALID : !(device->queue_flags&VK_QUEUE_GRAPHICS_BIT) ? BV_ARGUMENT : 0;
+  VkAttachmentDescription* attachments=NULL;VkAttachmentReference* colors=NULL;uint32_t count=0;Term list=info[0];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2],p[3];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],3,p);
+    if (code) continue;
+    VkAttachmentDescription a;
+    if (!bv_attachment(&a,p[0],p[1],p[2],0) || !bv_image_features(owner->parent->context,device->physical,p[0],VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) {code=BV_ARGUMENT;continue;}
+    if (count>=device->limits.maxColorAttachments || count>=4095) {code=BV_LIMIT;continue;}
+    VkAttachmentDescription* more=realloc(attachments,(count+1)*sizeof(*attachments));
+    if (!more) {code=BV_LIMIT;continue;}attachments=more;attachments[count++]=a;
+  }
+  uint32_t color_count=count;VkAttachmentReference depth={0};
+  if (!code && info[1]) {
+    VkAttachmentDescription a;
+    if (info[1]!=1 || !bv_attachment(&a,info[2],info[3],info[4],1) || !bv_image_features(owner->parent->context,device->physical,info[2],VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) code=BV_ARGUMENT;
+    else {
+      VkAttachmentDescription* more=realloc(attachments,(count+1)*sizeof(*attachments));
+      if (!more) code=BV_LIMIT;
+      else {attachments=more;depth=(VkAttachmentReference){count,VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};attachments[count++]=a;}
+    }
+  }
+  if (!code && !count) code=BV_ARGUMENT;
+  if (!code && color_count) {
+    colors=malloc(color_count*sizeof(*colors));if (!colors) code=BV_LIMIT;
+    else for (uint32_t j=0;j<color_count;j++) colors[j]=(VkAttachmentReference){j,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+  }
+  if (owner && bv_lost(owner)) {free(attachments);free(colors);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create render pass");}
+  if (code) {free(attachments);free(colors);return io_fail(e,code,"render pass attachment schema, queue, limits or allocation");}
+  VkSubpassDescription subpass={.pipelineBindPoint=VK_PIPELINE_BIND_POINT_GRAPHICS,.colorAttachmentCount=color_count,
+    .pColorAttachments=colors,.pDepthStencilAttachment=info[1] ? &depth : NULL};
+  VkRenderPassCreateInfo create={.sType=VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,.attachmentCount=count,.pAttachments=attachments,
+    .subpassCount=1,.pSubpasses=&subpass};
+  VkRenderPass handle;VkResult result=device->CreateRenderPass(device->handle,&create,NULL,&handle);free(colors);
+  if (result!=VK_SUCCESS) {free(attachments);return bv_device_error(e,owner,result,"vkCreateRenderPass");}
+  BvRow* row=bv_add(BV_RENDER_PASS,owner);
+  if (!row) {device->DestroyRenderPass(device->handle,handle,NULL);free(attachments);return io_fail(e,BV_LIMIT,"render pass registry full");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.pass=(BvRenderPass){color_count,count,attachments};
+  return io_done(e,term_pak(CID(RenderPass),row->id));
+}
+#endif
+#ifdef CID(Device.destroy_render_pass)
+static Term bv_destroy_render_pass(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*pass=bv_child(bv_key(e,f[1]),BV_RENDER_PASS,owner);
+  if (!owner || !pass) return io_fail(e,BV_INVALID,"destroy render pass ownership");
+  if (bv_referenced(pass)) return io_fail(e,BV_LIFETIME,"render pass has incoming dependencies");
+  BvDevice* device=owner->context;device->DestroyRenderPass(device->handle,(VkRenderPass)(uintptr_t)pass->handle,NULL);
+  bv_remove(pass);return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.create_framebuffer)
+static Term bv_create_framebuffer(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term info[4];bv_unpack(e,f[1],4,info);
+  BvRow* pass=bv_child((uint32_t)info[0],BV_RENDER_PASS,owner);BvDevice* device=owner ? owner->context : NULL;
+  uint32_t code=(!owner || !pass) ? BV_INVALID : 0;uint32_t count=pass ? pass->object.pass.count : 0,n=0;
+  uint32_t width=info[2],height=info[3];
+  if (!code && (!width || !height || width>device->limits.maxFramebufferWidth || height>device->limits.maxFramebufferHeight)) code=BV_ARGUMENT;
+  BvDep* staged=NULL;BvDep** attachments=NULL;VkImageView* views=NULL;
+  if (!code) {
+    attachments=malloc(count*sizeof(*attachments));views=malloc(count*sizeof(*views));
+    if (!attachments || !views) code=BV_LIMIT;
+  }
+  Term list=info[1];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2];bv_unpack(e,list,2,item);list=item[1];uint32_t id=bv_key(e,item[0]);
+    if (code) continue;
+    if (n>=count) {code=BV_ARGUMENT;continue;}
+    BvRow* view=bv_child(id,BV_IMAGE_VIEW,owner);
+    if (!view) {code=BV_INVALID;continue;}
+    BvRow* image=bv_dependency(view,BV_DEP_VIEW_IMAGE)->target;BvImageView* v=&view->object.view;BvImage* i=&image->object.image;
+    VkAttachmentDescription a=pass->object.pass.attachments[n];int depth=n>=pass->object.pass.colors;
+    if (v->type!=VK_IMAGE_VIEW_TYPE_2D || v->range.levelCount!=1 || v->range.layerCount!=1 ||
+        i->format!=a.format || v->range.aspectMask!=(depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT) ||
+        !(i->usage&(depth ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) ||
+        width>bv_mip_dimension(i->extent.width,v->range.baseMipLevel) || height>bv_mip_dimension(i->extent.height,v->range.baseMipLevel)) {code=BV_ARGUMENT;continue;}
+    for (uint32_t j=0;j<n;j++) {
+      BvRow* previous=attachments[j]->target;
+      if (bv_dependency(previous,BV_DEP_VIEW_IMAGE)->target==image && bv_ranges_overlap(previous->object.view.range,v->range)) code=BV_ARGUMENT;
+    }
+    if (code) continue;
+    BvDep* dep=malloc(sizeof(*dep));if (!dep) {code=BV_LIMIT;continue;}
+    *dep=(BvDep){.target=view,.role=BV_DEP_FRAMEBUFFER_VIEW,.next=staged};staged=dep;attachments[n]=dep;views[n++]=(VkImageView)(uintptr_t)view->handle;
+  }
+  if (!code && n!=count) code=BV_ARGUMENT;
+  if (!code) {
+    BvDep* dep=malloc(sizeof(*dep));if (!dep) code=BV_LIMIT;
+    else {*dep=(BvDep){.target=pass,.role=BV_DEP_FRAMEBUFFER_PASS,.next=staged};staged=dep;}
+  }
+  if (owner && bv_lost(owner)) {free(attachments);free(views);bv_free_refs(staged);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create framebuffer");}
+  if (code) {free(attachments);free(views);bv_free_refs(staged);return io_fail(e,code,"framebuffer ownership, attachments, extent, overlap or allocation");}
+  VkFramebufferCreateInfo create={.sType=VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,.renderPass=(VkRenderPass)(uintptr_t)pass->handle,
+    .attachmentCount=count,.pAttachments=views,.width=width,.height=height,.layers=1};
+  VkFramebuffer handle;VkResult result=device->CreateFramebuffer(device->handle,&create,NULL,&handle);free(views);
+  if (result!=VK_SUCCESS) {free(attachments);bv_free_refs(staged);return bv_device_error(e,owner,result,"vkCreateFramebuffer");}
+  BvRow* row=bv_add(BV_FRAMEBUFFER,owner);
+  if (!row) {device->DestroyFramebuffer(device->handle,handle,NULL);free(attachments);bv_free_refs(staged);return io_fail(e,BV_LIMIT,"framebuffer registry full");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->deps=staged;row->object.framebuffer=(BvFramebuffer){{width,height},count,attachments};
+  return io_done(e,term_pak(CID(Framebuffer),row->id));
+}
+#endif
+#ifdef CID(Device.destroy_framebuffer)
+static Term bv_destroy_framebuffer(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*framebuffer=bv_child(bv_key(e,f[1]),BV_FRAMEBUFFER,owner);
+  if (!owner || !framebuffer) return io_fail(e,BV_INVALID,"destroy framebuffer ownership");
+  if (bv_referenced(framebuffer)) return io_fail(e,BV_LIFETIME,"framebuffer has incoming dependencies");
+  BvDevice* device=owner->context;device->DestroyFramebuffer(device->handle,(VkFramebuffer)(uintptr_t)framebuffer->handle,NULL);
+  bv_remove(framebuffer);return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.begin_render_pass)
+static Term bv_cmd_begin_render_pass(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* framebuffer=bv_child(bv_key(e,f[1]),BV_FRAMEBUFFER,owner);Term area[4];bv_unpack(e,f[2],4,area);
+  BvDevice* device=owner ? owner->context : NULL;
+  uint32_t code=(!command || !framebuffer) ? BV_INVALID : !bv_outside(command) ? BV_LIFETIME : !(device->queue_flags&VK_QUEUE_GRAPHICS_BIT) ? BV_ARGUMENT : 0;
+  BvRow* pass=framebuffer ? bv_dependency(framebuffer,BV_DEP_FRAMEBUFFER_PASS)->target : NULL;
+  uint32_t count=pass ? pass->object.pass.count : 0,n=0;VkClearValue* clears=NULL;
+  if (!code) {
+    VkExtent2D extent=framebuffer->object.framebuffer.extent;uint32_t x=area[0],y=area[1],w=area[2],h=area[3];
+    if (x>INT32_MAX || y>INT32_MAX || !w || !h || w>INT32_MAX || h>INT32_MAX || x>extent.width || w>extent.width-x || y>extent.height || h>extent.height-y) code=BV_ARGUMENT;
+    else {clears=calloc(count,sizeof(*clears));if (!clears) code=BV_LIMIT;}
+  }
+  Term list=f[3];
+  while (term_aux(list)==CID(Con)) {
+    Term item[2];bv_unpack(e,list,2,item);list=item[1];
+    if (code) {term_sink(e,item[0]);continue;}
+    if (n>=count) {term_sink(e,item[0]);code=BV_ARGUMENT;continue;}
+    VkAttachmentDescription a=pass->object.pass.attachments[n];uint64_t tag=term_aux(item[0]);
+    if (a.loadOp!=VK_ATTACHMENT_LOAD_OP_CLEAR) {if (tag!=CID(UnusedClear)) code=BV_ARGUMENT;term_sink(e,item[0]);}
+    else if (n<pass->object.pass.colors && tag==CID(ColorClear)) {
+      Term lanes[4];bv_unpack(e,item[0],4,lanes);
+      for (unsigned j=0;j<4;j++) {clears[n].color.float32[j]=f32_unbox(lanes[j]);if (!isfinite(clears[n].color.float32[j])) code=BV_ARGUMENT;}
+    } else if (n>=pass->object.pass.colors && tag==CID(DepthClear)) {
+      float depth=f32_unbox(bv_key(e,item[0]));if (!isfinite(depth) || depth<0 || depth>1) code=BV_ARGUMENT;
+      clears[n].depthStencil=(VkClearDepthStencilValue){depth,0};
+    } else {term_sink(e,item[0]);code=BV_ARGUMENT;}
+    n++;
+  }
+  if (!code && n!=count) code=BV_ARGUMENT;
+  if (owner && bv_lost(owner)) {free(clears);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"begin render pass");}
+  if (!code && !bv_prepare_refs(command,1,&framebuffer)) code=BV_LIMIT;
+  if (!code) {
+    VkRenderPassBeginInfo begin={.sType=VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,.renderPass=(VkRenderPass)(uintptr_t)pass->handle,
+      .framebuffer=(VkFramebuffer)(uintptr_t)framebuffer->handle,.renderArea={{area[0],area[1]},{area[2],area[3]}},.clearValueCount=count,.pClearValues=clears};
+    device->CmdBeginRenderPass((VkCommandBuffer)(uintptr_t)command->handle,&begin,VK_SUBPASS_CONTENTS_INLINE);
+    command->command.submission.recording.scope=(BvRenderScope){.tag=BV_INSIDE,.data.inside={framebuffer}};
+  }
+  free(clears);return code ? io_fail(e,code,"begin render pass ownership, scope, area, typed clears or allocation") : bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.end_render_pass)
+static Term bv_cmd_end_render_pass(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND);
+  if (!command) return io_fail(e,BV_INVALID,"invalid command buffer");
+  BvRow* owner=bv_command_device(command);BvDevice* device=owner->context;
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"end render pass");
+  if (command->command.phase!=BV_RECORDING || command->command.submission.recording.scope.tag!=BV_INSIDE) return io_fail(e,BV_LIFETIME,"end render pass requires Inside recording scope");
+  device->CmdEndRenderPass((VkCommandBuffer)(uintptr_t)command->handle);
+  command->command.submission.recording.scope=(BvRenderScope){.tag=BV_OUTSIDE};return bv_ok(e);
+}
+#endif
 
 // Map whole allocations so cache ranges satisfy nonCoherentAtomSize alignment.
 static int bv_map_range(BvRow* memory,uint64_t offset,uint32_t count) {
@@ -1755,6 +1936,24 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(CommandBuffer.copy_image_to_buffer)
   io_eff(CID(CommandBuffer.copy_image_to_buffer), bv_cmd_copy_image_to_buffer);
+#endif
+#ifdef CID(Device.create_render_pass)
+  io_eff(CID(Device.create_render_pass), bv_create_render_pass);
+#endif
+#ifdef CID(Device.destroy_render_pass)
+  io_eff(CID(Device.destroy_render_pass), bv_destroy_render_pass);
+#endif
+#ifdef CID(Device.create_framebuffer)
+  io_eff(CID(Device.create_framebuffer), bv_create_framebuffer);
+#endif
+#ifdef CID(Device.destroy_framebuffer)
+  io_eff(CID(Device.destroy_framebuffer), bv_destroy_framebuffer);
+#endif
+#ifdef CID(CommandBuffer.begin_render_pass)
+  io_eff(CID(CommandBuffer.begin_render_pass), bv_cmd_begin_render_pass);
+#endif
+#ifdef CID(CommandBuffer.end_render_pass)
+  io_eff(CID(CommandBuffer.end_render_pass), bv_cmd_end_render_pass);
 #endif
 // END GENERATED REGISTRATIONS
 }

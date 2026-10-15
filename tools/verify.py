@@ -29,6 +29,7 @@ def main():
     if version != "bend 2.0.37":
         raise SystemExit(f"The native effect ABI requires bend 2.0.37; found {version}")
     run(sys.executable, "tools/generate.py", "--check")
+    run(sys.executable, "tools/build_shaders.py", "--check")
     run("bend", "PROOF.bend")
     BUILD.mkdir(exist_ok=True)
     # The interpreted backend must fail explicitly, with a well-formed Result.
@@ -42,9 +43,12 @@ def main():
         raise SystemExit("Interpreted array ownership probe omitted its success marker")
     run("bend", "tests/image_abi.bend", "-o", str(BUILD / "image-abi"))
     run(str(BUILD / "image-abi"), timeout=60)
+    run("bend", "tests/graphics_abi.bend", "-o", str(BUILD / "graphics-abi"))
+    run(str(BUILD / "graphics-abi"), timeout=60)
     discovery_output = ""
     for source, name, expected in (
         ("examples/discover.bend", "discover", "Loader API version bits:"),
+        ("examples/indexed_offscreen.bend", "indexed-offscreen", "Indexed RGBA8+D32 every-pixel occlusion"),
         ("examples/offscreen_roundtrip.bend", "offscreen-roundtrip", "Optimal RGBA8 image clear"),
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
         ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
@@ -52,6 +56,8 @@ def main():
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
         ("tests/image_repeated.bend", "image-repeated", "32 distinct color+D32"),
         ("tests/image_formats.bend", "image-formats", "RGBA/BGRA UNORM/SRGB raw channels"),
+        ("tests/indexed_graphics.bend", "indexed-graphics", "Every RGBA8/D32 pixel passed"),
+        ("tests/graphics_resources.bend", "graphics-resources", "Real shader/layout/pipeline lifecycle"),
         ("tests/rendering.bend", "rendering", "Real color+D32 pass clears"),
         ("tests/offscreen.bend", "offscreen", "Every-pixel clear and padded two-layer"),
         ("tests/images.bend", "images", "Six optimal image formats"),
@@ -75,7 +81,7 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats"):
+        for name in ("buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
             completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=60)
             diagnostics = completed.stdout + completed.stderr
             if "Validation Error" in diagnostics or "SYNC-HAZARD" in diagnostics:

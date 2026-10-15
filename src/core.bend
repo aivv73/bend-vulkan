@@ -105,3 +105,26 @@ def image_copy_end(offset: W.U64, +row_length: U32, +image_height: U32, +width: 
     prefix : W.U64 <- size_add_checked(last_layer,last_row)
     span : W.U64 <- size_add_checked(prefix,payload)
     size_add_checked(offset,span)
+
+def index_span_end(offset: W.U64, +first: U32, count: U32, +width: U32) -> Maybe<W.U64>:
+  do Maybe<W.U64>:
+    valid : Unit <- Bool.pick(Maybe<Unit>,Bool.or(U32.is_eq(width,2),U32.is_eq(width,4)),Some{Unit{}},None{})
+    elements : W.U64 <- size_add_checked(W.of_u32(first),W.of_u32(count))
+    bytes : W.U64 <- size_scale_checked(elements,width)
+    size_add_checked(offset,bytes)
+
+def alignment_parts(+binding_lo: U32, +relative_lo: U32, width: U32) -> Bool:
+  match width:
+    case 1:
+      True{}
+    case 2:
+      U32.is_zero(U32.and(U32.add(U32.and(binding_lo,1),U32.and(relative_lo,1)),1))
+    case 4:
+      U32.is_zero(U32.and(U32.add(U32.and(binding_lo,3),U32.and(relative_lo,3)),3))
+    case _:
+      False{}
+
+def binding_aligned(binding: W.U64, relative: W.U64, width: U32) -> Bool:
+  W.U64{binding_lo,binding_hi} = binding
+  W.U64{relative_lo,relative_hi} = relative
+  alignment_parts(binding_lo,relative_lo,width)

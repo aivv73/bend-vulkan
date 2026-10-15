@@ -10,7 +10,8 @@ Allocation, binding, stage/access masks, timeouts, and reset remain explicit cal
 An Entry owns the loader library and global dispatch. An Instance owns instance dispatch and interned physical-device rows.
 A Device owns device dispatch, one selected queue, and its resources. Pools own command buffers.
 The native registry stores one role-tagged dependency DAG.
-Commands retain deduplicated buffer, image, or framebuffer roots. Framebuffers retain passes and ordered views, views retain images, and buffers/images retain bound allocations.
+Commands retain deduplicated buffer, image, framebuffer, and graphics pipeline roots. Framebuffers retain passes and ordered views, views retain images, and buffers/images retain bound allocations.
+Pipelines retain layouts and render passes. Shader modules are creation-only inputs.
 Binding edges alone store binding offsets. View image identity and framebuffer pass identity derive from their edges.
 Framebuffer attachment order uses pointers into its own view edges. No flattened resource closure or reverse map duplicates the graph.
 Keys are monotonic and never reused, including after failed creation. Native pointers never come from public keys.
@@ -32,8 +33,8 @@ The command has one tagged state:
 | State | Meaning |
 | --- | --- |
 | Initial | Can begin recording |
-| Recording Outside | Can record transfers/barriers, begin a pass, or end the command |
-| Recording Inside with a framebuffer | Can end the pass |
+| Recording Outside | Can record transfers/barriers, set graphics state, begin a pass, or end the command |
+| Recording Inside with a framebuffer | Can bind graphics state, draw indexed geometry, or end the pass |
 | Executable | Can submit |
 | Pending with a fence | Vulkan accepted the submission; completion is unobserved |
 | Uncertain with a fence | An unexpected submit error requires idle recovery |
@@ -66,7 +67,7 @@ Public fence lookup rejects private rows, including fabricated keys. Only device
 
 ## Cleanup and errors
 
-Entry cleanup observes idle first, then destroys pools, fences, framebuffers, views, passes, images/buffers, allocations, devices, physical rows, instances, and the loader.
+Entry cleanup observes idle first, then destroys pools, fences, pipelines, layouts, shaders, framebuffers, views, passes, images/buffers, allocations, devices, physical rows, instances, and the loader.
 An ordinary idle error leaves unsafe resources and the entry live for explicit retry. Known loss permits teardown and returns exact loss.
 A callback failure keeps its original code and appends a cleanup failure's diagnostic.
 Explicit device destruction requires public children gone and also destroys its private convenience fence.
@@ -125,6 +126,28 @@ See the [image API contract](api.md#image-commands-and-readback) for format byte
 The implementation was informed by Voltra at `8900b07e14b80d3528a3b38cb5b376774441d240` before design.
 Its Vulkan 1.3 dynamic rendering, packed color conventions, and U32 memory sizes were not copied into this Vulkan 1.0 API.
 
+## Graphics readiness and retention
+
+Typed graphics descriptions marshal through the measured Bend ABI into one native module.
+`tests/graphics_abi.bend` checks the actual emitted 14-lane pipeline description, three-lane layout, F32 viewport, signed base bits, lists, and U64 limbs.
+Pipeline creation computes immutable per-binding alignment and first-record requirements.
+It reserves all metadata and layout/pass edges before native creation, initializes the output to null, and destroys any nonnull failed pipeline output.
+Exact VkResult bits and sticky device loss use the existing error path.
+
+Recording stores its render scope, current pipeline, an ordinal vertex readiness mask, index span, and dynamic/push readiness inline.
+It owns no heap state and has no persistent binding ledger. Every pipeline bind requires vertex rebinding and full push initialization.
+Index and dynamic state persist through pipeline and pass switches within that recording.
+All union transitions clear the whole expanded payload. Failure before void dispatch preserves both readiness and graph roots.
+The command DAG separately retains every pipeline and vertex/index buffer ever bound in the recording.
+A later binding changes readiness without deleting historical dependencies.
+The longest memory path remains command to framebuffer to view to image to memory, four edges.
+
+Alignment uses the memory binding offset plus the command-relative offset modulo the required component/index width.
+Adding modulo parts avoids U64 sum overflow and permits a relative offset that compensates for the binding offset.
+The wrapper checks the index span, never index contents or effective signed vertex indices.
+It checks first-record vertex coverage, while subsequent vertex/instance fetches and shader validity remain caller obligations.
+The [graphics API contract](api.md#indexed-graphics-recording) defines these boundaries.
+
 ## Executed acceptance
 
 The fixed compiler version is part of this ABI contract. Real effect-return tests cover native and interpreted array ownership.
@@ -132,6 +155,8 @@ Test-only C probes substitute dispatch and metadata allocation in an emitted tra
 Those probes distinguish controlled errors and loss from driver execution.
 Separate native runs verify literal GPU readback, 32 changing staging/copy/readback cycles, command/fence reuse, and stable registry rows.
 Image runs verify every-pixel clears, nonuniform padded two-layer/nonzero-mip transfers, full and partial color/depth pass clears, 32 changing attachment cycles, and resource churn.
+Indexed acceptance checks literal RGBA8 and D32 pixels for both draw orders, index widths, negative base vertex, a nonsymmetric camera, winding, clipping, dynamic state, color masks, strips, and changing pushes.
+It runs 32 stable command/fence/resource reuses. A separate real submission proves overwritten pipeline/buffer retention and allocation host exclusion.
 The framebuffer-only lifetime test prepares layouts in an earlier completed and reset recording, removing direct image roots before the pass submission.
 Controlled probes cover timeout/NOT_READY, Uncertain recovery, failed reset retaining the graph, no-dispatch failures, creation rollback, and metadata cleanup.
 Wrapper allocation counters supplement zero-row assertions because ASan driver-global leak detection is disabled.
@@ -139,7 +164,7 @@ Pure laws cover packing, limb conversion, checked U64 arithmetic, mip dimensions
 
 The GTX 1660 run exposes no host-visible type compatible with optimal color image requirements.
 Real pre-observation rejection and staging bytes prove driver behavior. Controlled map dispatch separately proves host access resumes after completion/recovery.
-No optimal-image mapped pixel read is claimed. Khronos validation and synchronization validation remain unavailable without the actual layer.
+No optimal-image mapped pixel read is claimed. The milestone-3 run uses the available Khronos layer with synchronization validation.
 
 Linear registry scans, allocation-wide host exclusion, and one-time recordings keep one ownership model for this milestone.
-Multiple queues, multiple active submissions, shaders, graphics draws, descriptors, and presentation remain outside this subset.
+Multiple queues, multiple active submissions, descriptors, and presentation remain outside this subset.

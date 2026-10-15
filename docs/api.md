@@ -185,7 +185,7 @@ The interval must fit the buffer's logical size and its bound allocation.
 Uploads reject overlapping destination image boxes. Downloads reject overlapping destination buffer envelopes, including their internal padding.
 Repeated source reads are allowed. Logical dimensions and strides determine the result, independently of Bend array capacity.
 Texels increase in x, then y, then layer order. The example defines the first row, `y=0`, as the top.
-This convention specifies exported bytes. Viewport conventions for future draws are outside this API.
+Positive-height viewport coordinates map NDC negative Y toward the first row, as described in the indexed graphics contract.
 
 Layouts and initialized contents are caller assertions at execution time.
 The wrapper stores no layout cache and inserts no implicit image or host barriers.
@@ -202,7 +202,7 @@ After unexpected submission errors, observe idle recovery and deliberately overw
 | `Device.create_render_pass(device, info)` | A Vulkan 1.0 single-subpass `RenderPass` |
 | `Device.create_framebuffer(device, info)` | A one-layer `Framebuffer` retaining its pass and ordered views |
 | `Device.destroy_framebuffer(device, framebuffer)` | Teardown, rejecting recorded command references |
-| `Device.destroy_render_pass(device, pass)` | Teardown, rejecting framebuffers |
+| `Device.destroy_render_pass(device, pass)` | Teardown, rejecting framebuffers and graphics pipelines |
 | `CommandBuffer.begin_render_pass(command, framebuffer, area, clears)` | Enter Recording Inside scope |
 | `CommandBuffer.end_render_pass(command)` | Return to Recording Outside scope |
 
@@ -224,7 +224,115 @@ Other slots require `UnusedClear{}`. Float constraints match image clears.
 Clears cover the render area. Preserved pixels outside that area require prior initialization and correct synchronization.
 Nested begin, unmatched end, and command end Inside reject before dispatch.
 All fills, copies, image clears, and barriers reject Inside. Successful reset may discard an open recording.
-This milestone executes begin/end and attachment clears. Pipelines, shaders, and draws are absent.
+Indexed graphics commands use this same Vulkan 1.0 pass scope.
+
+## Shaders, layouts, and graphics pipelines
+
+| Operation | Result |
+| --- | --- |
+| `Device.create_shader_module(device, words)` | A checked `ShaderModule` from `List<U32>` |
+| `Device.create_pipeline_layout(device, info)` | A checked `PipelineLayout` |
+| `Device.create_graphics_pipeline(device, info)` | A checked `GraphicsPipeline` |
+| `Device.destroy_shader_module(device, shader)` | Shader teardown |
+| `Device.destroy_pipeline_layout(device, layout)` | Teardown, rejecting pipeline dependents |
+| `Device.destroy_graphics_pipeline(device, pipeline)` | Teardown, rejecting recorded references |
+
+Shader words contain SPIR-V 1.0, at least five words and at most 16 MiB.
+The boundary checks magic `0x07230203`, version `0x00010000`, a nonzero ID bound, and a zero schema word.
+These header checks do not validate shader instructions, capabilities, interfaces, or memory accesses.
+The library consumes the list and copies native aligned words. No Bend pointer survives the effect.
+Shader modules are creation inputs. They can be destroyed after pipeline creation.
+
+`PipelineLayoutCreateInfo{push}` has `None{}` or `Some{PushConstantRange{stages, bytes}}`.
+The sole optional range starts at byte zero. Its nonzero stage mask is a subset of VERTEX and FRAGMENT.
+Its size is a multiple of four, between 4 and 128 bytes, and within the device limit.
+There are no descriptor set layouts.
+
+`GraphicsPipelineCreateInfo` has these fields in order:
+
+- `layout`, `render_pass`, `vertex`, and `fragment` are checked same-device handles.
+- `bindings` contains `VertexInputBinding{binding, stride, input_rate}`. Strides are bytes. Rates are VERTEX or INSTANCE.
+- `attributes` contains `VertexInputAttribute{location, binding, format, offset}`. Offsets are bytes within a record.
+- `topology` is TRIANGLE_LIST or TRIANGLE_STRIP.
+- `raster` is `RasterState{cull_mode, front_face}`. Cull flags permit NONE, FRONT, BACK, or both. Front face is CLOCKWISE or COUNTER_CLOCKWISE.
+- `depth` is `None{}` or `Some{DepthState{test, write, compare}}`. Compare accepts the eight core comparison operations.
+- `color_write_mask` contains R, G, B, and A component bits. One mask applies to every color attachment.
+
+The profile fixes vertex and fragment entrypoints to `main`, fill rasterization, line width one, one sample, subpass zero, and dynamic viewport/scissor.
+Primitive restart, depth clamp/bias, stencil, blending, logic operations, and optional device features are disabled.
+Depth testing or writing requires a depth attachment. An absent depth state disables both.
+Pipelines retain their layout and exact render pass through the dependency graph.
+
+Binding numbers and attribute locations are unique and within device limits. Attributes reference declared bindings.
+The wrapper caps binding descriptions at 64 and attribute descriptions at 256, in addition to device limits.
+Supported vertex formats are R32_SFLOAT, R32G32_SFLOAT, R32G32B32_SFLOAT, R32G32B32A32_SFLOAT, and R8G8B8A8_UNORM.
+Creation also checks the driver's VERTEX_BUFFER format feature.
+Float components require four-byte attribute offsets and strides. RGBA8 components have one-byte alignment.
+Each immutable binding requirement records its alignment and maximum attribute end, so vertex binding checks first-record coverage independently of stride.
+
+## Indexed graphics recording
+
+| Operation | Result |
+| --- | --- |
+| `CommandBuffer.bind_graphics_pipeline(command, pipeline)` | Bind a pipeline and clear vertex/push readiness |
+| `CommandBuffer.set_viewport(command, viewport)` | Set the sole dynamic `Viewport{x,y,width,height,min_depth,max_depth}` |
+| `CommandBuffer.set_scissor(command, area)` | Set the sole dynamic scissor from `RenderArea` |
+| `CommandBuffer.bind_vertex_buffer(command, binding, buffer, offset)` | Bind one declared vertex binding at a W.U64 byte offset |
+| `CommandBuffer.bind_index_buffer(command, buffer, offset, index_type)` | Bind UINT16 or UINT32 indices at a W.U64 byte offset |
+| `CommandBuffer.push_constants(command, words)` | Initialize the bound layout's entire push block from `List<U32>` |
+| `CommandBuffer.draw_indexed(command, draw)` | Record an indexed draw after readiness and range checks |
+
+These commands require Recording and a graphics queue. Bindings and dynamic state may be set Outside or Inside a pass.
+A pipeline must precede vertex bindings and pushes. Every pipeline bind, including a repeated bind, clears all vertex readiness and push readiness.
+A layout without a push range is immediately push-ready. A push command requires a nonempty declared block and exactly its word count.
+The wrapper uses the bound pipeline's layout, declared stages, and offset zero. Partial updates are absent.
+Index, viewport, and scissor readiness persist across pipeline binds.
+All graphics readiness persists across begin/end-pass within a recording. Draw still requires the active framebuffer's exact pass identity.
+Successful begin starts with zero readiness. End, completion, invalidation, and either reset result clear the expanded command payload.
+Failed commands leave readiness and recorded references unchanged.
+
+Vertex and index buffers require bound memory and the corresponding usage bits.
+Alignment includes both the buffer's memory binding offset and the command's relative offset.
+Index alignment is two bytes for UINT16 and four bytes for UINT32.
+Vertex alignment follows the pipeline's component requirements. The first attribute record must fit after the relative offset.
+Offsets retain all U64 bits. Draw checks the index byte span with widened arithmetic and division before dispatch.
+
+`IndexedDraw{index_count, instance_count, first_index, base_vertex, first_instance}` uses `BaseVertex{bits}` for an int32 value's two's-complement U32 bits.
+For example, `4294967293` means -3 and `2147483648` means INT32_MIN. All U32 bit patterns decode to an int32.
+The wrapper never reads index contents and does not validate effective index-plus-base values or subsequent vertex/instance fetch bounds.
+
+Viewport floats must be finite. Width and height are positive and within `maxViewportDimensions`.
+Coordinates and their far edges fit `viewportBoundsRange`. Both depth endpoints are in `[0,1]`.
+Negative viewport height is outside this Vulkan 1.0 profile. Scissor offsets are nonnegative and offset-plus-extent fits INT32_MAX.
+A zero scissor extent is allowed. Draw requires every declared vertex binding, an index buffer, both dynamic values, and a complete push block.
+
+Every mentioned pipeline and vertex/index buffer remains referenced, including overwritten bindings.
+Observed completion permits host access but keeps those roots. Successful reset or pool destruction releases them.
+Pending and Uncertain commands exclude host access to reached allocations, including overwritten vertex/index resources.
+Shader semantics, capabilities, stage interfaces, valid index contents, vertex/instance fetch bounds, image layouts, and synchronization remain caller obligations.
+Shaders must match the descriptor-free layout and the declared vertex inputs, push block, and attachment outputs.
+
+## Example mesh and camera contract
+
+`examples/indexed_offscreen.bend` owns its mesh packing and camera policy.
+Each vertex is 24 bytes, with a vec3 position at byte zero and a vec3 flat RGB color at byte 12.
+Both attributes use R32G32B32_SFLOAT. Mesh bytes start at vertex-buffer offset 16.
+Index data starts at offset 8, includes an unused first index, and uses `first_index` values 1 and 7 with base vertex -3.
+The example exercises both little-endian UINT16 and UINT32 payloads.
+
+The generic 64-byte push block contains a GLSL column-major `mat4` multiplying a column vector.
+Its columns are `(0.5,0,0,0)`, `(0.25,0.5,0,0)`, `(0,0,1,0)`, and `(0.25,-0.25,0,1)`.
+The nonsymmetric matrix exposes transposition and word-order errors. Changing its final column moves the camera without rebuilding the mesh.
+The GLSL block starts at byte zero and each column occupies 16 bytes.
+Clip depth is `0 <= Z <= W`. The positive-height viewport maps negative NDC Y toward row zero, which the example calls the top.
+Readback is row-major RGBA8 and little-endian D32, without a vertical flip.
+
+`tools/build_shaders.py` compiles GLSL with `glslc --target-env=vulkan1.0`, validates with `spirv-val`, and embeds words through explicit little-endian decoding.
+The library invokes no GLSL compiler. Rebuild with `python3 tools/build_shaders.py`; check freshness with `--check`.
+The indexed acceptance compares every color and depth pixel against literal values.
+Its external rectangle and clip boundaries lie between pixel centers. Shared triangle diagonals have identical color/depth on both sides.
+The test compares the union of those triangles, so diagonal edge ownership cannot change the expected result.
+Near/far plane crossings have literal D32 expectations at the surviving pixel centers.
 
 ## Command submission
 

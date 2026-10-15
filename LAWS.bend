@@ -77,3 +77,21 @@ law size_limbs_roundtrip:
 
 law size_scale_zero:
   {Core.size_scale_checked(Core.whole_size(),0) == Some{W.zero()} : Maybe<W.U64>}
+
+law index_span_u16:
+  {Core.index_span_end(W.of_u32(6),3,6,2) == Some{W.of_u32(24)} : Maybe<W.U64>}
+law index_span_widens:
+  {Core.index_span_end(W.zero(),4294967295,2,4) == Some{W.U64{4,4}} : Maybe<W.U64>}
+law index_span_rejects_width:
+  {Core.index_span_end(W.zero(),0,1,3) == None{} : Maybe<W.U64>}
+law index_span_overflow:
+  {Core.index_span_end(Core.whole_size(),0,1,2) == None{} : Maybe<W.U64>}
+
+law binding_alignment_includes_memory:
+  {Core.binding_aligned(W.of_u32(2),W.of_u32(8),4) == False{} : Bool}
+law binding_alignment_compensates:
+  {Core.binding_aligned(W.of_u32(2),W.of_u32(10),4) == True{} : Bool}
+law binding_alignment_high_limbs:
+  {Core.binding_aligned(W.U64{2,4294967295},W.U64{10,4294967295},4) == True{} : Bool}
+law binding_alignment_rejects_width:
+  {Core.binding_aligned(W.zero(),W.zero(),3) == False{} : Bool}

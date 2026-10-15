@@ -70,3 +70,21 @@ def Laws.size_limbs_roundtrip(words):
   {==}
 def Laws.size_scale_zero():
   {==}
+
+def Laws.index_span_u16():
+  {==}
+def Laws.index_span_widens():
+  {==}
+def Laws.index_span_rejects_width():
+  {==}
+def Laws.index_span_overflow():
+  {==}
+
+def Laws.binding_alignment_includes_memory():
+  {==}
+def Laws.binding_alignment_compensates():
+  {==}
+def Laws.binding_alignment_high_limbs():
+  {==}
+def Laws.binding_alignment_rejects_width():
+  {==}

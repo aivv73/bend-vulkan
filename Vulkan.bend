@@ -31,6 +31,34 @@ type RenderPass is Data:
   RenderPass{key: U32}
 type Framebuffer is Data:
   Framebuffer{key: U32}
+type ShaderModule is Data:
+  ShaderModule{key: U32}
+type PipelineLayout is Data:
+  PipelineLayout{key: U32}
+type GraphicsPipeline is Data:
+  GraphicsPipeline{key: U32}
+type PushConstantRange is Data:
+  PushConstantRange{stages: U32, bytes: U32}
+type PipelineLayoutCreateInfo is Data:
+  PipelineLayoutCreateInfo{push: Maybe<&2, PushConstantRange>}
+type VertexInputBinding is Data:
+  VertexInputBinding{binding: U32, stride: U32, input_rate: U32}
+type VertexInputAttribute is Data:
+  VertexInputAttribute{location: U32, binding: U32, format: U32, offset: U32}
+type RasterState is Data:
+  RasterState{cull_mode: U32, front_face: U32}
+type DepthState is Data:
+  DepthState{test: Bool, write: Bool, compare: U32}
+type GraphicsPipelineCreateInfo is Type:
+  GraphicsPipelineCreateInfo{layout: PipelineLayout, render_pass: RenderPass, vertex: ShaderModule, fragment: ShaderModule, bindings: List<VertexInputBinding>, attributes: List<VertexInputAttribute>, topology: U32, raster: RasterState, depth: Maybe<&2, DepthState>, color_write_mask: U32}
+type Viewport is Data:
+  Viewport{x: F32, y: F32, width: F32, height: F32, min_depth: F32, max_depth: F32}
+# The word preserves an int32 vertexOffset in two's-complement form.
+type BaseVertex is Data:
+  BaseVertex{bits: U32}
+type IndexedDraw is Data:
+  IndexedDraw{index_count: U32, instance_count: U32, first_index: U32, base_vertex: BaseVertex, first_instance: U32}
+
 type Extent2D is Data:
   Extent2D{width: U32, height: U32}
 type Offset2D is Data:
@@ -384,6 +412,58 @@ def CommandBuffer.begin_render_pass(command: CommandBuffer, framebuffer: Framebu
   import "./src/native.js"
 
 def CommandBuffer.end_render_pass(command: CommandBuffer) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_shader_module(device: Device, words: List<U32>) -> IO(VkResult(ShaderModule)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_shader_module(device: Device, shader: ShaderModule) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_pipeline_layout(device: Device, info: PipelineLayoutCreateInfo) -> IO(VkResult(PipelineLayout)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_pipeline_layout(device: Device, layout: PipelineLayout) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_graphics_pipeline(device: Device, info: GraphicsPipelineCreateInfo) -> IO(VkResult(GraphicsPipeline)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_graphics_pipeline(device: Device, pipeline: GraphicsPipeline) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.bind_graphics_pipeline(command: CommandBuffer, pipeline: GraphicsPipeline) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.set_viewport(command: CommandBuffer, viewport: Viewport) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.set_scissor(command: CommandBuffer, area: RenderArea) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.bind_vertex_buffer(command: CommandBuffer, binding: U32, buffer: Buffer, offset: W.U64) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.bind_index_buffer(command: CommandBuffer, buffer: Buffer, offset: W.U64, index_type: U32) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.push_constants(command: CommandBuffer, words: List<U32>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.draw_indexed(command: CommandBuffer, draw: IndexedDraw) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 # END GENERATED EFFECTS

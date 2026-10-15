@@ -15,6 +15,7 @@ GROUPS = (
     "VkImageType", "VkImageTiling", "VkImageUsageFlagBits", "VkImageCreateFlagBits",
     "VkImageViewType", "VkImageAspectFlagBits", "VkImageLayout", "VkSampleCountFlagBits",
     "VkAttachmentLoadOp", "VkAttachmentStoreOp",
+    "VkShaderStageFlagBits", "VkVertexInputRate", "VkPrimitiveTopology", "VkCullModeFlagBits", "VkFrontFace", "VkCompareOp", "VkColorComponentFlagBits", "VkIndexType",
 )
 
 

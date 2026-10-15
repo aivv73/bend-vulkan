@@ -1,0 +1,112 @@
+<?xml version='1.0' encoding='utf-8'?>
+<registry>
+  <comment>Copyright 2015-2026 The Khronos Group Inc.
+SPDX-License-Identifier: Apache-2.0 OR MIT</comment>
+  <!--Khronos Vulkan-Headers vk.xml core enum extract; original SHA256 55ec60950cfb18c3575dcf5fd52741b2bb70eb1e466408f803a91049973ee6fb-->
+  <enums name="VkResult" type="enum" comment="API result codes">
+    <comment>Return codes (positive values)</comment>
+    <enum value="0" name="VK_SUCCESS" comment="Command completed successfully" />
+    <enum value="1" name="VK_NOT_READY" comment="A fence or query has not yet completed" />
+    <enum value="2" name="VK_TIMEOUT" comment="A wait operation has not completed in the specified time" />
+    <enum value="3" name="VK_EVENT_SET" comment="An event is signaled" />
+    <enum value="4" name="VK_EVENT_RESET" comment="An event is unsignaled" />
+    <enum value="5" name="VK_INCOMPLETE" comment="A return array was too small for the result" />
+    <comment>Error codes (negative values)</comment>
+    <enum value="-1" name="VK_ERROR_OUT_OF_HOST_MEMORY" comment="A host memory allocation has failed" />
+    <enum value="-2" name="VK_ERROR_OUT_OF_DEVICE_MEMORY" comment="A device memory allocation has failed" />
+    <enum value="-3" name="VK_ERROR_INITIALIZATION_FAILED" comment="Initialization of an object has failed" />
+    <enum value="-4" name="VK_ERROR_DEVICE_LOST" comment="The logical device has been lost. See &lt;&lt;devsandqueues-lost-device&gt;&gt;" />
+    <enum value="-5" name="VK_ERROR_MEMORY_MAP_FAILED" comment="Mapping of a memory object has failed" />
+    <enum value="-6" name="VK_ERROR_LAYER_NOT_PRESENT" comment="Layer specified does not exist" />
+    <enum value="-7" name="VK_ERROR_EXTENSION_NOT_PRESENT" comment="Extension specified does not exist" />
+    <enum value="-8" name="VK_ERROR_FEATURE_NOT_PRESENT" comment="Requested feature is not available on this device" />
+    <enum value="-9" name="VK_ERROR_INCOMPATIBLE_DRIVER" comment="Unable to find a Vulkan driver" />
+    <enum value="-10" name="VK_ERROR_TOO_MANY_OBJECTS" comment="Too many objects of the type have already been created" />
+    <enum value="-11" name="VK_ERROR_FORMAT_NOT_SUPPORTED" comment="Requested format is not supported on this device" />
+    <enum value="-12" name="VK_ERROR_FRAGMENTED_POOL" comment="A requested pool allocation has failed due to fragmentation of the pool's memory" />
+    <enum value="-13" name="VK_ERROR_UNKNOWN" comment="An unknown error has occurred, due to an implementation or application bug" />
+    <unused start="-14" comment="This is the next unused available error code (negative value)" />
+  </enums>
+  <enums name="VkPhysicalDeviceType" type="enum">
+    <enum value="0" name="VK_PHYSICAL_DEVICE_TYPE_OTHER" />
+    <enum value="1" name="VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU" />
+    <enum value="2" name="VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU" />
+    <enum value="3" name="VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU" />
+    <enum value="4" name="VK_PHYSICAL_DEVICE_TYPE_CPU" />
+  </enums>
+  <enums name="VkQueueFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_QUEUE_GRAPHICS_BIT" comment="Queue supports graphics operations" />
+    <enum bitpos="1" name="VK_QUEUE_COMPUTE_BIT" comment="Queue supports compute operations" />
+    <enum bitpos="2" name="VK_QUEUE_TRANSFER_BIT" comment="Queue supports transfer operations" />
+    <enum bitpos="3" name="VK_QUEUE_SPARSE_BINDING_BIT" comment="Queue supports sparse resource memory management operations" />
+  </enums>
+  <enums name="VkBufferUsageFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_BUFFER_USAGE_TRANSFER_SRC_BIT" comment="Can be used as a source of transfer operations" />
+    <enum bitpos="1" name="VK_BUFFER_USAGE_TRANSFER_DST_BIT" comment="Can be used as a destination of transfer operations" />
+    <enum bitpos="2" name="VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT" comment="Can be used as TBO" />
+    <enum bitpos="3" name="VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT" comment="Can be used as IBO" />
+    <enum bitpos="4" name="VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT" comment="Can be used as UBO" />
+    <enum bitpos="5" name="VK_BUFFER_USAGE_STORAGE_BUFFER_BIT" comment="Can be used as SSBO" />
+    <enum bitpos="6" name="VK_BUFFER_USAGE_INDEX_BUFFER_BIT" comment="Can be used as source of fixed-function index fetch (index buffer)" />
+    <enum bitpos="7" name="VK_BUFFER_USAGE_VERTEX_BUFFER_BIT" comment="Can be used as source of fixed-function vertex fetch (VBO)" />
+    <enum bitpos="8" name="VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT" comment="Can be the source of indirect parameters (e.g. indirect buffer, parameter buffer)" />
+  </enums>
+  <enums name="VkMemoryPropertyFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT" comment="If otherwise stated, then allocate memory on device" />
+    <enum bitpos="1" name="VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT" comment="Memory is mappable by host" />
+    <enum bitpos="2" name="VK_MEMORY_PROPERTY_HOST_COHERENT_BIT" comment="Memory will have i/o coherency. If not set, application may need to use vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges to flush/invalidate host cache" />
+    <enum bitpos="3" name="VK_MEMORY_PROPERTY_HOST_CACHED_BIT" comment="Memory will be cached by the host" />
+    <enum bitpos="4" name="VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT" comment="Memory may be allocated by the driver when it is required" />
+  </enums>
+  <enums name="VkCommandPoolCreateFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_COMMAND_POOL_CREATE_TRANSIENT_BIT" comment="Command buffers have a short lifetime" />
+    <enum bitpos="1" name="VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT" comment="Command buffers may release their memory individually" />
+  </enums>
+  <enums name="VkCommandBufferUsageFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT" />
+    <enum bitpos="1" name="VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT" />
+    <enum bitpos="2" name="VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT" comment="Command buffer may be submitted/executed more than once simultaneously" />
+  </enums>
+  <enums name="VkSharingMode" type="enum">
+    <enum value="0" name="VK_SHARING_MODE_EXCLUSIVE" />
+    <enum value="1" name="VK_SHARING_MODE_CONCURRENT" />
+  </enums>
+  <enums name="VkPipelineStageFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT" comment="Before subsequent commands are processed" />
+    <enum bitpos="1" name="VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT" comment="Draw/DispatchIndirect command fetch" />
+    <enum bitpos="2" name="VK_PIPELINE_STAGE_VERTEX_INPUT_BIT" comment="Vertex/index fetch" />
+    <enum bitpos="3" name="VK_PIPELINE_STAGE_VERTEX_SHADER_BIT" comment="Vertex shading" />
+    <enum bitpos="4" name="VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT" comment="Tessellation control shading" />
+    <enum bitpos="5" name="VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT" comment="Tessellation evaluation shading" />
+    <enum bitpos="6" name="VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT" comment="Geometry shading" />
+    <enum bitpos="7" name="VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT" comment="Fragment shading" />
+    <enum bitpos="8" name="VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT" comment="Early fragment (depth and stencil) tests" />
+    <enum bitpos="9" name="VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT" comment="Late fragment (depth and stencil) tests" />
+    <enum bitpos="10" name="VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT" comment="Color attachment writes" />
+    <enum bitpos="11" name="VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT" comment="Compute shading" />
+    <enum bitpos="12" name="VK_PIPELINE_STAGE_TRANSFER_BIT" comment="Transfer/copy operations" />
+    <enum bitpos="13" name="VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT" comment="After previous commands have completed" />
+    <enum bitpos="14" name="VK_PIPELINE_STAGE_HOST_BIT" comment="Indicates host (CPU) is a source/sink of the dependency" />
+    <enum bitpos="15" name="VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT" comment="All stages of the graphics pipeline" />
+    <enum bitpos="16" name="VK_PIPELINE_STAGE_ALL_COMMANDS_BIT" comment="All stages supported on the queue" />
+  </enums>
+  <enums name="VkAccessFlagBits" type="bitmask">
+    <enum bitpos="0" name="VK_ACCESS_INDIRECT_COMMAND_READ_BIT" comment="Controls coherency of indirect command reads" />
+    <enum bitpos="1" name="VK_ACCESS_INDEX_READ_BIT" comment="Controls coherency of index reads" />
+    <enum bitpos="2" name="VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT" comment="Controls coherency of vertex attribute reads" />
+    <enum bitpos="3" name="VK_ACCESS_UNIFORM_READ_BIT" comment="Controls coherency of uniform buffer reads" />
+    <enum bitpos="4" name="VK_ACCESS_INPUT_ATTACHMENT_READ_BIT" comment="Controls coherency of input attachment reads" />
+    <enum bitpos="5" name="VK_ACCESS_SHADER_READ_BIT" comment="Controls coherency of shader reads" />
+    <enum bitpos="6" name="VK_ACCESS_SHADER_WRITE_BIT" comment="Controls coherency of shader writes" />
+    <enum bitpos="7" name="VK_ACCESS_COLOR_ATTACHMENT_READ_BIT" comment="Controls coherency of color attachment reads" />
+    <enum bitpos="8" name="VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT" comment="Controls coherency of color attachment writes" />
+    <enum bitpos="9" name="VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT" comment="Controls coherency of depth/stencil attachment reads" />
+    <enum bitpos="10" name="VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT" comment="Controls coherency of depth/stencil attachment writes" />
+    <enum bitpos="11" name="VK_ACCESS_TRANSFER_READ_BIT" comment="Controls coherency of transfer reads" />
+    <enum bitpos="12" name="VK_ACCESS_TRANSFER_WRITE_BIT" comment="Controls coherency of transfer writes" />
+    <enum bitpos="13" name="VK_ACCESS_HOST_READ_BIT" comment="Controls coherency of host reads" />
+    <enum bitpos="14" name="VK_ACCESS_HOST_WRITE_BIT" comment="Controls coherency of host writes" />
+    <enum bitpos="15" name="VK_ACCESS_MEMORY_READ_BIT" comment="Controls coherency of memory reads" />
+    <enum bitpos="16" name="VK_ACCESS_MEMORY_WRITE_BIT" comment="Controls coherency of memory writes" />
+  </enums>
+</registry>

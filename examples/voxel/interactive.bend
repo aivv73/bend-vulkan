@@ -8,6 +8,7 @@ import ../../deps/bend-voxel/voxel.bend as X
 import ../window.bend as WSI
 import ../buffer_roundtrip.bend as D
 import ./mesh.bend as M
+import ./exterior.bend as Exterior
 import ./renderer.bend as GPU
 import ./presentation.bend as P
 import ./viewport.bend as View
@@ -17,30 +18,46 @@ type World is Type:
 type Session is Type:
   Session{world: World, target: Maybe<&2,P.Target>, phase: P.Phase, width: U32, height: U32, mapped: Bool, recreate: Bool, frames: U32, generations: U32}
 
-def initial(result: X.Body & M.Mesh) -> World:
-  (body,mesh) = result
+def built(pair: X.Body & Result<&2,&1,Exterior.Error,M.Mesh>) -> V.Action(X.Body & M.Mesh):
+  (body,result) = pair
+  match result:
+    case Fail{error}: IO.pure(V.VkResult(X.Body & M.Mesh),Fail{(1,Exterior.error_show(error))})
+    case Done{mesh}: V.Action.pure(X.Body & M.Mesh,(body,mesh))
+
+def initial_world(pair: X.Body & M.Mesh) -> World:
+  (body,mesh) = pair
   World{body,mesh,R.Camera.initial(),Controls.Controls.initial(),0,4294967295,GPU.Empty{},0,True{}}
 
-def edited(result: X.Body & M.Mesh, camera: R.Camera, controls: Controls.Controls, revision: U32, uploaded: U32, geometry: GPU.Geometry, uploads: U32) -> World:
-  (body,mesh) = result
+def edited_world(pair: X.Body & M.Mesh, camera: R.Camera, controls: Controls.Controls, revision: U32, uploaded: U32, geometry: GPU.Geometry, uploads: U32) -> World:
+  (body,mesh) = pair
   World{body,mesh,camera,controls,U32.inc(revision),uploaded,geometry,uploads,True{}}
 
-def changed(world: World, sphere: X.MetricSphere) -> World:
+def initial(result: X.Body & Result<&2,&1,Exterior.Error,M.Mesh>) -> V.Action(World):
+  do V.Action<World>:
+    pair : X.Body & M.Mesh <- built(result)
+    return initial_world(pair)
+
+def edited(result: X.Body & Result<&2,&1,Exterior.Error,M.Mesh>, camera: R.Camera, controls: Controls.Controls, revision: U32, uploaded: U32, geometry: GPU.Geometry, uploads: U32) -> V.Action(World):
+  do V.Action<World>:
+    pair : X.Body & M.Mesh <- built(result)
+    return edited_world(pair,camera,controls,revision,uploaded,geometry,uploads)
+
+def changed(world: World, sphere: X.MetricSphere) -> V.Action(World):
   World{body,mesh,camera,controls,revision,uploaded,geometry,uploads,old} = world
   edited(M.build(X.Body.cut(body,sphere)),camera,controls,revision,uploaded,geometry,uploads)
 
-def picked(world: World, hit: Maybe<&2,X.MetricSphere>) -> World:
+def picked(world: World, hit: Maybe<&2,X.MetricSphere>) -> V.Action(World):
   match hit:
-    case None{}: world
+    case None{}: V.Action.pure(World,world)
     case Some{sphere}: changed(world,sphere)
 
-def click(world: World, +view: View.Viewport, +x: U32, +y: U32) -> World:
+def click(world: World, +view: View.Viewport, +x: U32, +y: U32) -> V.Action(World):
   World{body,mesh,+camera,+controls,revision,uploaded,geometry,uploads,old} = world
-  M.Mesh{+faces,count,vs,ix} = mesh
+  M.Mesh{+faces,size,bounds,vs,ix} = mesh
   View.Viewport{+width,+height} = view
-  picked(World{body,M.Mesh{faces,count,vs,ix},camera,controls,revision,uploaded,geometry,uploads,old},View.target(view,camera,faces,Bool.pick(U32,Controls.Controls.capture(controls),(width / 2 : U32),x),Bool.pick(U32,Controls.Controls.capture(controls),(height / 2 : U32),y)))
+  picked(World{body,M.Mesh{faces,size,bounds,vs,ix},camera,controls,revision,uploaded,geometry,uploads,old},View.target(view,camera,faces,Bool.pick(U32,Controls.Controls.capture(controls),(width / 2 : U32),x),Bool.pick(U32,Controls.Controls.capture(controls),(height / 2 : U32),y)))
 
-def reset(world: World) -> World:
+def reset(world: World) -> V.Action(World):
   World{body,mesh,camera,controls,revision,uploaded,geometry,uploads,old} = world
   edited(M.build(X.Body.solid(3n)),camera,controls,revision,uploaded,geometry,uploads)
 
@@ -62,31 +79,44 @@ def look(world: World, dx: F32, dy: F32) -> World:
   World{body,mesh,camera,+controls,revision,uploaded,geometry,uploads,old} = world
   look_active(Controls.Controls.capture(controls),World{body,mesh,camera,controls,revision,uploaded,geometry,uploads,old},dx,dy)
 
-def click_point(world: World, view: View.Viewport, point: U32 & U32) -> World:
+def click_point(world: World, view: View.Viewport, point: U32 & U32) -> V.Action(World):
   (x,y) = point
   click(world,view,x,y)
 
-def mapped_click(world: World, +mapping: View.Mapping, x: U32, y: U32) -> World:
+def mapped_click(world: World, +mapping: View.Mapping, x: U32, y: U32) -> V.Action(World):
   View.Mapping{ww,wh,width,height} = mapping
   click_point(world,View.Viewport{width,height},View.map_point(mapping,x,y))
 
-def event(event: Event, world: World, view: View.Mapping) -> Maybe<World>:
-  match event:
-    case Close{}: None{}
-    case Key{27,True{}}: None{}
-    case Key{32,True{}}: Some{changed(world,X.MetricSphere.brush(X.PointCm.cell(X.Cell{6,6,6})))}
-    case Key{114,True{}}: Some{reset(world)}
-    case Key{82,True{}}: Some{reset(world)}
-    case Key{code,down}: Some{key(world,code,down)}
-    case Mouse{x,y,1,down}: Some{capture(world,down)}
-    case Mouse{x,y,0,True{}}: Some{mapped_click(world,view,x,y)}
-    case Look{dx,dy}: Some{look(world,dx,dy)}
-    case _: Some{world}
+def continued(action: V.Action(World)) -> V.Action(Maybe<World>):
+  do V.Action<Maybe<World>>:
+    world : World <- action
+    return Some{world}
 
-def events(xs: List<Event>, world: World, +view: View.Mapping) -> Maybe<World>:
+def event(event: Event, world: World, view: View.Mapping) -> V.Action(Maybe<World>):
+  match event:
+    case Close{}: V.Action.pure(Maybe<World>,None{})
+    case Key{27,True{}}: V.Action.pure(Maybe<World>,None{})
+    case Key{32,True{}}: continued(changed(world,X.MetricSphere.brush(X.PointCm.cell(X.Cell{6,6,6}))))
+    case Key{114,True{}}: continued(reset(world))
+    case Key{82,True{}}: continued(reset(world))
+    case Key{code,down}: V.Action.pure(Maybe<World>,Some{key(world,code,down)})
+    case Mouse{x,y,1,down}: V.Action.pure(Maybe<World>,Some{capture(world,down)})
+    case Mouse{x,y,0,True{}}: continued(mapped_click(world,view,x,y))
+    case Look{dx,dy}: V.Action.pure(Maybe<World>,Some{look(world,dx,dy)})
+    case _: V.Action.pure(Maybe<World>,Some{world})
+
+def events_next(result: Maybe<World>, next: World -> V.Action(Maybe<World>)) -> V.Action(Maybe<World>):
+  match result:
+    case None{}: V.Action.pure(Maybe<World>,None{})
+    case Some{world}: next(world)
+
+def events(xs: List<Event>, world: World, +view: View.Mapping) -> V.Action(Maybe<World>):
   match xs:
-    case Nil{}: Some{world}
-    case Con{head,rest}: Maybe.bind(&1,World,World,event(head,world,view),next => events(rest,next,view))
+    case Nil{}: V.Action.pure(Maybe<World>,Some{world})
+    case Con{head,rest}:
+      do V.Action<Maybe<World>>:
+        result : Maybe<World> <- event(head,world,view)
+        events_next(result,next => events(rest,next,view))
 
 def fly(world: World, +elapsed: Nat) -> World:
   World{body,mesh,+camera,+controls,revision,uploaded,geometry,uploads,old} = world
@@ -94,8 +124,9 @@ def fly(world: World, +elapsed: Nat) -> World:
   World{body,mesh,next,controls,revision,uploaded,geometry,uploads,old || Bool.not(R.Camera.equal(camera,next))}
 
 def uploaded(result: GPU.Geometry & M.Mesh, body: X.Body, camera: R.Camera, controls: Controls.Controls, +revision: U32, uploads: U32, changed: Bool) -> World:
-  (geometry,M.Mesh{faces,+count,vs,ix}) = result
-  World{body,M.Mesh{faces,count,vs,ix},camera,controls,revision,revision,geometry,(uploads + Bool.pick(U32,U32.is_zero(count),0,2) : U32),changed}
+  (geometry,M.Mesh{faces,+size,bounds,vs,ix}) = result
+  M.PackedSize{count,vc,ic,vw,iw,vb,ib,vsiz,isiz,vd,id} = size
+  World{body,M.Mesh{faces,size,bounds,vs,ix},camera,controls,revision,revision,geometry,(uploads + Bool.pick(U32,U32.is_zero(count),0,2) : U32),changed}
 
 def rebuild_needed(needed: Bool, world: World, context: WSI.Context) -> V.Action(World):
   match needed world:
@@ -245,12 +276,13 @@ def advance(+frame: P.Frame, app: Session, +context: WSI.Context) -> V.Action(Se
         presented_ready(frame,Session{world,target,P.Presenting{suboptimal,lost},width,height,mapped,replace,frames,generations},suboptimal,lost,status)
 
 def log(world: World, +width: U32, +height: U32, mapped: Bool, captured: Bool, +frames: U32, generations: U32) -> V.Action(World):
-  World{body,M.Mesh{faces,+count,vs,ix},+camera,controls,+revision,uploaded,geometry,+uploads,changed} = world
+  World{body,M.Mesh{faces,+size,bounds,vs,ix},+camera,controls,+revision,uploaded,geometry,+uploads,changed} = world
+  M.PackedSize{count,vc,ic,vw,iw,vb,ib,vsiz,isiz,vd,id} = size
   R.Camera{R.Vec3{x,y,z},yaw,pitch} = camera
   do V.Action<World>:
     rows : U32 <- V.debug_live_objects()
     V.Action.lift(Unit,IO.print("STATE rows=" ++ U32.show(rows) ++ " frame=" ++ U32.show(frames) ++ " generation=" ++ U32.show(generations) ++ " revision=" ++ U32.show(revision) ++ " uploads=" ++ U32.show(uploads) ++ " quads=" ++ U32.show(count) ++ " width=" ++ U32.show(width) ++ " height=" ++ U32.show(height) ++ " mapped=" ++ U32.show(Bool.to_u32(mapped)) ++ " captured=" ++ U32.show(Bool.to_u32(captured)) ++ " camera=" ++ U32.show(F32.bits(x)) ++ "," ++ U32.show(F32.bits(y)) ++ "," ++ U32.show(F32.bits(z)) ++ "," ++ U32.show(F32.bits(yaw)) ++ "," ++ U32.show(F32.bits(pitch))))
-    return World{body,M.Mesh{faces,count,vs,ix},camera,controls,revision,uploaded,geometry,uploads,False{}}
+    return World{body,M.Mesh{faces,size,bounds,vs,ix},camera,controls,revision,uploaded,geometry,uploads,False{}}
 
 def diagnostics(enabled: Bool, world: World, width: U32, height: U32, mapped: Bool, captured: Bool, frames: U32, generations: U32) -> V.Action(World):
   match enabled:
@@ -277,7 +309,9 @@ def mapping(target: Maybe<&2,P.Target>, +window_width: U32, +window_height: U32)
 def snapshot(trace: Bool, app: Session, +context: WSI.Context, frame: P.Frame, state: V.WindowSnapshot, elapsed: Nat) -> V.Action(Maybe<Session>):
   Session{world,+target,phase,old_width,old_height,old_mapped,recreate,frames,generations} = app
   V.WindowSnapshot{+width,+height,+mapped,focused,captured,native_events} = state
-  process_events(trace,context,frame,events(native_events,world,mapping(target,width,height)),target,phase,width,height,mapped,captured,recreate || U32.is_ne(width,old_width) || U32.is_ne(height,old_height),frames,generations,elapsed)
+  do V.Action<Maybe<Session>>:
+    next : Maybe<World> <- events(native_events,world,mapping(target,width,height))
+    process_events(trace,context,frame,next,target,phase,width,height,mapped,captured,recreate || U32.is_ne(width,old_width) || U32.is_ne(height,old_height),frames,generations,elapsed)
 
 def window(context: WSI.Context) -> V.NativeWindow:
   WSI.Context{window,instance,physical,surface,device,g,p} = context
@@ -315,4 +349,5 @@ def run(+entry: V.Entry, split: Bool, trace: Bool) -> V.Action(Unit):
   do V.Action<Unit>:
     +context : WSI.Context <- WSI.open(entry,"Bend Vulkan cube | WASD Q/E | RMB look | click carve | Space cut | R reset | Esc",split)
     +frame : P.Frame <- P.frame(device(context))
-    loop(4294967295n,Some{Session{initial(M.build(X.Body.solid(3n))),None{},P.Idle{},640,480,False{},True{},0,0}},trace,context,frame,None{})
+    world : World <- initial(M.build(X.Body.solid(3n)))
+    loop(4294967295n,Some{Session{world,None{},P.Idle{},640,480,False{},True{},0,0}},trace,context,frame,None{})

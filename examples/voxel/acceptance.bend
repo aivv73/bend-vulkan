@@ -6,6 +6,7 @@ import ../../deps/bend-voxel/dump.bend as OldExport
 import ../buffer_roundtrip.bend as D
 import ../indexed_offscreen.bend as E
 import ./mesh.bend as M
+import ./exterior.bend as Exterior
 import ./geometry.bend as G
 import ./renderer.bend as GPU
 import ./reference.bend as Ref
@@ -52,16 +53,19 @@ def uploaded(body: X.Body, faces: List<&2,X.Face>, pair: GPU.Renderer & M.Mesh) 
   V.Action.pure(State,State{body,faces,renderer})
 
 def checked(renderer: GPU.Renderer, pair: X.Body & (M.Mesh & Bool)) -> V.Action(State):
-  (body,(M.Mesh{+faces,+count,vs,ix},valid)) = pair
+  (body,(M.Mesh{+faces,+size,bounds,vs,ix},valid)) = pair
+  +count = GPU.quads(size)
   do V.Action<State>:
     D.require(valid && (count <= 3072 : U32),"Independent complete voxel geometry check failed")
     V.Action.lift(Unit,IO.print("Complete packed geometry verified, faces " ++ U32.show(count)))
-    installed : GPU.Renderer & M.Mesh <- GPU.replace_mesh(renderer,M.Mesh{faces,count,vs,ix})
+    installed : GPU.Renderer & M.Mesh <- GPU.replace_mesh(renderer,M.Mesh{faces,size,bounds,vs,ix})
     uploaded(body,faces,installed)
 
-def built(renderer: GPU.Renderer, pair: X.Body & M.Mesh) -> V.Action(State):
-  (body,mesh) = pair
-  checked(renderer,G.checked(body,mesh))
+def built(renderer: GPU.Renderer, pair: X.Body & Result<&2,&1,Exterior.Error,M.Mesh>) -> V.Action(State):
+  (body,result) = pair
+  match result:
+    case Fail{error}: IO.pure(V.VkResult(State),Fail{(1,Exterior.error_show(error))})
+    case Done{mesh}: checked(renderer,G.checked(body,mesh))
 
 def load(renderer: GPU.Renderer, body: X.Body) -> V.Action(State):
   built(renderer,M.build(body))
@@ -213,7 +217,7 @@ def intact_checked(pair: State & List<&2,U32>) -> V.Action(Unit):
   (State{body,+faces,+renderer},baseline) = pair
   do V.Action<Unit>:
     expected : U32 <- V.debug_live_objects()
-    D.require(U32.is_eq(M.count(faces),384),"Intact cube must have 384 exposed quads")
+    D.require(U32.is_eq(U32.from_nat(List.length(&2,X.Face,faces)),384),"Intact cube must have 384 exposed quads")
     camera_frames(renderer,faces)
     carved : State <- edit(State{body,faces,renderer})
     image : State & List<&2,U32> <- observe(carved,Some{"build/voxel-carved.ppm"},Some{"build/voxel-upstream-carved.ppm"})

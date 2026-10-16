@@ -5,7 +5,7 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Milestones 0 through 4 are implemented. Later milestones describe planned capabilities and proposed API names.
+Milestones 0 through 5 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
@@ -16,7 +16,7 @@ Milestones 0 through 4 are implemented. Later milestones describe planned capabi
 | 2. Offscreen images | Implemented | Images, binding, views, barriers, color/depth passes, readback | Every-pixel and repeated color/depth clears with bounded resources |
 | 3. Indexed graphics | Implemented | SPIR-V modules, graphics pipelines, vertex/index binding, depth testing, push constants | Every-pixel RGBA8/D32 occlusion in both orders, both index widths, clipping, camera updates, and stable reuse |
 | 4. Voxel mesh consumer | Implemented | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
-| 5. Interactive presentation | Planned | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
+| 5. Interactive presentation | Implemented | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
 | 6. Full scene and appearance | Planned | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
 | 7. Repeated edits and throughput | Planned | Reusable upload storage, resource retirement, measured batching | Camera flight and repeated carving stay correct with stable resource use |
 | 8. Library breadth and portability | Planned | Broader generated bindings, negotiated extensions, additional platforms | Documented support verified on additional drivers and applications |
@@ -172,13 +172,13 @@ Vulkan core and native implementation remain unchanged.
 
 Wrapper work:
 
-- [ ] Add a narrow native window-to-surface adapter, initially for Linux/X11, with explicit window and surface lifetimes.
-- [ ] Add surface capabilities, formats, present modes, and presentation-support queries.
-- [ ] Select graphics and presentation queues from actual support. Handle separate families when the selected device requires them.
-- [ ] Add swapchain creation, borrowed swapchain image handles, image views, acquire, present, and recreation.
-- [ ] Add binary semaphores and submission wait/signal lists. Track presentation-related resource lifetimes separately from rendering fence completion.
-- [ ] Handle suboptimal and out-of-date results as lifecycle outcomes. Handle minimized or zero-sized windows without a busy loop.
-- [ ] Keep native events and pointer capture available while Vulkan owns presentation.
+- [x] Add a narrow native window-to-surface adapter, initially for Linux/X11, with explicit window and surface lifetimes.
+- [x] Add surface capabilities, formats, present modes, and presentation-support queries.
+- [x] Select graphics and presentation queues from actual support. Handle separate families when the selected device requires them.
+- [x] Add swapchain creation, borrowed swapchain image handles, image views, acquire, present, and recreation.
+- [x] Add binary semaphores and submission wait/signal lists. Track presentation-related resource lifetimes separately from rendering fence completion.
+- [x] Handle suboptimal and out-of-date results as lifecycle outcomes. Handle minimized or zero-sized windows without a busy loop.
+- [x] Keep native events and pointer capture available while Vulkan owns presentation.
 
 Begin with one frame in flight. Add overlap after the ownership and synchronization behavior is verified.
 Normal frames use fences and semaphores. Queue-idle waits remain available for simple tools and explicit shutdown paths.
@@ -188,6 +188,13 @@ Brush preview can remain absent until milestone 6, but that limitation must be e
 
 Completion evidence: drive a real native window through camera movement, edits, recreation, and close.
 Verify frame ownership, continued input delivery, repeated recreation, and zero remaining wrapper objects after shutdown.
+
+Acceptance passed with `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` on NVIDIA GeForce GTX 1660.
+The complete old headless suite, presentation ABI, literal semaphore readback, controlled failures, and native window checks passed with Khronos and synchronization validation.
+The actual queue combinations were graphics/present 0/0 and 0/2. The native driver verified flight, relative look, click and demo cuts, reset, repeated landscape/portrait resize, focus-loss capture release, unmap/restore, continued input, and close while suspended.
+Each native run ended with zero wrapper rows and zero tracked native metadata allocations. App-only PNGs and logs remain under `build/window-*`.
+The [presentation contract](presentation.md) defines maintenance1 fence completion, explicit acquisition leases, borrowed-image lifetimes, rollback, viewport mapping, and the Linux/X11 support boundary.
+Brush preview remains deferred to milestone 6.
 
 ## 6. Full scene and appearance
 
@@ -262,4 +269,4 @@ Finish each milestone's acceptance result before starting its dependent mileston
 
 ## Start here
 
-Milestone 4 is complete. Continue with milestone 5 native presentation and preserve the verified offscreen consumer as the headless acceptance path.
+Milestone 5 is complete. Continue with milestone 6 appearance and preserve both the verified offscreen consumer and native presentation acceptance.

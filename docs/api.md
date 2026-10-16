@@ -38,7 +38,7 @@ If cleanup alone fails, the scope returns that failure.
 | `Instance.get_physical_device_image_format_properties(instance, physical, info)` | Exact image configuration limits as `ImageFormatProperties` |
 | `Instance.get_physical_device_limits(instance, physical)` | The selected `PhysicalDeviceLimits` fields |
 | `Instance.create_device(instance, physical, info)` | A device with one queue at priority 1.0 |
-| `Instance.destroy(instance)` | Instance teardown, rejecting live devices |
+| `Instance.destroy(instance)` | Instance teardown, rejecting live devices or surfaces |
 
 `InstanceCreateInfo{application_name, api_version, layers, extensions}` accepts explicit layer and extension names.
 `InstanceCreateInfo.default()` requests Vulkan 1.0, with no layers or extensions.
@@ -375,7 +375,7 @@ Barrier arguments and every new reference node are validated and allocated befor
 Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both family indices. Ownership transfers are absent.
 Stage/access validation accepts supported core Vulkan 1.0 bits. Optional geometry and tessellation features remain disabled.
 `ALL_COMMANDS` excludes HOST. The fill caller records its transfer-to-host barrier explicitly.
-The selected queue must support transfers. There is one selected queue and at most one Pending or Uncertain command per device.
+The selected queue must support transfers. There is one selected graphics queue and at most one Pending or Uncertain command per device. The optional presentation profile adds a present queue with separate completion tracking.
 
 Pending/Uncertain commands reject command reset, affected pool destruction, associated fence reset/destruction, and further submission.
 Protection remains deterministic until a caller observes completion, even if the GPU has already finished.
@@ -385,15 +385,15 @@ Framebuffers retain their pass and views. Views retain images. Bound images reta
 Completion releases host exclusion but retains all recorded references until successful reset or pool destruction.
 Unrelated allocations remain usable. No destructor or mapping operation polls for completion.
 
-Fence SUCCESS and successful device idle complete Pending work. TIMEOUT, NOT_READY, and ordinary wait errors preserve protection.
+Graphics fence SUCCESS and successful device idle complete Pending graphics work. TIMEOUT, NOT_READY, and ordinary wait errors preserve protection.
 Known submission OOM leaves command and fence unchanged. Other submit errors enter Uncertain.
 Uncertain fence status/wait rejects with `BV_LIFETIME`. Successful idle recovery makes that command Invalid without claiming execution succeeded.
-Device loss is sticky, returns exact `VK_ERROR_DEVICE_LOST` bits, invalidates commands, detaches associations, and permits ordered destruction.
+Device loss is sticky, returns exact `VK_ERROR_DEVICE_LOST` bits, invalidates commands, detaches command fence associations, and permits ordered destruction.
 The convenience fence is private, lazily allocated once per device, and destroyed at device teardown.
 Fabricated public fence keys cannot reset, destroy, or submit that private fence.
 
-`Entry.close` waits for devices, then destroys pools, fences, framebuffers, views, passes, images, and buffers before allocations, devices, and instances.
-It then unloads the library.
+`Entry.close` observes graphics and presentation completion, then destroys child objects in dependency order.
+It releases Vulkan surfaces before their native windows and unloads the loader last.
 If waiting returns an error other than device loss, cleanup leaves the remaining entry tree live for an explicit retry.
 Repeated explicit destruction returns an invalid-handle error.
 
@@ -403,3 +403,10 @@ Repeated explicit destruction returns an invalid-handle error.
 `debug_u64_roundtrip(value)` returns two limbs after conversion through a native `uint64_t`.
 `Device.buffer_requirements_raw`, `Device.image_requirements_raw`, `Instance.image_format_properties_raw`, `Instance.memory_types_raw`, `Instance.memory_heaps_raw`, and `Instance.limits_raw` are FFI adapters used by the public queries.
 `LimitsWords()` names the nested raw limb tuple. Applications use `PhysicalDeviceLimits`.
+
+## Native presentation
+
+The [X11 presentation contract](presentation.md) specifies the optional maintenance1 profile, checked window and surface operations, swapchains, borrowed images, binary semaphores, acquisition outcomes, presentation fences, and recreation.
+`Device.create_presentation_device` supplements the existing device constructor.
+`Device.submit_synced` supplements the existing fence submission with wait/stage and signal lists.
+Headless device creation and submission remain available without X11 runtime dependencies.

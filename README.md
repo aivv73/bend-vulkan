@@ -4,9 +4,10 @@ A native Vulkan wrapper for Bend, inspired by [ash](https://github.com/ash-rs/as
 The implementation provides explicit instance, device, buffer, image, memory, command-buffer, fence, render-pass, framebuffer, shader, and indexed graphics operations.
 Vulkan 64-bit sizes, offsets, and alignments use the actual two-limb `U64` from [bend-collections](https://github.com/Giulio2002/bend-collections).
 
-This is a 64-bit Linux, headless Vulkan 1.0 subset. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, color/depth attachment clears, and indexed depth-tested draws.
+This is a 64-bit Linux Vulkan 1.0 subset with optional X11 presentation. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, color/depth attachment clears, and indexed depth-tested draws.
 Images use a six-format, optimal-tiled 2D profile with explicit mips, layers, binding, views, and staging readback.
-Descriptors, surfaces, swapchains, callbacks, and general `pNext` chains are not implemented.
+X11 presentation requires `VK_EXT_swapchain_maintenance1`. Headless binaries keep the Vulkan 1.0 path and load no X11 library.
+Descriptors, callbacks, and general `pNext` chains are not implemented.
 
 ## Run the buffer example
 
@@ -97,6 +98,21 @@ The [voxel contract](docs/voxel.md) defines packing, projection, edge comparison
 Actual GPU checks cover full U32 material bytes, all six directions, edits, empty meshes, and camera frames without mesh uploads.
 The reference renderer runs on the CPU. CUDA is not a prerequisite.
 
+## Run the interactive cube
+
+Build and run the native X11 consumer:
+
+```sh
+bend examples/voxel_interactive.bend -o build/voxel-interactive
+./build/voxel-interactive
+```
+
+Use WASD and Q/E to fly, hold RMB to look, click to carve, press Space for the demo cut, and press R to reset the cube.
+Escape and the native window close button exit. Resize and minimize preserve input and world state.
+Brush preview remains deferred to milestone 6. The [presentation contract](docs/presentation.md) describes requirements, ownership, and completion.
+
+![Vulkan cube after the Space demo cut](docs/voxel-interactive.png)
+
 ## Use the API
 
 Import `Vulkan.bend`, `src/core.bend`, `src/constants.bend`, and the dependency's `src/math/u64.bend` with paths relative to your program.
@@ -132,6 +148,21 @@ To include address and undefined-behavior sanitizers:
 ```sh
 python3 tools/verify.py --sanitize
 ```
+
+Require native-window acceptance as well as the complete headless suite:
+
+```sh
+python3 tools/verify.py --sanitize --presentation
+```
+
+On a Wayland desktop, an isolated X11 display avoids other applications' pointer grabs:
+
+```sh
+python3 tools/verify.py --sanitize --presentation --isolated-display
+```
+
+This option requires rootful Xwayland. Window verification also requires Python Pillow and ImageMagick `import`.
+Presentation checks run only with `--presentation`. The default suite remains usable without `DISPLAY`.
 
 The native checks include 32 alternating packed uploads copied through a device-local intermediate GPU buffer to literal readback bytes.
 They reuse command/pool/fence objects, check stable row counts, and reject pending reset, destruction, mapping, and further submission before observing completion.

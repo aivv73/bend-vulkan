@@ -473,4 +473,44 @@ SPDX-License-Identifier: Apache-2.0 OR MIT</comment>
     <enum bitpos="2" name="VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR" />
     <enum bitpos="3" name="VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR" />
   </enums>
+  <enums name="VkDescriptorType" type="enum">
+    <enum value="0" name="VK_DESCRIPTOR_TYPE_SAMPLER" />
+    <enum value="1" name="VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER" />
+    <enum value="2" name="VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE" />
+    <enum value="3" name="VK_DESCRIPTOR_TYPE_STORAGE_IMAGE" />
+    <enum value="4" name="VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER" />
+    <enum value="5" name="VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER" />
+    <enum value="6" name="VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER" />
+    <enum value="7" name="VK_DESCRIPTOR_TYPE_STORAGE_BUFFER" />
+    <enum value="8" name="VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC" />
+    <enum value="9" name="VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC" />
+    <enum value="10" name="VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT" />
+  </enums>
+  <enums name="VkFilter" type="enum">
+    <enum value="0" name="VK_FILTER_NEAREST" />
+    <enum value="1" name="VK_FILTER_LINEAR" />
+  </enums>
+  <enums name="VkSamplerMipmapMode" type="enum">
+    <enum value="0" name="VK_SAMPLER_MIPMAP_MODE_NEAREST" comment="Choose nearest mip level" />
+    <enum value="1" name="VK_SAMPLER_MIPMAP_MODE_LINEAR" comment="Linear filter between mip levels" />
+  </enums>
+  <enums name="VkSamplerAddressMode" type="enum">
+    <enum value="0" name="VK_SAMPLER_ADDRESS_MODE_REPEAT" />
+    <enum value="1" name="VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT" />
+    <enum value="2" name="VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE" />
+    <enum value="3" name="VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER" />
+    <comment>
+                value="4" reserved for VK_KHR_sampler_mirror_clamp_to_edge
+                enum VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE; do not
+                alias!
+            </comment>
+  </enums>
+  <enums name="VkBorderColor" type="enum">
+    <enum value="0" name="VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK" />
+    <enum value="1" name="VK_BORDER_COLOR_INT_TRANSPARENT_BLACK" />
+    <enum value="2" name="VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK" />
+    <enum value="3" name="VK_BORDER_COLOR_INT_OPAQUE_BLACK" />
+    <enum value="4" name="VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE" />
+    <enum value="5" name="VK_BORDER_COLOR_INT_OPAQUE_WHITE" />
+  </enums>
 </registry>

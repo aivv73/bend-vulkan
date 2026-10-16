@@ -15,7 +15,10 @@ def generate():
         for shader, stage, name in (("indexed", "vert", "vertex_words"), ("indexed", "frag", "fragment_words"),
                                     ("voxel", "vert", "voxel_vertex_words"), ("voxel", "frag", "voxel_fragment_words"),
                                     ("voxel_material", "frag", "voxel_material_words"),
-                                    ("voxel_direction", "frag", "voxel_direction_words")):
+                                    ("voxel_direction", "frag", "voxel_direction_words"),
+                                    ("descriptor", "vert", "descriptor_vertex_words"),
+                                    ("descriptor_depth", "frag", "descriptor_depth_words"),
+                                    ("descriptor", "frag", "descriptor_fragment_words")):
             output = pathlib.Path(temporary) / f"{shader}.{stage}.spv"
             subprocess.run(["glslc", "--target-env=vulkan1.0", "-O", "-o", str(output),
                             str(ROOT / f"shaders/{shader}.{stage}")], check=True)

@@ -49,7 +49,7 @@ def create(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device
     +depth : E.Attachment <- attachment(instance,physical,device,126,2,33)
     stage : E.BoundBuffer <- E.buffer(instance,physical,device,2097152,2)
     +vertex : V.ShaderModule <- V.Device.create_shader_module(device,S.voxel_vertex_words())
-    +layout : V.PipelineLayout <- V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{Some{V.PushConstantRange{1,64}}})
+    +layout : V.PipelineLayout <- V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{[],Some{V.PushConstantRange{1,64}}})
     +pass : V.RenderPass <- V.Device.create_render_pass(device,V.RenderPassCreateInfo{[V.AttachmentInfo{37,1,0}],Some{V.AttachmentInfo{126,1,0}}})
     basic : V.GraphicsPipeline <- pipeline(device,layout,pass,vertex,S.voxel_fragment_words())
     material : V.GraphicsPipeline <- pipeline(device,layout,pass,vertex,S.voxel_material_words())

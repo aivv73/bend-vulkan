@@ -24,6 +24,7 @@ def build(sanitize=False):
     probes += "\n" + (ROOT / "tests/render_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/graphics_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/semaphore_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/descriptor_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -71,6 +72,13 @@ def build(sanitize=False):
     emitted, sync = re.subn(r"(io_eff\(CID_\w+, )bv_submit_synced(\);)", r"\1test_submit_synced\2", emitted)
     if sync != 1:
         raise ValueError("Semaphore submission registration moved")
+    emitted, descriptors = re.subn(r"(io_eff\(CID_\w+, )bv_create_descriptor_set_layout(\);)", r"\1test_descriptor_layout\2", emitted)
+    if descriptors != 1:
+        raise ValueError("Descriptor schema registration moved")
+    emitted, descriptor_updates = re.subn(r"(io_eff\(CID_\w+, )bv_update_descriptor_set(\);)", r"\1test_descriptor_update\2", emitted)
+    emitted, descriptor_roundtrips = re.subn(r"(io_eff\(CID_\w+, )bv_u64_roundtrip(\);)", r"\1test_descriptor_roundtrip\2", emitted)
+    if descriptor_updates != 1 or descriptor_roundtrips != 1:
+        raise ValueError("Descriptor GPU failure registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
@@ -93,6 +101,10 @@ def build(sanitize=False):
                    "Every RGBA8/D32 pixel passed",
                    "Controlled semaphore allocation rollback",
                    "Binary semaphore signal-to-wait literal GPU readback",
+                   "Controlled descriptor metadata sweeps",
+                   "Descriptor graph idle-error retry and loss cleanup",
+                   "Literal uniform and rendered D32 sampling",
+                   "Literal GPU readback after injected sampled and uniform rewrite OOM",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

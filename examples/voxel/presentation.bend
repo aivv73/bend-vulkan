@@ -96,7 +96,7 @@ def target_pipeline(+device: V.Device, +swapchain: V.Swapchain, +depth: E.Attach
           images_ready(device,Target{swapchain,Nil{},depth,pass,layout,pipeline,width,height},OwnPipeline{pipeline} <> owned,xs)))))
 
 def target_layout(+device: V.Device, +swapchain: V.Swapchain, +depth: E.Attachment, +pass: V.RenderPass, +width: U32, +height: U32, +owned: List<&2,Owned>) -> V.Action(Target):
-  guard(V.PipelineLayout,device,owned,V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{Some{V.PushConstantRange{1,64}}}),+layout =>
+  guard(V.PipelineLayout,device,owned,V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{[],Some{V.PushConstantRange{1,64}}}),+layout =>
     target_pipeline(device,swapchain,depth,pass,layout,width,height,OwnLayout{layout} <> owned))
 
 def target_pass(+device: V.Device, +swapchain: V.Swapchain, +depth: E.Attachment, +format: U32, +width: U32, +height: U32, +owned: List<&2,Owned>) -> V.Action(Target):

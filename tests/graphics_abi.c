@@ -13,8 +13,8 @@ static Term graphics_abi_probe(Env e,Term* f,IoWork* w) {
   graphics_fields(e,f[1],14,p);
   assert(term_aux(p[4])==CID(Nil) && term_aux(p[5])==CID(Nil));
   for (unsigned j=6;j<14;j++) assert(p[j]==(uint32_t[]){4,0,0,0,0,0,0,7}[j-6]);
-  graphics_fields(e,f[2],3,p);assert(p[0]==1 && p[1]==17 && p[2]==128);
-  graphics_fields(e,f[3],3,p);assert(!p[0] && !p[1] && !p[2]);
+  graphics_fields(e,f[2],4,p);assert(term_aux(p[0])==CID(Nil) && p[1]==1 && p[2]==17 && p[3]==128);
+  graphics_fields(e,f[3],4,p);assert(term_aux(p[0])==CID(Nil) && !p[1] && !p[2] && !p[3]);
   graphics_fields(e,f[4],6,p);
   for(unsigned j=0;j<6;j++) assert(f32_unbox(p[j])==(float[]){-0.5f,0.25f,32,64,0,1}[j]);
   graphics_fields(e,f[5],5,p);
@@ -23,7 +23,7 @@ static Term graphics_abi_probe(Env e,Term* f,IoWork* w) {
   graphics_fields(e,f[7],2,p);assert(p[0]==0x12345678 && p[1]==0x9abcdef0);
   graphics_fields(e,f[8],2,item);assert(item[0]==0x07230203);
   graphics_fields(e,item[1],2,item);assert(item[0]==UINT32_MAX && term_aux(item[1])==CID(Nil));
-  puts("Emitted graphics ABI: 14 pipeline lanes, 3 layout lanes, F32, signed bits, U64 and word lists passed");
+  puts("Emitted graphics ABI: 14 pipeline lanes, 4 layout lanes, F32, signed bits, U64 and word lists passed");
   return term_pak(CID(Unit),0);
 }
 __attribute__((constructor)) static void register_graphics_abi(void) {io_eff(CID(probe),graphics_abi_probe);}

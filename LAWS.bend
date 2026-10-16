@@ -186,3 +186,13 @@ law presentation_prefers_unorm:
 
 law presentation_undefined_requires_single_format:
   {Core.surface_format([(37,0),(0,17)]) == Some{(37,0)} : Maybe<(U32 & U32)>}
+
+law descriptor_empty_schema:
+  {Core.descriptor_schema(~U32,~(x => x),[]) == [] : List<U32>}
+
+law descriptor_insert_single:
+  for binding: U32
+  {Core.descriptor_insert(~U32,~(x => x),[],binding) == [binding] : List<U32>}
+
+law descriptor_sparse_canonical:
+  {Core.descriptor_schema(~U32,~(x => x),[9,3,0]) == [0,3,9] : List<U32>}

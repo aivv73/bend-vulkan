@@ -65,13 +65,13 @@ static void graphics_resource_probes(Env e,BvRow* owner,Term info) {
     bv_test_alloc_at=0;bv_test_alloc_fail=1;
     bv_test_result(e,bv_create_shader_module(e,(Term[]){bv_test_handle(owner),graphics_words(e)},NULL),BV_LIMIT);
     bv_test_alloc_at=0;
-    bv_test_result(e,bv_create_pipeline_layout(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(PipelineLayoutCreateInfo),3,(Term[]){1,1,64})},NULL),BV_LIMIT);
+    bv_test_result(e,bv_create_pipeline_layout(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(PipelineLayoutCreateInfo),4,(Term[]){term_pak(CID(Nil),0),1,1,64})},NULL),BV_LIMIT);
   }
   bv_test_alloc_fail=0;bv_test_realloc_at=0;bv_test_realloc_fail=1;
   bv_test_result(e,bv_create_shader_module(e,(Term[]){bv_test_handle(owner),graphics_words(e)},NULL),BV_LIMIT);
   bv_test_realloc_fail=0;assert(!graphics_shader_creates && !graphics_layout_creates);
   bv_test_result(e,bv_create_shader_module(e,(Term[]){bv_test_handle(owner),graphics_words(e)},NULL),(uint32_t)graphics_result);
-  bv_test_result(e,bv_create_pipeline_layout(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(PipelineLayoutCreateInfo),3,(Term[]){1,1,64})},NULL),(uint32_t)graphics_result);
+  bv_test_result(e,bv_create_pipeline_layout(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(PipelineLayoutCreateInfo),4,(Term[]){term_pak(CID(Nil),0),1,1,64})},NULL),(uint32_t)graphics_result);
   assert(graphics_shader_creates==1 && graphics_layout_creates==1 && bv_test_live_allocations==allocations);
   d->CreateGraphicsPipelines=create;d->DestroyPipeline=destroy;d->CreateShaderModule=shader;d->CreatePipelineLayout=layout;
   puts("Controlled graphics creation allocation-before-dispatch, exact errors and nonnull failed output rollback passed");

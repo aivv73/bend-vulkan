@@ -162,3 +162,12 @@ def Laws.presentation_prefers_unorm():
 
 def Laws.presentation_undefined_requires_single_format():
   {==}
+
+def Laws.descriptor_empty_schema():
+  {==}
+
+def Laws.descriptor_insert_single(binding):
+  {==}
+
+def Laws.descriptor_sparse_canonical():
+  {==}

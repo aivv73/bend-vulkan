@@ -1,3 +1,4 @@
+static void descriptor_add_cleanup_graph(Env e,BvRow* owner,BvRow* command);
 static VkResult bv_test_submit_result, bv_test_wait_result, bv_test_idle_result;
 static unsigned bv_test_submit_calls,bv_test_wait_calls;
 static uint64_t bv_test_timeout;
@@ -94,6 +95,7 @@ static void bv_test_loss(Env e,BvRow* owner) {
   }
 }
 static void bv_test_loss_scope(Env e) {
+  unsigned scope_allocations=bv_test_live_allocations,scope_rows=0;for(BvRow* row=bv_rows;row;row=row->next)scope_rows++;
   for(unsigned loss=0;loss<2;loss++) {
   BvRow* entry=bv_get(bv_key(e,bv_test_value(e,bv_entry_load(e,NULL,NULL))),BV_ENTRY);
   Term info[]={io_str(e,"injected loss cleanup",21),VK_API_VERSION_1_0,term_pak(CID(Nil),0),term_pak(CID(Nil),0)};
@@ -113,6 +115,7 @@ static void bv_test_loss_scope(Env e) {
   BvRow* device=bv_get(bv_key(e,bv_test_value(e,bv_create_device(e,device_args,NULL))),BV_DEVICE);
   BvRow* pool=bv_test_pool(e,device);BvRow* command=bv_test_command(e,device,pool);bv_test_fence(e,device);
   probe_add_cleanup_graph(e,device,command);
+  descriptor_add_cleanup_graph(e,device,command);
   unsigned rows=0,allocations=bv_test_live_allocations;for(BvRow* r=bv_rows;r;r=r->next)rows++;
   uint32_t key=entry->id;PFN_vkDeviceWaitIdle actual_idle=((BvDevice*)device->context)->DeviceWaitIdle;
   ((BvDevice*)device->context)->DeviceWaitIdle=bv_test_idle_error;
@@ -123,8 +126,11 @@ static void bv_test_loss_scope(Env e) {
   bv_test_idle_result=VK_ERROR_DEVICE_LOST;
   if(!loss)((BvDevice*)device->context)->DeviceWaitIdle=actual_idle;
   bv_test_one(e,bv_entry_close,entry,loss ? (uint32_t)VK_ERROR_DEVICE_LOST : 0);assert(!bv_get(key,BV_ENTRY));
+  unsigned after_rows=0;for(BvRow* row=bv_rows;row;row=row->next)after_rows++;
+  assert(after_rows==scope_rows && bv_test_live_allocations==scope_allocations);
   }
   puts("Controlled image graph idle-error retry and known-loss ordered teardown passed");
+  puts("Descriptor graph idle-error retry and loss cleanup returned exact row and metadata counts");
 }
 static void bv_test_unit3(Env e,BvRow* recording,BvRow* src,BvRow* dst) {
   BvRow* owner=bv_command_device(recording);BvDevice* device=owner->context;

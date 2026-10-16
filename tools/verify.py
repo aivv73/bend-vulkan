@@ -57,6 +57,8 @@ def main():
     run(str(BUILD / "image-abi"), timeout=60)
     run("bend", "tests/graphics_abi.bend", "-o", str(BUILD / "graphics-abi"))
     run(str(BUILD / "graphics-abi"), timeout=60)
+    run("bend", "tests/descriptor_abi.bend", "-o", str(BUILD / "descriptor-abi"))
+    run(str(BUILD / "descriptor-abi"), timeout=60)
     run("bend", "tests/presentation_abi.bend", "-o", str(BUILD / "presentation-abi"))
     run(str(BUILD / "presentation-abi"), timeout=60)
     discovery_output = ""
@@ -68,6 +70,7 @@ def main():
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
         ("tests/viewport.bend", "viewport", "Viewport square rays, wide-field picking and extent rejection passed"),
         ("tests/interactive.bend", "interactive", "Queued edit/reset picking before upload passed"),
+        ("tests/descriptors.bend", "descriptors", "Literal uniform and rendered D32 sampling"),
         ("tests/semaphores.bend", "semaphores", "Binary semaphore signal-to-wait literal GPU readback passed"),
         ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
@@ -104,7 +107,7 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
+        for name in ("descriptors", "semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
             completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=180 if name == "voxel-offscreen" else 60)
             (BUILD / f"{name}-validation.log").write_text(completed.stdout + completed.stderr)
             diagnostics = completed.stdout + completed.stderr

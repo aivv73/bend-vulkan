@@ -94,5 +94,16 @@
   ["Device.create_semaphore", [["device", "Device"]], "Semaphore", "create_semaphore"],
   ["Device.destroy_semaphore", [["device", "Device"], ["semaphore", "Semaphore"]], "Unit", "destroy_semaphore"],
   ["Device.submit_synced", [["device", "Device"], ["command", "CommandBuffer"], ["fence", "Fence"], ["waits", "List<SemaphoreWait>"], ["signals", "List<Semaphore>"]], "Unit", "submit_synced"],
-  ["Device.present", [["device", "Device"], ["swapchain", "Swapchain"], ["index", "U32"], ["wait", "Semaphore"], ["fence", "Fence"]], "PresentOutcome", "present"]
+  ["Device.present", [["device", "Device"], ["swapchain", "Swapchain"], ["index", "U32"], ["wait", "Semaphore"], ["fence", "Fence"]], "PresentOutcome", "present"],
+  ["Device.descriptor_set_layout_raw", [["device", "Device"], ["info", "DescriptorSetLayoutCreateInfo"]], "DescriptorSetLayout", "create_descriptor_set_layout"],
+  ["Device.destroy_descriptor_set_layout", [["device", "Device"], ["layout", "DescriptorSetLayout"]], "Unit", "destroy_descriptor_set_layout"],
+  ["Device.create_descriptor_pool", [["device", "Device"], ["info", "DescriptorPoolCreateInfo"]], "DescriptorPool", "create_descriptor_pool"],
+  ["Device.destroy_descriptor_pool", [["device", "Device"], ["pool", "DescriptorPool"]], "Unit", "destroy_descriptor_pool"],
+  ["Device.reset_descriptor_pool", [["device", "Device"], ["pool", "DescriptorPool"]], "Unit", "reset_descriptor_pool"],
+  ["Device.allocate_descriptor_set", [["device", "Device"], ["pool", "DescriptorPool"], ["layout", "DescriptorSetLayout"]], "DescriptorSet", "allocate_descriptor_set"],
+  ["Device.free_descriptor_set", [["device", "Device"], ["set", "DescriptorSet"]], "Unit", "free_descriptor_set"],
+  ["Device.update_descriptor_set", [["device", "Device"], ["set", "DescriptorSet"], ["writes", "List<DescriptorWrite>"]], "Unit", "update_descriptor_set"],
+  ["Device.create_sampler", [["device", "Device"], ["info", "SamplerCreateInfo"]], "Sampler", "create_sampler"],
+  ["Device.destroy_sampler", [["device", "Device"], ["sampler", "Sampler"]], "Unit", "destroy_sampler"],
+  ["CommandBuffer.bind_descriptor_sets", [["command", "CommandBuffer"], ["first", "U32"], ["sets", "List<DescriptorSet>"]], "Unit", "cmd_bind_descriptor_sets"]
 ]

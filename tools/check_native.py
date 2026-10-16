@@ -23,6 +23,7 @@ def build(sanitize=False):
     probes += "\n" + (ROOT / "tests/image_transfer_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/render_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/graphics_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/semaphore_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -67,6 +68,9 @@ def build(sanitize=False):
     emitted, live = re.subn(r"(io_eff\(CID_\w+, )bv_live_objects(\);)", r"\1test_live_objects\2", emitted)
     if live != 1:
         raise ValueError("Registry cleanup probe registration moved")
+    emitted, sync = re.subn(r"(io_eff\(CID_\w+, )bv_submit_synced(\);)", r"\1test_submit_synced\2", emitted)
+    if sync != 1:
+        raise ValueError("Semaphore submission registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
@@ -87,6 +91,8 @@ def build(sanitize=False):
                    "Controlled graphics creation allocation-before-dispatch",
                    "Controlled graphics readiness, signed extremes",
                    "Every RGBA8/D32 pixel passed",
+                   "Controlled semaphore allocation rollback",
+                   "Binary semaphore signal-to-wait literal GPU readback",
                    "Controlled native probes and real GPU integration passed"):
         if marker not in completed.stdout:
             raise SystemExit(f"Missing executed probe group: {marker}")

@@ -1,3 +1,5 @@
+#ifndef BV_NATIVE_IMPLEMENTATION
+#define BV_NATIVE_IMPLEMENTATION
 // Bend 2.0.37 effect ABI. Only the IO event loop accesses the registry.
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -16,8 +18,10 @@
 #define BV_MAX_COPY (16u * 1024u * 1024u)
 
 typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
-  BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER, BV_SHADER, BV_LAYOUT, BV_PIPELINE } BvKind;
+  BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER, BV_SHADER, BV_LAYOUT, BV_PIPELINE,
+  BV_WINDOW, BV_SURFACE, BV_SWAPCHAIN, BV_SEMAPHORE } BvKind;
 typedef struct BvRow BvRow;
+typedef struct { void (*destroy)(BvRow*); } BvWindowContext;
 typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN, BV_COMPLETED, BV_COMMAND_INVALID } BvCommandPhase;
 typedef enum { BV_OUTSIDE, BV_INSIDE } BvRenderTag;
 typedef struct { BvRenderTag tag; union { struct { BvRow* framebuffer; } inside; } data; } BvRenderScope;
@@ -33,17 +37,26 @@ typedef struct {
   union { BvRecording recording; struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
 } BvCommand;
 typedef enum { BV_CALLER, BV_CONVENIENCE_PRIVATE } BvFenceLifetime;
-typedef struct { BvFenceLifetime lifetime; } BvFence;
+typedef enum { BV_FENCE_FREE, BV_FENCE_ACQUIRE, BV_FENCE_PRESENT } BvFenceUse;
+typedef struct { BvFenceLifetime lifetime; BvFenceUse use; BvRow* swapchain; } BvFence;
 typedef enum { BV_HEALTHY, BV_LOST } BvHealth;
 typedef enum { BV_DEP_RECORDED, BV_DEP_BINDING, BV_DEP_VIEW_IMAGE,
-  BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW, BV_DEP_PIPELINE_LAYOUT, BV_DEP_PIPELINE_PASS } BvDepRole;
+  BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW, BV_DEP_PIPELINE_LAYOUT, BV_DEP_PIPELINE_PASS,
+  BV_DEP_WINDOW, BV_DEP_SURFACE, BV_DEP_SWAPCHAIN, BV_DEP_SUBMIT_WAIT, BV_DEP_SUBMIT_SIGNAL } BvDepRole;
 typedef struct BvDep {
   BvRow* target;
   BvDepRole role;
   union { struct { uint64_t offset; } binding; } data;
   struct BvDep* next;
 } BvDep;
-typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkImageUsageFlags usage; } BvImage;
+typedef enum { BV_ALLOCATED_IMAGE, BV_BORROWED_IMAGE } BvImageStorage;
+typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkImageUsageFlags usage;
+  BvImageStorage storage; BvRow* swapchain; uint32_t index; } BvImage;
+typedef enum { BV_SEM_UNUSED, BV_SEM_SIGNAL_PENDING, BV_SEM_SIGNALED, BV_SEM_SUBMIT_WAIT, BV_SEM_PRESENT_WAIT, BV_SEM_UNCERTAIN, BV_SEM_QUARANTINED } BvSemaphorePhase;
+typedef struct { BvSemaphorePhase phase; BvRow* producer; uint64_t producer_serial; } BvSemaphore;
+typedef enum { BV_LEASE_NONE, BV_LEASE_ACQUIRING, BV_LEASE_ACQUIRED, BV_LEASE_RENDERING, BV_LEASE_RENDERED, BV_LEASE_PRESENTING, BV_LEASE_ACQUIRE_UNCERTAIN, BV_LEASE_RENDER_UNCERTAIN, BV_LEASE_PRESENT_UNCERTAIN, BV_LEASE_ABANDONED } BvLeasePhase;
+typedef struct { BvLeasePhase phase; BvRow *swapchain,*fence,*semaphore; uint32_t index; uint64_t serial; } BvLease;
+typedef struct { uint32_t count; BvRow** images; VkFormat format; VkExtent2D extent; VkImageUsageFlags usage; } BvSwapchain;
 typedef struct { VkImageViewType type; VkImageSubresourceRange range; } BvImageView;
 typedef struct { uint32_t colors,count; VkAttachmentDescription* attachments; } BvRenderPass;
 typedef struct { VkExtent2D extent; uint32_t count; BvDep** attachments; } BvFramebuffer;
@@ -60,6 +73,7 @@ struct BvRow {
   union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; BvPushRange layout; BvPipeline pipeline; } object;
   BvCommand command;
   BvFence fence;
+  BvSemaphore semaphore;
   void* context;
   BvDep* deps;
 };
@@ -87,10 +101,18 @@ typedef struct {
   PFN_vkGetPhysicalDeviceImageFormatProperties image_formats;
   PFN_vkCreateDevice create_device;
   PFN_vkGetDeviceProcAddr get_device;
+  PFN_vkVoidFunction create_surface;
+  PFN_vkDestroySurfaceKHR destroy_surface;
+  PFN_vkGetPhysicalDeviceSurfaceSupportKHR surface_support;
+  PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR surface_caps;
+  PFN_vkGetPhysicalDeviceSurfaceFormatsKHR surface_formats;
+  PFN_vkGetPhysicalDeviceSurfacePresentModesKHR present_modes;
+  PFN_vkGetPhysicalDeviceFeatures2KHR features2;
+  bool presentation;
 } BvInstance;
 
 #define BV_DEVICE_FUNCTIONS(X) \
-  X(DestroyDevice) X(DeviceWaitIdle) X(GetDeviceQueue) \
+  X(DestroyDevice) X(DeviceWaitIdle) X(GetDeviceQueue) X(CreateSemaphore) X(DestroySemaphore) \
   X(CreateBuffer) X(DestroyBuffer) X(GetBufferMemoryRequirements) \
   X(CreateImage) X(DestroyImage) X(GetImageMemoryRequirements) X(BindImageMemory) \
   X(CreateImageView) X(DestroyImageView) \
@@ -113,6 +135,17 @@ typedef struct {
   BvRow* convenience;
   VkPhysicalDevice physical;
   VkQueue queue;
+  VkQueue present_queue;
+  uint32_t present_family;
+  BvLease lease;
+  uint64_t lease_serial;
+  bool presentation;
+  PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
+  PFN_vkDestroySwapchainKHR DestroySwapchainKHR;
+  PFN_vkGetSwapchainImagesKHR GetSwapchainImagesKHR;
+  PFN_vkAcquireNextImageKHR AcquireNextImageKHR;
+  PFN_vkQueuePresentKHR QueuePresentKHR;
+  PFN_vkReleaseSwapchainImagesEXT ReleaseSwapchainImagesEXT;
   uint32_t family, queue_flags;
   VkQueueFamilyProperties queue_properties;
   VkPhysicalDeviceLimits limits;
@@ -193,6 +226,17 @@ static BvRow* bv_active(BvRow* owner,BvRow* fence) {
   return NULL;
 }
 static void bv_complete(BvRow* command) {
+  BvDep** link=&command->deps;
+  while (*link) {
+    BvDep* dep=*link;
+    if (dep->role==BV_DEP_SUBMIT_WAIT || dep->role==BV_DEP_SUBMIT_SIGNAL) {
+      dep->target->semaphore.phase=command->command.phase==BV_UNCERTAIN ? BV_SEM_QUARANTINED : dep->role==BV_DEP_SUBMIT_WAIT ? BV_SEM_UNUSED : BV_SEM_SIGNALED;
+      *link=dep->next;free(dep);
+    } else link=&dep->next;
+  }
+  BvDevice* device=command->parent->parent->context;
+  if (device->lease.phase==BV_LEASE_RENDERING) device->lease.phase=BV_LEASE_RENDERED;
+  if (device->lease.phase==BV_LEASE_RENDER_UNCERTAIN) device->lease.phase=BV_LEASE_ABANDONED;
   command->command.phase=command->command.phase==BV_PENDING ? BV_COMPLETED : BV_COMMAND_INVALID;
   memset(&command->command.submission,0,sizeof(command->command.submission));
 }
@@ -212,6 +256,7 @@ static Term bv_device_error(Env e,BvRow* owner,VkResult result,const char* opera
   return bv_vk_error(e,bv_device_result(owner,result),operation);
 }
 static int bv_lost(BvRow* owner) { return ((BvDevice*)owner->context)->health==BV_LOST; }
+static VkResult bv_drain_presentation(BvRow* owner);
 static VkResult bv_idle(BvRow* owner) {
   if (bv_lost(owner)) return VK_ERROR_DEVICE_LOST;
   BvDevice* device=owner->context;
@@ -229,6 +274,12 @@ static BvDep* bv_dependency(const BvRow* row,BvDepRole role) {
 static BvRow* bv_bound_memory(const BvRow* row) {
   BvDep* binding=bv_dependency(row,BV_DEP_BINDING);
   return binding ? binding->target : NULL;
+}
+static int bv_image_available(BvRow* image) {
+  if (image->object.image.storage==BV_ALLOCATED_IMAGE) return bv_bound_memory(image)!=NULL;
+  BvDevice* device=image->parent->context;
+  return device->lease.swapchain==image->object.image.swapchain && device->lease.index==image->object.image.index &&
+    device->lease.phase==BV_LEASE_ACQUIRED;
 }
 static uint64_t bv_bound_offset(const BvRow* row) {
   return bv_dependency(row,BV_DEP_BINDING)->data.binding.offset;
@@ -315,6 +366,9 @@ static int bv_has_children(BvRow* parent, BvKind ignored) {
     if (row->parent == parent && row->kind != ignored) return 1;
   return 0;
 }
+static void bv_destroy_window(BvRow* row) {
+  ((BvWindowContext*)row->context)->destroy(row);
+}
 static void bv_destroy_pool(BvRow* pool) {
   BvDevice* device = pool->parent->context;
   device->DestroyCommandPool(device->handle, (VkCommandPool)(uintptr_t)pool->handle, NULL);
@@ -324,6 +378,8 @@ static void bv_destroy_pool(BvRow* pool) {
   }
   bv_remove(pool);
 }
+static void bv_swapchain_remove(BvRow* row);
+static void bv_surface_remove(BvRow* row);
 static void bv_destroy_device(BvRow* row) {
   BvDevice* device = row->context;
   for (;;) {
@@ -351,7 +407,7 @@ static void bv_destroy_device(BvRow* row) {
       else if (child->kind==BV_FRAMEBUFFER) device->DestroyFramebuffer(device->handle,(VkFramebuffer)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_RENDER_PASS) device->DestroyRenderPass(device->handle,(VkRenderPass)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_IMAGE_VIEW) device->DestroyImageView(device->handle,(VkImageView)(uintptr_t)child->handle,NULL);
-      else if (child->kind==BV_IMAGE) device->DestroyImage(device->handle,(VkImage)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_IMAGE) {if(child->object.image.storage==BV_BORROWED_IMAGE)continue;device->DestroyImage(device->handle,(VkImage)(uintptr_t)child->handle,NULL);}
       else device->DestroyBuffer(device->handle,(VkBuffer)(uintptr_t)child->handle,NULL);
       bv_remove(child);
     }
@@ -362,6 +418,8 @@ static void bv_destroy_device(BvRow* row) {
       bv_remove(child);
     }
   }
+  for(BvRow* child=bv_rows,*next;child;child=next) {next=child->next;if(child->parent==row && child->kind==BV_SEMAPHORE) {device->DestroySemaphore(device->handle,(VkSemaphore)(uintptr_t)child->handle,NULL);bv_remove(child);}}
+  for(;;) {BvRow* found=NULL;for(BvRow* child=bv_rows;child;child=child->next)if(child->parent==row && child->kind==BV_SWAPCHAIN) {found=child;break;}if(!found)break;bv_swapchain_remove(found);}
   device->DestroyDevice(device->handle, NULL); free(device); bv_remove(row);
 }
 static void bv_destroy_instance(BvRow* row) {
@@ -370,6 +428,7 @@ static void bv_destroy_instance(BvRow* row) {
     next = child->next;
     if (child->parent == row && child->kind == BV_PHYSICAL) bv_remove(child);
   }
+  for(BvRow* child=bv_rows,*next;child;child=next) {next=child->next;if(child->parent==row && child->kind==BV_SURFACE)bv_surface_remove(child);}
   instance->destroy(instance->handle, NULL); free(instance); bv_remove(row);
 }
 
@@ -428,8 +487,9 @@ static Term bv_entry_close(Env e, Term* f, IoWork* w) {
       if (row->kind == BV_DEVICE && row->parent->parent == entry) { found = row; break; }
     if (!found) break;
     VkResult result = bv_idle(found);
+    if(result==VK_SUCCESS)result=bv_drain_presentation(found);
     if (result != VK_SUCCESS && result != VK_ERROR_DEVICE_LOST)
-      return bv_vk_error(e, result, "Entry.close / vkDeviceWaitIdle (entry remains live)");
+      return bv_vk_error(e, result, "Entry.close / completion (entry remains live)");
     if (first == VK_SUCCESS && result != VK_SUCCESS) first = result;
     bv_destroy_device(found);
   }
@@ -440,9 +500,10 @@ static Term bv_entry_close(Env e, Term* f, IoWork* w) {
     if (!found) break;
     bv_destroy_instance(found);
   }
+  for(BvRow* child=bv_rows,*next;child;child=next) {next=child->next;if(child->parent==entry && child->kind==BV_WINDOW)bv_destroy_window(child);}
   BvEntry* context = entry->context;
   dlclose(context->library); free(context); bv_remove(entry);
-  return first == VK_SUCCESS ? bv_ok(e) : bv_vk_error(e, first, "Entry.close / vkDeviceWaitIdle");
+  return first == VK_SUCCESS ? bv_ok(e) : bv_vk_error(e, first, "Entry.close / completion");
 }
 #endif
 #ifdef CID(Entry.enumerate_instance_version)
@@ -472,6 +533,17 @@ static Term bv_create_instance(Env e, Term* f, IoWork* w) {
       .ppEnabledExtensionNames=(const char* const*)extensions.values};
     BvEntry* entry = owner->context; result = entry->create(&create, NULL, &handle);
   }
+  bool presentation=false;
+  unsigned profile=0;
+  for(uint32_t j=0;j<extensions.count;j++) {
+    const char* n=extensions.values[j];
+    if(!strcmp(n,"VK_KHR_surface")) profile|=1;
+    if(!strcmp(n,"VK_KHR_xlib_surface")) profile|=2;
+    if(!strcmp(n,"VK_KHR_get_physical_device_properties2")) profile|=4;
+    if(!strcmp(n,"VK_KHR_get_surface_capabilities2")) profile|=8;
+    if(!strcmp(n,"VK_EXT_surface_maintenance1")) profile|=16;
+  }
+  presentation=profile==31;
   free(app); bv_names_free(layers); bv_names_free(extensions);
   if (!valid) return io_fail(e, owner ? BV_ARGUMENT : BV_INVALID, "invalid entry or instance strings");
   if (result != VK_SUCCESS) return bv_vk_error(e, result, "vkCreateInstance");
@@ -479,7 +551,7 @@ static Term bv_create_instance(Env e, Term* f, IoWork* w) {
   BvInstance* instance = calloc(1, sizeof(*instance));
   PFN_vkDestroyInstance destroy = (PFN_vkDestroyInstance)entry->get(handle, "vkDestroyInstance");
   if (!instance) { destroy(handle, NULL); return io_fail(e, BV_LIMIT, "instance allocation failed"); }
-  instance->handle=handle; instance->destroy=destroy;
+  instance->handle=handle; instance->destroy=destroy;instance->presentation=presentation;
 #define BV_INSTANCE_LOAD(field, name) instance->field=(PFN_vk##name)entry->get(handle, "vk" #name)
   BV_INSTANCE_LOAD(enumerate, EnumeratePhysicalDevices);
   BV_INSTANCE_LOAD(properties, GetPhysicalDeviceProperties);
@@ -490,10 +562,20 @@ static Term bv_create_instance(Env e, Term* f, IoWork* w) {
   BV_INSTANCE_LOAD(image_formats, GetPhysicalDeviceImageFormatProperties);
   BV_INSTANCE_LOAD(create_device, CreateDevice);
   BV_INSTANCE_LOAD(get_device, GetDeviceProcAddr);
+  if (presentation) {
+    instance->create_surface=entry->get(handle,"vkCreateXlibSurfaceKHR");
+    BV_INSTANCE_LOAD(destroy_surface, DestroySurfaceKHR);
+    BV_INSTANCE_LOAD(surface_support, GetPhysicalDeviceSurfaceSupportKHR);
+    BV_INSTANCE_LOAD(surface_caps, GetPhysicalDeviceSurfaceCapabilitiesKHR);
+    BV_INSTANCE_LOAD(surface_formats, GetPhysicalDeviceSurfaceFormatsKHR);
+    BV_INSTANCE_LOAD(present_modes, GetPhysicalDeviceSurfacePresentModesKHR);
+    BV_INSTANCE_LOAD(features2, GetPhysicalDeviceFeatures2KHR);
+  }
 #undef BV_INSTANCE_LOAD
   BvRow* row = NULL;
   if (destroy && instance->enumerate && instance->properties && instance->queues &&
-      instance->memory && instance->extensions && instance->formats && instance->image_formats && instance->create_device && instance->get_device) row=bv_add(BV_INSTANCE, owner);
+      instance->memory && instance->extensions && instance->formats && instance->image_formats && instance->create_device && instance->get_device &&
+      (!presentation || (instance->create_surface && instance->destroy_surface && instance->surface_support && instance->surface_caps && instance->surface_formats && instance->present_modes && instance->features2))) row=bv_add(BV_INSTANCE, owner);
   if (!row) { if (destroy) destroy(handle,NULL); free(instance); return io_fail(e,BV_LIMIT,"instance dispatch unavailable"); }
   row->context=instance; row->handle=(uint64_t)(uintptr_t)handle;
   return io_done(e,term_pak(CID(Instance),row->id));
@@ -503,7 +585,7 @@ static Term bv_create_instance(Env e, Term* f, IoWork* w) {
 static Term bv_destroy_instance_effect(Env e, Term* f, IoWork* w) {
   BvRow* row = bv_get(bv_key(e,f[0]),BV_INSTANCE);
   if (!row) return io_fail(e,BV_INVALID,"invalid instance");
-  if (bv_has_children(row,BV_PHYSICAL)) return io_fail(e,BV_LIFETIME,"instance still has devices");
+  if (bv_has_children(row,BV_PHYSICAL)) return io_fail(e,BV_LIFETIME,"instance still has devices or surfaces");
   bv_destroy_instance(row); return bv_ok(e);
 }
 #endif
@@ -698,30 +780,139 @@ static Term bv_physical_limits(Env e,Term* f,IoWork* w) {
 }
 #endif
 
-#ifdef CID(Instance.create_device)
-static Term bv_create_device(Env e, Term* f, IoWork* w) {
+static int bv_device_extension(BvInstance* instance,VkPhysicalDevice physical,const char* wanted) {
+  VkExtensionProperties* values=NULL;VkResult result=VK_INCOMPLETE;uint32_t count=0;int found=0;
+  for(unsigned retry=0;retry<8 && result==VK_INCOMPLETE;retry++) {
+    free(values);values=NULL;result=instance->extensions(physical,NULL,&count,NULL);
+    if(result!=VK_SUCCESS && result!=VK_INCOMPLETE)break;
+    if(!count || count>4096)break;
+    values=calloc(count,sizeof(*values));if(!values)break;
+    result=instance->extensions(physical,NULL,&count,values);
+  }
+  if(result==VK_SUCCESS && values)for(uint32_t j=0;j<count;j++)found |= !strcmp(values[j].extensionName,wanted);
+  free(values);return found;
+}
+static int bv_presentation_supported(BvRow* owner,BvRow* physical) {
+  BvInstance* instance=owner->context;
+  if(!instance->presentation || !instance->features2 || !instance->surface_support || !instance->surface_caps || !instance->surface_formats || !instance->present_modes)return 0;
+  VkPhysicalDevice handle=(VkPhysicalDevice)(uintptr_t)physical->handle;
+  if(!bv_device_extension(instance,handle,"VK_KHR_swapchain") || !bv_device_extension(instance,handle,"VK_EXT_swapchain_maintenance1"))return 0;
+  VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance={.sType=VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+  VkPhysicalDeviceFeatures2 features={.sType=VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,.pNext=&maintenance};instance->features2(handle,&features);
+  return maintenance.swapchainMaintenance1==VK_TRUE;
+}
+#ifdef CID(Instance.presentation_supported)
+static Term bv_presentation_supported_run(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE),*physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
+  if(!owner || !physical)return io_fail(e,BV_INVALID,"presentation support ownership");
+  return io_done(e,term_pak(bv_presentation_supported(owner,physical) ? CID(True) : CID(False),0));
+}
+#endif
+static void bv_surface_remove(BvRow* row) {
+  BvInstance* instance=row->parent->context;instance->destroy_surface(instance->handle,(VkSurfaceKHR)(uintptr_t)row->handle,NULL);bv_remove(row);
+}
+#ifdef CID(Instance.destroy_surface)
+static Term bv_destroy_surface(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE),*row=bv_child(bv_key(e,f[1]),BV_SURFACE,owner);
+  if(!owner || !row)return io_fail(e,BV_INVALID,"surface ownership");
+  if(bv_referenced(row))return io_fail(e,BV_LIFETIME,"surface retained by swapchain");
+  bv_surface_remove(row);return bv_ok(e);
+}
+#endif
+static int bv_surface_args(Env e,Term* f,BvRow** owner,BvRow** physical,BvRow** surface) {
+  *owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);*physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,*owner);*surface=bv_child(bv_key(e,f[2]),BV_SURFACE,*owner);
+  return *owner && *physical && *surface;
+}
+#ifdef CID(Instance.surface_capabilities)
+static Term bv_surface_capabilities(Env e,Term* f,IoWork* w) {
+  BvRow *owner,*physical,*surface;if(!bv_surface_args(e,f,&owner,&physical,&surface))return io_fail(e,BV_INVALID,"surface query ownership");
+  BvInstance* instance=owner->context;VkSurfaceCapabilitiesKHR out;VkResult result=instance->surface_caps((VkPhysicalDevice)(uintptr_t)physical->handle,(VkSurfaceKHR)(uintptr_t)surface->handle,&out);
+  if(result!=VK_SUCCESS)return bv_vk_error(e,result,"vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+  Term p[]={out.minImageCount,out.maxImageCount,out.currentExtent.width,out.currentExtent.height,out.minImageExtent.width,out.minImageExtent.height,out.maxImageExtent.width,out.maxImageExtent.height,out.supportedTransforms,out.currentTransform,out.supportedCompositeAlpha,out.supportedUsageFlags};
+  return io_done(e,bv_node(e,CID(SurfaceCapabilities),12,p));
+}
+#endif
+static VkResult bv_query_formats(BvInstance* instance,VkPhysicalDevice physical,VkSurfaceKHR surface,uint32_t* count,VkSurfaceFormatKHR** values) {
+  VkResult result=VK_INCOMPLETE;*values=NULL;
+  for(unsigned retry=0;retry<8 && result==VK_INCOMPLETE;retry++) {
+    free(*values);*values=NULL;result=instance->surface_formats(physical,surface,count,NULL);
+    if(result!=VK_SUCCESS && result!=VK_INCOMPLETE)break;
+    if(!*count)break;if(*count>4096)return VK_ERROR_OUT_OF_HOST_MEMORY;
+    *values=calloc(*count,sizeof(**values));if(!*values)return VK_ERROR_OUT_OF_HOST_MEMORY;
+    result=instance->surface_formats(physical,surface,count,*values);
+  }return result;
+}
+static VkResult bv_query_modes(BvInstance* instance,VkPhysicalDevice physical,VkSurfaceKHR surface,uint32_t* count,VkPresentModeKHR** values) {
+  VkResult result=VK_INCOMPLETE;*values=NULL;
+  for(unsigned retry=0;retry<8 && result==VK_INCOMPLETE;retry++) {
+    free(*values);*values=NULL;result=instance->present_modes(physical,surface,count,NULL);
+    if(result!=VK_SUCCESS && result!=VK_INCOMPLETE)break;
+    if(!*count)break;if(*count>4096)return VK_ERROR_OUT_OF_HOST_MEMORY;
+    *values=calloc(*count,sizeof(**values));if(!*values)return VK_ERROR_OUT_OF_HOST_MEMORY;
+    result=instance->present_modes(physical,surface,count,*values);
+  }return result;
+}
+#ifdef CID(Instance.surface_formats)
+static Term bv_surface_formats(Env e,Term* f,IoWork* w) {
+  BvRow *owner,*physical,*surface;if(!bv_surface_args(e,f,&owner,&physical,&surface))return io_fail(e,BV_INVALID,"surface query ownership");
+  uint32_t count=0;VkSurfaceFormatKHR* values=NULL;VkResult result=bv_query_formats(owner->context,(VkPhysicalDevice)(uintptr_t)physical->handle,(VkSurfaceKHR)(uintptr_t)surface->handle,&count,&values);
+  if(result!=VK_SUCCESS) {free(values);return bv_vk_error(e,result,"surface formats");}
+  Term list=term_pak(CID(Nil),0);for(uint32_t j=count;j;j--)list=io_node(e,CID(Con),io_tup(e,values[j-1].format,values[j-1].colorSpace),list);
+  free(values);return io_done(e,list);
+}
+#endif
+#ifdef CID(Instance.present_modes)
+static Term bv_present_modes(Env e,Term* f,IoWork* w) {
+  BvRow *owner,*physical,*surface;if(!bv_surface_args(e,f,&owner,&physical,&surface))return io_fail(e,BV_INVALID,"surface query ownership");
+  uint32_t count=0;VkPresentModeKHR* values=NULL;VkResult result=bv_query_modes(owner->context,(VkPhysicalDevice)(uintptr_t)physical->handle,(VkSurfaceKHR)(uintptr_t)surface->handle,&count,&values);
+  if(result!=VK_SUCCESS) {free(values);return bv_vk_error(e,result,"present modes");}
+  Term list=term_pak(CID(Nil),0);for(uint32_t j=count;j;j--)list=io_node(e,CID(Con),(uint32_t)values[j-1],list);
+  free(values);return io_done(e,list);
+}
+#endif
+#ifdef CID(Instance.present_support)
+static Term bv_present_support(Env e,Term* f,IoWork* w) {
+  BvRow *owner,*physical,*surface;if(!bv_surface_args(e,f,&owner,&physical,&surface))return io_fail(e,BV_INVALID,"surface query ownership");
+  BvInstance* instance=owner->context;uint32_t count=0;instance->queues((VkPhysicalDevice)(uintptr_t)physical->handle,&count,NULL);
+  if((uint32_t)f[3]>=count)return io_fail(e,BV_ARGUMENT,"present family out of range");VkBool32 supported=0;
+  VkResult result=instance->surface_support((VkPhysicalDevice)(uintptr_t)physical->handle,f[3],(VkSurfaceKHR)(uintptr_t)surface->handle,&supported);
+  return result==VK_SUCCESS ? io_done(e,term_pak(supported ? CID(True) : CID(False),0)) : bv_vk_error(e,result,"present support");
+}
+#endif
+
+#if defined(CID(Instance.create_device)) || defined(CID(Instance.create_presentation_device))
+static Term bv_create_device_engine(Env e, Term* f, IoWork* w,bool presentation) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_INSTANCE);
   BvRow* physical=bv_child(bv_key(e,f[1]),BV_PHYSICAL,owner);
-  Term info[2];bv_unpack(e,f[2],2,info);BvNames extensions=bv_names(e,info[1]);
+  Term info[3];bv_unpack(e,f[2],presentation ? 3 : 2,info);
+  Term names=presentation ? io_node(e,CID(Con),io_str(e,"VK_KHR_swapchain",16),io_node(e,CID(Con),io_str(e,"VK_EXT_swapchain_maintenance1",29),term_pak(CID(Nil),0))) : info[1];
+  BvNames extensions=bv_names(e,names);
+  uint32_t present_family=presentation ? (uint32_t)info[1] : (uint32_t)info[0];
+  BvRow* surface=presentation ? bv_child((uint32_t)info[2],BV_SURFACE,owner) : NULL;
+  if(presentation && (!owner || !physical || !surface || !bv_presentation_supported(owner,physical))) {bv_names_free(extensions);return io_fail(e,BV_ARGUMENT,"presentation requires swapchain maintenance1 and surface profile");}
   if (!owner || !physical || !extensions.valid) {
     bv_names_free(extensions);return io_fail(e,BV_INVALID,"invalid physical device or extensions");
   }
   BvInstance* instance=owner->context;uint32_t count=0;
   VkPhysicalDevice handle=(VkPhysicalDevice)(uintptr_t)physical->handle;
   instance->queues(handle,&count,NULL);
-  if ((uint32_t)info[0]>=count || count>4096) {bv_names_free(extensions);return io_fail(e,BV_ARGUMENT,"queue family out of range");}
+  if ((uint32_t)info[0]>=count || present_family>=count || count>4096) {bv_names_free(extensions);return io_fail(e,BV_ARGUMENT,"queue family out of range");}
   VkQueueFamilyProperties* queues=calloc(count,sizeof(*queues));
   if (!queues) {bv_names_free(extensions);return io_fail(e,BV_LIMIT,"queue allocation failed");}
   instance->queues(handle,&count,queues);
-  int valid=queues[(uint32_t)info[0]].queueCount>0;
+  int valid=queues[(uint32_t)info[0]].queueCount>0 && queues[present_family].queueCount>0;
+  VkBool32 supported=0;
+  if(presentation) {VkResult r=instance->surface_support(handle,present_family,(VkSurfaceKHR)(uintptr_t)surface->handle,&supported);valid &= r==VK_SUCCESS && supported && (queues[(uint32_t)info[0]].queueFlags&VK_QUEUE_GRAPHICS_BIT);}
   VkQueueFamilyProperties queue_properties=queues[(uint32_t)info[0]];
   uint32_t queue_flags=queue_properties.queueFlags;free(queues);
   if (!valid) {bv_names_free(extensions);return io_fail(e,BV_ARGUMENT,"empty queue family");}
   float priority=1.0f;
   VkDeviceQueueCreateInfo queue={.sType=VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
     .queueFamilyIndex=(uint32_t)info[0],.queueCount=1,.pQueuePriorities=&priority};
-  VkDeviceCreateInfo create={.sType=VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-    .queueCreateInfoCount=1,.pQueueCreateInfos=&queue,.enabledExtensionCount=extensions.count,
+  VkDeviceQueueCreateInfo requested[2]={queue,queue};requested[1].queueFamilyIndex=present_family;
+  VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance={.sType=VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT,.swapchainMaintenance1=VK_TRUE};
+  VkDeviceCreateInfo create={.sType=VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,.pNext=presentation ? &maintenance : NULL,
+    .queueCreateInfoCount=present_family==(uint32_t)info[0] ? 1 : 2,.pQueueCreateInfos=requested,.enabledExtensionCount=extensions.count,
     .ppEnabledExtensionNames=(const char* const*)extensions.values};
   VkDevice device;VkResult result=instance->create_device(handle,&create,NULL,&device);
   bv_names_free(extensions);
@@ -729,18 +920,28 @@ static Term bv_create_device(Env e, Term* f, IoWork* w) {
   BvDevice* context=calloc(1,sizeof(*context));
   PFN_vkDestroyDevice destroy=(PFN_vkDestroyDevice)instance->get_device(device,"vkDestroyDevice");
   if (!context) {destroy(device,NULL);return io_fail(e,BV_LIMIT,"device allocation failed");}
-  context->handle=device;context->physical=handle;context->family=(uint32_t)info[0];context->queue_flags=queue_flags;context->queue_properties=queue_properties;
+  context->handle=device;context->physical=handle;context->presentation=presentation;context->present_family=present_family;context->family=(uint32_t)info[0];context->queue_flags=queue_flags;context->queue_properties=queue_properties;
   VkPhysicalDeviceProperties properties;instance->properties(handle,&properties);context->limits=properties.limits;
   int complete=1;
 #define BV_LOAD(name) context->name=(PFN_vk##name)instance->get_device(device,"vk" #name); complete &= context->name!=NULL;
   BV_DEVICE_FUNCTIONS(BV_LOAD)
+  if(presentation) {
+    BV_LOAD(CreateSwapchainKHR) BV_LOAD(DestroySwapchainKHR) BV_LOAD(GetSwapchainImagesKHR) BV_LOAD(AcquireNextImageKHR) BV_LOAD(QueuePresentKHR) BV_LOAD(ReleaseSwapchainImagesEXT) BV_LOAD(CreateSemaphore) BV_LOAD(DestroySemaphore)
+  }
 #undef BV_LOAD
   BvRow* row=complete ? bv_add(BV_DEVICE,owner) : NULL;
   if (!row) {if(destroy)destroy(device,NULL);free(context);return io_fail(e,BV_LIMIT,"device dispatch unavailable");}
   context->GetDeviceQueue(device,context->family,0,&context->queue);
+  context->GetDeviceQueue(device,context->present_family,0,&context->present_queue);
   instance->memory(handle,&context->memory);row->context=context;
   return io_done(e,term_pak(CID(Device),row->id));
 }
+#endif
+#ifdef CID(Instance.create_device)
+static Term bv_create_device(Env e,Term* f,IoWork* w) {return bv_create_device_engine(e,f,w,false);}
+#endif
+#ifdef CID(Instance.create_presentation_device)
+static Term bv_create_presentation_device(Env e,Term* f,IoWork* w) {return bv_create_device_engine(e,f,w,true);}
 #endif
 #ifdef CID(Device.destroy)
 static Term bv_destroy_device_effect(Env e, Term* f, IoWork* w) {
@@ -836,7 +1037,7 @@ static Term bv_free_memory(Env e, Term* f, IoWork* w) {
 }
 #endif
 static uint32_t bv_binding_check(BvRow* resource,BvRow* memory,uint64_t offset) {
-  if (bv_bound_memory(resource)) return BV_LIFETIME;
+  if ((resource->kind==BV_IMAGE && resource->object.image.storage==BV_BORROWED_IMAGE) || bv_bound_memory(resource)) return BV_LIFETIME;
   VkMemoryRequirements r=resource->requirements;
   if (!r.size || !r.alignment || offset>memory->size || r.size>memory->size-offset || offset%r.alignment ||
       !(r.memoryTypeBits & (1u<<memory->memory_type))) return BV_ARGUMENT;
@@ -971,6 +1172,7 @@ static Term bv_create_image(Env e,Term* f,IoWork* w) {
 static Term bv_image_requirements(Env e,Term* f,IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*image=bv_child(bv_key(e,f[1]),BV_IMAGE,owner);
   if (!owner || !image) return io_fail(e,BV_INVALID,"image requirements ownership");
+  if (image->object.image.storage==BV_BORROWED_IMAGE) return io_fail(e,BV_LIFETIME,"borrowed image has no memory requirements");
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"image requirements");
   VkMemoryRequirements r=image->requirements;
   return io_done(e,io_tup(e,bv_words(e,r.size),io_tup(e,bv_words(e,r.alignment),r.memoryTypeBits)));
@@ -980,7 +1182,7 @@ static Term bv_image_requirements(Env e,Term* f,IoWork* w) {
 static Term bv_destroy_image(Env e,Term* f,IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*image=bv_child(bv_key(e,f[1]),BV_IMAGE,owner);
   if (!owner || !image) return io_fail(e,BV_INVALID,"destroy image ownership");
-  if (bv_referenced(image)) return io_fail(e,BV_LIFETIME,"image has incoming dependencies");
+  if (image->object.image.storage==BV_BORROWED_IMAGE || bv_referenced(image)) return io_fail(e,BV_LIFETIME,"borrowed image or incoming dependencies");
   BvDevice* device=owner->context;device->DestroyImage(device->handle,(VkImage)(uintptr_t)image->handle,NULL);
   bv_remove(image);return bv_ok(e);
 }
@@ -991,7 +1193,7 @@ static Term bv_create_image_view(Env e,Term* f,IoWork* w) {
   BvRow* image=bv_child((uint32_t)p[0],BV_IMAGE,owner);
   if (!owner || !image) return io_fail(e,BV_INVALID,"image view ownership");
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create image view");
-  if (!bv_bound_memory(image)) return io_fail(e,BV_LIFETIME,"image view requires binding");
+  if (image->object.image.storage==BV_ALLOCATED_IMAGE && !bv_bound_memory(image)) return io_fail(e,BV_LIFETIME,"image view requires binding");
   VkImageSubresourceRange range=bv_image_range(p+2);BvImage* i=&image->object.image;
   if (!bv_image_range_valid(image,range) || ((uint32_t)p[1]!=VK_IMAGE_VIEW_TYPE_2D && (uint32_t)p[1]!=VK_IMAGE_VIEW_TYPE_2D_ARRAY) ||
       ((uint32_t)p[1]==VK_IMAGE_VIEW_TYPE_2D && range.layerCount!=1) ||
@@ -1027,6 +1229,7 @@ static int bv_image_layout(BvRow* image,uint32_t layout,int old) {
   BvImage* i=&image->object.image;uint32_t aspect=bv_format(i->format)->aspect;
   switch (layout) {
     case VK_IMAGE_LAYOUT_UNDEFINED:return old;
+    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:return i->storage==BV_BORROWED_IMAGE;
     case VK_IMAGE_LAYOUT_GENERAL:return 1;
     case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:return aspect==VK_IMAGE_ASPECT_COLOR_BIT && (i->usage&VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
@@ -1189,6 +1392,7 @@ static Term bv_cmd_begin_render_pass(Env e,Term* f,IoWork* w) {
   }
   if (!code && n!=count) code=BV_ARGUMENT;
   if (owner && bv_lost(owner)) {free(clears);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"begin render pass");}
+  if (!code)for(uint32_t j=0;j<framebuffer->object.framebuffer.count;j++)if(!bv_image_available(bv_dependency(framebuffer->object.framebuffer.attachments[j]->target,BV_DEP_VIEW_IMAGE)->target))code=BV_LIFETIME;
   if (!code && !bv_prepare_refs(command,1,&framebuffer)) code=BV_LIMIT;
   if (!code) {
     VkRenderPassBeginInfo begin={.sType=VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,.renderPass=(VkRenderPass)(uintptr_t)pass->handle,
@@ -1742,7 +1946,7 @@ static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
     if (code) continue;
     BvRow* image=bv_child((uint32_t)p[0],BV_IMAGE,owner);
     if (!image) {code=BV_INVALID;continue;}
-    if (!bv_bound_memory(image)) {code=BV_LIFETIME;continue;}
+    if (!bv_image_available(image)) {code=BV_LIFETIME;continue;}
     VkImageSubresourceRange range=bv_image_range(p+1);
     if (!bv_image_range_valid(image,range) || !bv_image_layout(image,p[6],1) || !bv_image_layout(image,p[7],0) ||
         (!p[6] && p[8]) || !bv_access(src,p[8]) || !bv_access(dst,p[9])) {code=BV_ARGUMENT;continue;}
@@ -1787,7 +1991,7 @@ static int bv_transfer_axis(uint32_t offset,uint32_t extent,uint32_t limit,uint3
 }
 static uint32_t bv_image_command_state(BvRow* command,BvRow* image,uint32_t usage,uint32_t layout) {
   if (!command || !image) return BV_INVALID;
-  if (!bv_outside(command) || !bv_bound_memory(image)) return BV_LIFETIME;
+  if (!bv_outside(command) || !bv_image_available(image)) return BV_LIFETIME;
   if (!(image->object.image.usage&usage) || (layout!=VK_IMAGE_LAYOUT_GENERAL &&
       layout!=(usage==VK_IMAGE_USAGE_TRANSFER_SRC_BIT ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))) return BV_ARGUMENT;
   return 0;
@@ -1918,25 +2122,73 @@ static uint32_t bv_new_fence(BvRow* owner,int signaled,BvFenceLifetime lifetime,
   if (!fence) {device->DestroyFence(device->handle,handle,NULL);return BV_LIMIT;}
   fence->handle=(uint64_t)(uintptr_t)handle;fence->fence.lifetime=lifetime;*out=fence;return 0;
 }
-static Term bv_submit_core(Env e,BvRow* owner,BvRow* command,BvRow* fence) {
+static Term bv_submit_core_impl(Env e,BvRow* owner,BvRow* command,BvRow* fence,const VkSubmitInfo* synced) {
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"submit");
+  if (fence->fence.use!=BV_FENCE_FREE) return io_fail(e,BV_LIFETIME,"submit fence has WSI association");
   if (command->command.phase!=BV_EXECUTABLE || bv_active(owner,NULL)) return io_fail(e,BV_LIFETIME,"submit needs executable command and idle queue");
   BvDevice* device=owner->context;
+  for(BvRow* image=bv_rows;image;image=image->next)if(image->kind==BV_IMAGE && image->parent==owner && image->object.image.storage==BV_BORROWED_IMAGE && bv_reaches_depth(command,image,5) && !bv_image_available(image))return io_fail(e,BV_LIFETIME,"submit borrowed image does not match completed acquisition");
   VkResult result=bv_device_result(owner,device->GetFenceStatus(device->handle,(VkFence)(uintptr_t)fence->handle));
   if (result==VK_SUCCESS) return io_fail(e,BV_LIFETIME,"submit fence must be unsignaled");
   if (result!=VK_NOT_READY) return bv_vk_error(e,result,"submit / vkGetFenceStatus");
   VkCommandBuffer handle=(VkCommandBuffer)(uintptr_t)command->handle;
   VkSubmitInfo submit={.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO,.commandBufferCount=1,.pCommandBuffers=&handle};
-  result=bv_device_result(owner,device->QueueSubmit(device->queue,1,&submit,(VkFence)(uintptr_t)fence->handle));
+  result=bv_device_result(owner,device->QueueSubmit(device->queue,1,synced ? synced : &submit,(VkFence)(uintptr_t)fence->handle));
   if (result==VK_SUCCESS) {
     memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_PENDING;command->command.submission.pending.fence=fence;
+    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_reaches_depth(command,device->lease.swapchain,6)) device->lease.phase=BV_LEASE_RENDERING;
   } else if (result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST) {
     memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_UNCERTAIN;command->command.submission.uncertain.fence=fence;
+    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_reaches_depth(command,device->lease.swapchain,6))device->lease.phase=BV_LEASE_RENDER_UNCERTAIN;
   }
   return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkQueueSubmit");
 }
+static Term bv_submit_core(Env e,BvRow* owner,BvRow* command,BvRow* fence) {return bv_submit_core_impl(e,owner,command,fence,NULL);}
+#ifdef CID(Device.submit_synced)
+static Term bv_submit_synced(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*command=bv_get(bv_key(e,f[1]),BV_COMMAND),*fence=bv_public_fence(bv_key(e,f[2]));
+  BvDevice* device=owner ? owner->context : NULL;uint32_t code=(!owner || bv_command_device(command)!=owner || !fence || fence->parent!=owner) ? BV_INVALID : 0;
+  VkSemaphore waits[64],signals[64];VkPipelineStageFlags stages[64];BvRow* rows[128];uint32_t nw=0,ns=0,n=0;BvDep* staged=NULL;
+  for(unsigned list_index=0;list_index<2;list_index++) {
+    Term list=f[3+list_index];
+    while(term_aux(list)==CID(Con)) {
+      Term pair[2];bv_unpack(e,list,2,pair);list=pair[1];uint32_t id,mask=0;
+      if(!list_index) {Term p[2];bv_unpack(e,pair[0],2,p);id=p[0];mask=p[1];}else id=bv_key(e,pair[0]);
+      BvRow* semaphore=bv_child(id,BV_SEMAPHORE,owner);
+      if(code)continue;
+      if(!semaphore) {code=BV_INVALID;continue;}
+      if((!list_index && nw==64) || (list_index && ns==64)) {code=BV_LIMIT;continue;}
+      for(uint32_t j=0;j<n;j++)if(rows[j]==semaphore)code=BV_ARGUMENT;
+      if(code)continue;
+      if((!list_index && (semaphore->semaphore.phase!=BV_SEM_SIGNALED || !bv_baseline_stages(device,mask) || (mask&VK_PIPELINE_STAGE_HOST_BIT))) || (list_index && semaphore->semaphore.phase!=BV_SEM_UNUSED)) {code=BV_LIFETIME;continue;}
+      BvDep* dep=malloc(sizeof(*dep));if(!dep) {code=BV_LIMIT;continue;}
+      *dep=(BvDep){.target=semaphore,.role=list_index ? BV_DEP_SUBMIT_SIGNAL : BV_DEP_SUBMIT_WAIT,.next=staged};staged=dep;rows[n++]=semaphore;
+      if(list_index)signals[ns++]=(VkSemaphore)(uintptr_t)semaphore->handle;
+      else {waits[nw]=(VkSemaphore)(uintptr_t)semaphore->handle;stages[nw++]=mask;}
+    }
+  }
+  if(code) {bv_free_refs(staged);return io_fail(e,code,"submission semaphore ownership, state, duplicates, stage or metadata");}
+  VkCommandBuffer handle=(VkCommandBuffer)(uintptr_t)command->handle;
+  VkSubmitInfo submit={.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO,.waitSemaphoreCount=nw,.pWaitSemaphores=waits,.pWaitDstStageMask=stages,.commandBufferCount=1,.pCommandBuffers=&handle,.signalSemaphoreCount=ns,.pSignalSemaphores=signals};
+  BvCommandPhase before=command->command.phase;
+  Term result=bv_submit_core_impl(e,owner,command,fence,&submit);
+  if(before==BV_EXECUTABLE && (command->command.phase==BV_PENDING || command->command.phase==BV_UNCERTAIN)) {
+    while(staged) {
+      BvDep* next=staged->next;staged->target->semaphore.phase=command->command.phase==BV_UNCERTAIN ? BV_SEM_UNCERTAIN : staged->role==BV_DEP_SUBMIT_WAIT ? BV_SEM_SUBMIT_WAIT : BV_SEM_SIGNAL_PENDING;
+      if(staged->role==BV_DEP_SUBMIT_SIGNAL) {
+        bool rendered=device->lease.phase==BV_LEASE_RENDERING || device->lease.phase==BV_LEASE_RENDER_UNCERTAIN;
+        staged->target->semaphore.producer=rendered ? device->lease.swapchain : NULL;
+        staged->target->semaphore.producer_serial=rendered ? device->lease.serial : 0;
+      }
+      staged->next=command->deps;command->deps=staged;staged=next;
+    }
+  }else bv_free_refs(staged);
+  return result;
+}
+#endif
+
 static Term bv_fence_observe(Env e,BvRow* fence,int wait,uint64_t timeout) {
   BvRow* owner=fence->parent;BvDevice* device=owner->context;
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"fence observation");
@@ -1945,6 +2197,11 @@ static Term bv_fence_observe(Env e,BvRow* fence,int wait,uint64_t timeout) {
   VkFence handle=(VkFence)(uintptr_t)fence->handle;
   VkResult result=bv_device_result(owner,wait ? device->WaitForFences(device->handle,1,&handle,VK_TRUE,timeout) : device->GetFenceStatus(device->handle,handle));
   if (result==VK_SUCCESS && command) bv_complete(command);
+  if (result==VK_SUCCESS && fence->fence.use!=BV_FENCE_FREE) {
+    if (fence->fence.use==BV_FENCE_ACQUIRE) device->lease.phase=device->lease.phase==BV_LEASE_ACQUIRING ? BV_LEASE_ACQUIRED : BV_LEASE_ABANDONED;
+    else {device->lease.semaphore->semaphore.phase=BV_SEM_UNUSED;device->lease=(BvLease){0};}
+    fence->fence.use=BV_FENCE_FREE;fence->fence.swapchain=NULL;
+  }
   if (result==VK_SUCCESS || result==(wait ? VK_TIMEOUT : VK_NOT_READY)) return io_done(e,(uint32_t)result);
   return bv_vk_error(e,result,wait ? "vkWaitForFences" : "vkGetFenceStatus");
 }
@@ -1963,7 +2220,7 @@ static Term bv_create_fence(Env e,Term* f,IoWork* w) {
 static Term bv_destroy_fence(Env e,Term* f,IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);BvRow* fence=bv_public_fence(bv_key(e,f[1]));
   if (!owner || !fence || fence->parent!=owner) return io_fail(e,BV_INVALID,"invalid fence or device");
-  if (bv_active(owner,fence)) return io_fail(e,BV_LIFETIME,"fence has active submission");
+  if (bv_active(owner,fence) || fence->fence.use!=BV_FENCE_FREE) return io_fail(e,BV_LIFETIME,"fence has active submission or WSI association");
   BvDevice* device=owner->context;device->DestroyFence(device->handle,(VkFence)(uintptr_t)fence->handle,NULL);
   bv_remove(fence);return bv_ok(e);
 }
@@ -1991,7 +2248,7 @@ static Term bv_fence_wait(Env e,Term* f,IoWork* w) {
 static Term bv_reset_fence_core(Env e,BvRow* fence) {
   BvRow* owner=fence->parent;BvDevice* device=owner->context;
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"fence reset");
-  if (bv_active(owner,fence)) return io_fail(e,BV_LIFETIME,"fence has active submission");
+  if (bv_active(owner,fence) || fence->fence.use!=BV_FENCE_FREE) return io_fail(e,BV_LIFETIME,"fence has active submission or WSI association");
   VkFence handle=(VkFence)(uintptr_t)fence->handle;
   VkResult result=bv_device_result(owner,device->ResetFences(device->handle,1,&handle));
   return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkResetFences");
@@ -2052,6 +2309,194 @@ static Term bv_u64_roundtrip(Env e, Term* f, IoWork* w) {
   return io_done(e,bv_words(e,bv_u64(e,f[0])));
 }
 #endif
+
+static VkResult bv_drain_presentation(BvRow* owner) {
+  BvDevice* device=owner->context;BvLease* lease=&device->lease;
+  if(bv_lost(owner)) {device->lease=(BvLease){0};return VK_ERROR_DEVICE_LOST;}
+  if(lease->phase==BV_LEASE_ACQUIRING || lease->phase==BV_LEASE_PRESENTING || (lease->phase==BV_LEASE_ACQUIRE_UNCERTAIN || lease->phase==BV_LEASE_PRESENT_UNCERTAIN)) {
+    if(!lease->fence)return VK_NOT_READY;
+    VkFence handle=(VkFence)(uintptr_t)lease->fence->handle;
+    VkResult result=bv_device_result(owner,device->WaitForFences(device->handle,1,&handle,VK_TRUE,UINT64_C(1000000000)));
+    if(result!=VK_SUCCESS)return result;
+    BvFenceUse use=lease->fence->fence.use;lease->fence->fence.use=BV_FENCE_FREE;lease->fence->fence.swapchain=NULL;
+    if(use==BV_FENCE_ACQUIRE)lease->phase=lease->phase==BV_LEASE_ACQUIRING ? BV_LEASE_ACQUIRED : BV_LEASE_ABANDONED;
+    else {if(lease->semaphore)lease->semaphore->semaphore.phase=BV_SEM_UNUSED;*lease=(BvLease){0};}
+  }
+  return VK_SUCCESS;
+}
+static void bv_swapchain_remove(BvRow* row) {
+  BvDevice* device=row->parent->context;BvSwapchain* target=row->context;
+  for(uint32_t j=0;j<target->count;j++)if(target->images[j])bv_remove(target->images[j]);
+  if(device->lease.swapchain==row)device->lease=(BvLease){0};
+  for(BvRow* semaphore=bv_rows;semaphore;semaphore=semaphore->next)if(semaphore->kind==BV_SEMAPHORE && semaphore->semaphore.producer==row)semaphore->semaphore.producer=NULL;
+  device->DestroySwapchainKHR(device->handle,(VkSwapchainKHR)(uintptr_t)row->handle,NULL);
+  free(target->images);free(target);bv_remove(row);
+}
+#ifdef CID(Device.create_swapchain)
+static Term bv_create_swapchain(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[10];bv_unpack(e,f[1],10,p);
+  if(!owner)return io_fail(e,BV_INVALID,"swapchain device");BvDevice* device=owner->context;
+  BvRow* surface=bv_child((uint32_t)p[0],BV_SURFACE,owner->parent);
+  if(!surface || !device->presentation)return io_fail(e,BV_INVALID,"swapchain surface or device profile");
+  if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create swapchain");
+  for(BvRow* row=bv_rows;row;row=row->next)if(row->kind==BV_SWAPCHAIN && bv_dependency(row,BV_DEP_SURFACE)->target==surface)return io_fail(e,BV_LIFETIME,"surface already has a swapchain");
+  BvInstance* instance=owner->parent->context;VkSurfaceKHR native=(VkSurfaceKHR)(uintptr_t)surface->handle;VkSurfaceCapabilitiesKHR caps;
+  VkResult result=instance->surface_caps(device->physical,native,&caps);
+  if(result!=VK_SUCCESS)return bv_vk_error(e,result,"swapchain capabilities");
+  VkBool32 present_supported=VK_FALSE;
+  result=instance->surface_support(device->physical,device->present_family,native,&present_supported);
+  if(result!=VK_SUCCESS)return bv_vk_error(e,result,"swapchain present support");
+  if(!present_supported)return io_fail(e,BV_ARGUMENT,"device present queue does not support this surface");
+  uint32_t count=p[1],width=p[4],height=p[5],usage=p[6],transform=p[7],alpha=p[8],mode=p[9];
+  const BvFormat* format=bv_format((VkFormat)(uint32_t)p[2]);
+  if(!format || format->aspect!=VK_IMAGE_ASPECT_COLOR_BIT || !width || !height || count<caps.minImageCount || (caps.maxImageCount && count>caps.maxImageCount) ||
+    width<caps.minImageExtent.width || width>caps.maxImageExtent.width || height<caps.minImageExtent.height || height>caps.maxImageExtent.height ||
+    (caps.currentExtent.width!=UINT32_MAX && (width!=caps.currentExtent.width || height!=caps.currentExtent.height)) ||
+    !usage || (usage&~caps.supportedUsageFlags) || !transform || (transform&(transform-1)) || !(transform&caps.supportedTransforms) ||
+    !alpha || (alpha&(alpha-1)) || !(alpha&caps.supportedCompositeAlpha))return io_fail(e,BV_ARGUMENT,"unsupported swapchain description");
+  VkSurfaceFormatKHR* formats=NULL;VkPresentModeKHR* modes=NULL;uint32_t nf=0,nm=0;bool has_format=false,has_mode=false;
+  result=bv_query_formats(instance,device->physical,native,&nf,&formats);
+  if(result==VK_SUCCESS)result=bv_query_modes(instance,device->physical,native,&nm,&modes);
+  if(result==VK_SUCCESS) {
+    for(uint32_t j=0;j<nf;j++)has_format |= (formats[j].format==(VkFormat)(uint32_t)p[2] || (nf==1 && formats[j].format==VK_FORMAT_UNDEFINED)) && formats[j].colorSpace==(VkColorSpaceKHR)(uint32_t)p[3];
+    for(uint32_t j=0;j<nm;j++)has_mode |= modes[j]==mode;
+  }
+  free(formats);free(modes);
+  if(result!=VK_SUCCESS)return bv_vk_error(e,result,"swapchain formats or modes");
+  if(!has_format || !has_mode)return io_fail(e,BV_ARGUMENT,"unsupported format/color-space pair or present mode");
+  BvRow* row=bv_add(BV_SWAPCHAIN,owner);BvSwapchain* target=row ? calloc(1,sizeof(*target)) : NULL;BvDep* dep=target ? malloc(sizeof(*dep)) : NULL;
+  if(!dep) {free(target);if(row)bv_remove(row);return io_fail(e,BV_LIMIT,"swapchain metadata");}
+  uint32_t families[]={device->family,device->present_family};bool split=families[0]!=families[1];
+  VkSwapchainCreateInfoKHR create={.sType=VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,.surface=native,.minImageCount=count,.imageFormat=p[2],.imageColorSpace=p[3],.imageExtent={width,height},.imageArrayLayers=1,.imageUsage=usage,
+    .imageSharingMode=split ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE,.queueFamilyIndexCount=split ? 2 : 0,.pQueueFamilyIndices=split ? families : NULL,.preTransform=transform,.compositeAlpha=alpha,.presentMode=mode,.clipped=VK_TRUE,.oldSwapchain=VK_NULL_HANDLE};
+  VkSwapchainKHR handle;result=bv_device_result(owner,device->CreateSwapchainKHR(device->handle,&create,NULL,&handle));
+  if(result!=VK_SUCCESS) {free(dep);free(target);bv_remove(row);return bv_vk_error(e,result,"vkCreateSwapchainKHR");}
+  *dep=(BvDep){.target=surface,.role=BV_DEP_SURFACE};row->deps=dep;row->context=target;row->handle=(uintptr_t)handle;target->format=p[2];target->extent=(VkExtent2D){width,height};target->usage=usage;
+  VkImage* images=NULL;uint32_t n=0;result=VK_INCOMPLETE;
+  for(unsigned retry=0;retry<8 && result==VK_INCOMPLETE;retry++) {
+    free(images);images=NULL;result=device->GetSwapchainImagesKHR(device->handle,handle,&n,NULL);
+    if(result!=VK_SUCCESS && result!=VK_INCOMPLETE)break;
+    if(!n || n>4096) {result=VK_ERROR_OUT_OF_HOST_MEMORY;break;}
+    images=calloc(n,sizeof(*images));if(!images) {result=VK_ERROR_OUT_OF_HOST_MEMORY;break;}
+    result=device->GetSwapchainImagesKHR(device->handle,handle,&n,images);
+  }
+  if(result==VK_SUCCESS) {
+    target->images=calloc(n,sizeof(*target->images));if(!target->images)result=VK_ERROR_OUT_OF_HOST_MEMORY;
+    else {
+      target->count=n;
+      for(uint32_t j=0;j<n;j++) {
+        BvRow* image=bv_add(BV_IMAGE,owner);BvDep* borrowed=image ? malloc(sizeof(*borrowed)) : NULL;
+        if(!borrowed) {if(image)bv_remove(image);result=VK_ERROR_OUT_OF_HOST_MEMORY;break;}
+        *borrowed=(BvDep){.target=row,.role=BV_DEP_SWAPCHAIN};image->deps=borrowed;image->handle=(uintptr_t)images[j];
+        image->object.image=(BvImage){target->format,target->extent,1,1,usage,BV_BORROWED_IMAGE,row,j};target->images[j]=image;
+      }
+    }
+  }
+  free(images);
+  if(result!=VK_SUCCESS) {bv_swapchain_remove(row);return bv_vk_error(e,result,"swapchain image metadata");}
+  return io_done(e,term_pak(CID(Swapchain),row->id));
+}
+#endif
+#ifdef CID(Device.swapchain_images)
+static Term bv_swapchain_images(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner);
+  if(!owner || !row)return io_fail(e,BV_INVALID,"swapchain images ownership");
+  BvSwapchain* target=row->context;Term list=term_pak(CID(Nil),0);
+  for(uint32_t j=target->count;j;j--)list=io_node(e,CID(Con),term_pak(CID(ImageHandle),target->images[j-1]->id),list);
+  return io_done(e,list);
+}
+#endif
+#ifdef CID(Device.destroy_swapchain)
+static Term bv_destroy_swapchain(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner);
+  if(!owner || !row)return io_fail(e,BV_INVALID,"swapchain destroy ownership");
+  BvDevice* device=owner->context;BvSwapchain* target=row->context;
+  if(device->lease.swapchain==row && device->lease.phase!=BV_LEASE_ACQUIRED && device->lease.phase!=BV_LEASE_RENDERED && device->lease.phase!=BV_LEASE_ABANDONED && !bv_lost(owner))return io_fail(e,BV_LIFETIME,"swapchain has incomplete acquisition, rendering or presentation");
+  for(uint32_t j=0;j<target->count;j++)if(bv_referenced(target->images[j]))return io_fail(e,BV_LIFETIME,"swapchain image still referenced");
+  bv_swapchain_remove(row);return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.acquire)
+static Term bv_acquire(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner),*fence=bv_public_fence(bv_key(e,f[2]));uint64_t timeout=bv_u64(e,f[3]);
+  if(!owner || !row || !fence || fence->parent!=owner)return io_fail(e,BV_INVALID,"acquire ownership");
+  BvDevice* device=owner->context;if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"acquire");
+  if(device->lease.phase!=BV_LEASE_NONE || bv_active(owner,NULL) || fence->fence.use!=BV_FENCE_FREE)return io_fail(e,BV_LIFETIME,"acquire requires idle lease and free fence");
+  for(BvRow* command=bv_rows;command;command=command->next)if(command->kind==BV_COMMAND && bv_command_device(command)==owner && bv_reaches_depth(command,row,6))return io_fail(e,BV_LIFETIME,"reset previous borrowed-image recording before acquire");
+  VkResult result=device->GetFenceStatus(device->handle,(VkFence)(uintptr_t)fence->handle);
+  if(result!=VK_NOT_READY)return result==VK_SUCCESS ? io_fail(e,BV_LIFETIME,"acquire fence must be unsignaled") : bv_device_error(e,owner,result,"acquire fence status");
+  if(device->lease_serial==UINT64_MAX)return io_fail(e,BV_LIMIT,"acquisition sequence exhausted");
+  uint64_t serial=++device->lease_serial;
+  uint32_t index=0;result=bv_device_result(owner,device->AcquireNextImageKHR(device->handle,(VkSwapchainKHR)(uintptr_t)row->handle,timeout,VK_NULL_HANDLE,(VkFence)(uintptr_t)fence->handle,&index));
+  if(result==VK_SUCCESS || result==VK_SUBOPTIMAL_KHR) {
+    device->lease=(BvLease){BV_LEASE_ACQUIRING,row,fence,NULL,index,serial};fence->fence.use=BV_FENCE_ACQUIRE;fence->fence.swapchain=row;
+    if(index>=((BvSwapchain*)row->context)->count) {device->lease.phase=BV_LEASE_ACQUIRE_UNCERTAIN;return io_fail(e,BV_INVALID,"acquire returned invalid image index");}
+    return io_done(e,io_node(e,CID(Acquired),index,result==VK_SUBOPTIMAL_KHR ? 1 : 0));
+  }
+  if(result==VK_ERROR_OUT_OF_DATE_KHR)return io_done(e,term_pak(CID(AcquireOutOfDate),0));
+  if(result==VK_ERROR_SURFACE_LOST_KHR)return io_done(e,term_pak(CID(AcquireSurfaceLost),0));
+  if(result==VK_TIMEOUT)return io_done(e,term_pak(CID(AcquireTimeout),0));
+  if(result==VK_NOT_READY)return io_done(e,term_pak(CID(AcquireNotReady),0));
+  if(result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST){device->lease=(BvLease){BV_LEASE_ACQUIRE_UNCERTAIN,row,fence,NULL,0,serial};fence->fence.use=BV_FENCE_ACQUIRE;fence->fence.swapchain=row;}
+  return bv_vk_error(e,result,"vkAcquireNextImageKHR");
+}
+#endif
+#ifdef CID(Device.release_acquired)
+static Term bv_release_acquired(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner);
+  if(!owner || !row)return io_fail(e,BV_INVALID,"release acquisition ownership");
+  BvDevice* device=owner->context;BvLease* lease=&device->lease;
+  if(lease->swapchain!=row || (lease->phase!=BV_LEASE_ACQUIRED && lease->phase!=BV_LEASE_RENDERED))return io_fail(e,BV_LIFETIME,"release requires completed acquisition and rendering");
+  VkReleaseSwapchainImagesInfoEXT release={.sType=VK_STRUCTURE_TYPE_RELEASE_SWAPCHAIN_IMAGES_INFO_EXT,.swapchain=(VkSwapchainKHR)(uintptr_t)row->handle,.imageIndexCount=1,.pImageIndices=&lease->index};
+  VkResult result=bv_device_result(owner,device->ReleaseSwapchainImagesEXT(device->handle,&release));
+  if(result==VK_SUCCESS)*lease=(BvLease){0};
+  return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkReleaseSwapchainImagesEXT");
+}
+#endif
+#ifdef CID(Device.create_semaphore)
+static Term bv_create_semaphore(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);if(!owner)return io_fail(e,BV_INVALID,"semaphore device");
+  if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"semaphore create");
+  BvRow* row=bv_add(BV_SEMAPHORE,owner);if(!row)return io_fail(e,BV_LIMIT,"semaphore metadata");
+  BvDevice* device=owner->context;VkSemaphoreCreateInfo create={.sType=VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};VkSemaphore handle;
+  VkResult result=bv_device_result(owner,device->CreateSemaphore(device->handle,&create,NULL,&handle));
+  if(result!=VK_SUCCESS) {bv_remove(row);return bv_vk_error(e,result,"vkCreateSemaphore");}
+  row->handle=(uintptr_t)handle;return io_done(e,term_pak(CID(Semaphore),row->id));
+}
+#endif
+#ifdef CID(Device.destroy_semaphore)
+static Term bv_destroy_semaphore(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SEMAPHORE,owner);
+  if(!owner || !row)return io_fail(e,BV_INVALID,"semaphore ownership");
+  if((row->semaphore.phase!=BV_SEM_UNUSED && row->semaphore.phase!=BV_SEM_SIGNALED && row->semaphore.phase!=BV_SEM_QUARANTINED) || bv_referenced(row))return io_fail(e,BV_LIFETIME,"semaphore still in use");
+  BvDevice* device=owner->context;device->DestroySemaphore(device->handle,(VkSemaphore)(uintptr_t)row->handle,NULL);bv_remove(row);return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.present)
+static Term bv_present(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner),*semaphore=bv_child(bv_key(e,f[3]),BV_SEMAPHORE,owner),*fence=bv_public_fence(bv_key(e,f[4]));
+  if(!owner || !row || !semaphore || !fence || fence->parent!=owner)return io_fail(e,BV_INVALID,"present ownership");
+  BvDevice* device=owner->context;BvLease* lease=&device->lease;
+  if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"present");
+  if(lease->swapchain!=row || lease->index!=(uint32_t)f[2] || lease->phase!=BV_LEASE_RENDERED || semaphore->semaphore.phase!=BV_SEM_SIGNALED || semaphore->semaphore.producer!=row || semaphore->semaphore.producer_serial!=lease->serial || fence->fence.use!=BV_FENCE_FREE || bv_active(owner,fence))return io_fail(e,BV_LIFETIME,"present requires matching rendered lease, signal and free fence");
+  VkFence signal=(VkFence)(uintptr_t)fence->handle;VkResult result=device->GetFenceStatus(device->handle,signal);
+  if(result!=VK_NOT_READY)return result==VK_SUCCESS ? io_fail(e,BV_LIFETIME,"present fence must be unsignaled") : bv_device_error(e,owner,result,"present fence status");
+  VkSwapchainKHR handle=(VkSwapchainKHR)(uintptr_t)row->handle;VkSemaphore wait=(VkSemaphore)(uintptr_t)semaphore->handle;
+  VkSwapchainPresentFenceInfoEXT completion={.sType=VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT,.swapchainCount=1,.pFences=&signal};
+  VkPresentInfoKHR present={.sType=VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,.pNext=&completion,.waitSemaphoreCount=1,.pWaitSemaphores=&wait,.swapchainCount=1,.pSwapchains=&handle,.pImageIndices=&lease->index};
+  result=bv_device_result(owner,device->QueuePresentKHR(device->present_queue,&present));
+  if(result==VK_ERROR_OUT_OF_HOST_MEMORY || result==VK_ERROR_OUT_OF_DEVICE_MEMORY)return bv_vk_error(e,result,"vkQueuePresentKHR (retry preserves lease)");
+  if(result==VK_ERROR_DEVICE_LOST)return bv_vk_error(e,result,"vkQueuePresentKHR");
+  lease->phase=BV_LEASE_PRESENTING;lease->fence=fence;lease->semaphore=semaphore;fence->fence.use=BV_FENCE_PRESENT;fence->fence.swapchain=row;semaphore->semaphore.phase=BV_SEM_PRESENT_WAIT;
+  if(result==VK_SUCCESS)return io_done(e,term_pak(CID(Presented),0));
+  if(result==VK_SUBOPTIMAL_KHR)return io_done(e,term_pak(CID(PresentSuboptimal),0));
+  if(result==VK_ERROR_OUT_OF_DATE_KHR)return io_done(e,term_pak(CID(PresentOutOfDate),0));
+  if(result==VK_ERROR_SURFACE_LOST_KHR)return io_done(e,term_pak(CID(PresentSurfaceLost),0));
+  lease->phase=BV_LEASE_PRESENT_UNCERTAIN;semaphore->semaphore.phase=BV_SEM_UNCERTAIN;
+  return bv_vk_error(e,result,"vkQueuePresentKHR (uncertain, resources retained)");
+}
+#endif
+
 
 static void __attribute__((constructor)) bv_register(void) {
 // BEGIN GENERATED REGISTRATIONS
@@ -2280,5 +2725,55 @@ static void __attribute__((constructor)) bv_register(void) {
 #ifdef CID(CommandBuffer.draw_indexed)
   io_eff(CID(CommandBuffer.draw_indexed), bv_cmd_draw_indexed);
 #endif
+#ifdef CID(Instance.destroy_surface)
+  io_eff(CID(Instance.destroy_surface), bv_destroy_surface);
+#endif
+#ifdef CID(Instance.surface_capabilities)
+  io_eff(CID(Instance.surface_capabilities), bv_surface_capabilities);
+#endif
+#ifdef CID(Instance.surface_formats)
+  io_eff(CID(Instance.surface_formats), bv_surface_formats);
+#endif
+#ifdef CID(Instance.present_modes)
+  io_eff(CID(Instance.present_modes), bv_present_modes);
+#endif
+#ifdef CID(Instance.present_support)
+  io_eff(CID(Instance.present_support), bv_present_support);
+#endif
+#ifdef CID(Instance.presentation_supported)
+  io_eff(CID(Instance.presentation_supported), bv_presentation_supported_run);
+#endif
+#ifdef CID(Instance.create_presentation_device)
+  io_eff(CID(Instance.create_presentation_device), bv_create_presentation_device);
+#endif
+#ifdef CID(Device.create_swapchain)
+  io_eff(CID(Device.create_swapchain), bv_create_swapchain);
+#endif
+#ifdef CID(Device.swapchain_images)
+  io_eff(CID(Device.swapchain_images), bv_swapchain_images);
+#endif
+#ifdef CID(Device.destroy_swapchain)
+  io_eff(CID(Device.destroy_swapchain), bv_destroy_swapchain);
+#endif
+#ifdef CID(Device.acquire)
+  io_eff(CID(Device.acquire), bv_acquire);
+#endif
+#ifdef CID(Device.release_acquired)
+  io_eff(CID(Device.release_acquired), bv_release_acquired);
+#endif
+#ifdef CID(Device.create_semaphore)
+  io_eff(CID(Device.create_semaphore), bv_create_semaphore);
+#endif
+#ifdef CID(Device.destroy_semaphore)
+  io_eff(CID(Device.destroy_semaphore), bv_destroy_semaphore);
+#endif
+#ifdef CID(Device.submit_synced)
+  io_eff(CID(Device.submit_synced), bv_submit_synced);
+#endif
+#ifdef CID(Device.present)
+  io_eff(CID(Device.present), bv_present);
+#endif
 // END GENERATED REGISTRATIONS
 }
+
+#endif // BV_NATIVE_IMPLEMENTATION

@@ -27,12 +27,16 @@ def attachment(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.De
     view : V.ImageView <- V.Device.create_image_view(device,V.ImageViewCreateInfo{image,1,V.ImageSubresourceRange{aspect,0,1,0,1}})
     return E.Attachment{image,memory,view}
 
+def pipeline_finished(+device: V.Device, fragment: V.ShaderModule, result: V.VkResult(V.GraphicsPipeline)) -> V.Action(V.GraphicsPipeline):
+  do V.Action<V.GraphicsPipeline>:
+    V.Device.destroy_shader_module(device,fragment)
+    IO.pure(V.VkResult(V.GraphicsPipeline),result)
+
 def pipeline(+device: V.Device, layout: V.PipelineLayout, pass: V.RenderPass, vertex: V.ShaderModule, words: List<U32>) -> V.Action(V.GraphicsPipeline):
   do V.Action<V.GraphicsPipeline>:
     +fragment : V.ShaderModule <- V.Device.create_shader_module(device,words)
-    result : V.GraphicsPipeline <- V.Device.create_graphics_pipeline(device,V.GraphicsPipelineCreateInfo{layout,pass,vertex,fragment,[V.VertexInputBinding{0,20,0}],[V.VertexInputAttribute{0,0,106,0},V.VertexInputAttribute{1,0,37,12},V.VertexInputAttribute{2,0,37,16}],3,V.RasterState{2,0},Some{V.DepthState{True{},True{},1}},15})
-    V.Device.destroy_shader_module(device,fragment)
-    return result
+    result : V.VkResult(V.GraphicsPipeline) <- V.Action.lift(V.VkResult(V.GraphicsPipeline),V.Device.create_graphics_pipeline(device,V.GraphicsPipelineCreateInfo{layout,pass,vertex,fragment,[V.VertexInputBinding{0,20,0}],[V.VertexInputAttribute{0,0,106,0},V.VertexInputAttribute{1,0,37,12},V.VertexInputAttribute{2,0,37,16}],3,V.RasterState{2,0},Some{V.DepthState{True{},True{},1}},15}))
+    pipeline_finished(device,fragment,result)
 
 def framebuffer(device: V.Device, pass: V.RenderPass, color: E.Attachment, depth: E.Attachment) -> V.Action(V.Framebuffer):
   E.Attachment{ci,cm,cv} = color
@@ -92,37 +96,47 @@ def upload(+device: V.Device, buffer: E.BoundBuffer, length: U32, words: Array<U
     pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,m,W.zero(),W.of_u32(length),words))
     upload_checked(pair)
 
-def install(+renderer: Renderer, +count: U32, vs: E.BoundBuffer, ix: E.BoundBuffer) -> Renderer:
-  Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,old,uploads} = renderer
-  Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,Geometry{vs,ix,(count * 6 : U32)},(uploads + 2 : U32)}
-
-def replace_mesh(+renderer: Renderer, mesh: M.Mesh) -> V.Action(Renderer & M.Mesh):
-  Renderer{+instance,+physical,+device,+command,+fence,fb,color,depth,stage,basic,mat,dir,old,uploads} = renderer
+def upload_mesh(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, old: Geometry, mesh: M.Mesh) -> V.Action(Geometry & M.Mesh):
   M.Mesh{fs,+count,vs,ix} = mesh
   match count:
     case 0:
-      do V.Action<Renderer & M.Mesh>:
+      do V.Action<Geometry & M.Mesh>:
         release(device,old)
-        return (Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,Empty{},uploads},M.Mesh{fs,0,vs,ix})
+        return (Empty{},M.Mesh{fs,0,vs,ix})
     case +n:
-      do V.Action<Renderer & M.Mesh>:
+      do V.Action<Geometry & M.Mesh>:
         release(device,old)
         +vb : E.BoundBuffer <- E.buffer(instance,physical,device,(n * 80 : U32),128)
         +ib : E.BoundBuffer <- E.buffer(instance,physical,device,(n * 24 : U32),64)
         vertices : Array<U32> <- upload(device,vb,(n * 80 : U32),vs)
         indices : Array<U32> <- upload(device,ib,(n * 24 : U32),ix)
-        return (install(renderer,n,vb,ib),M.Mesh{fs,n,vertices,indices})
+        return (Geometry{vb,ib,(n * 6 : U32)},M.Mesh{fs,n,vertices,indices})
 
-def matrix(basis: R.Basis) -> List<U32>:
+def mesh_replaced(renderer: Renderer, result: Geometry & M.Mesh) -> Renderer & M.Mesh:
+  Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,old,uploads} = renderer
+  (geometry,M.Mesh{fs,+count,vs,ix}) = result
+  (Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,(uploads + Bool.pick(U32,U32.is_zero(count),0,2) : U32)},M.Mesh{fs,count,vs,ix})
+
+def replace_mesh(+renderer: Renderer, mesh: M.Mesh) -> V.Action(Renderer & M.Mesh):
+  Renderer{+instance,+physical,+device,command,fence,fb,color,depth,stage,basic,mat,dir,old,uploads} = renderer
+  do V.Action<Renderer & M.Mesh>:
+    result : Geometry & M.Mesh <- upload_mesh(instance,physical,device,old,mesh)
+    return mesh_replaced(renderer,result)
+
+def matrix_extent(basis: R.Basis, width: U32, height: U32) -> List<U32>:
   R.Basis{+eye,R.Vec3{+rx,+ry,+rz},R.Vec3{+ux,+uy,+uz},R.Vec3{+fx,+fy,+fz},focal,near} = basis
   +scale = (focal / 256.0 : F32)
+  +horizontal = (scale * U32.to_f32(height) / U32.to_f32(width) : F32)
   +tx = F32.neg(R.Vec3.dot(eye,R.Vec3{rx,ry,rz}))
   +ty = F32.neg(R.Vec3.dot(eye,R.Vec3{ux,uy,uz}))
   +tz = F32.neg(R.Vec3.dot(eye,R.Vec3{fx,fy,fz}))
-  [F32.bits((scale * rx : F32)),F32.bits(F32.neg((scale * ux : F32))),F32.bits(fx),F32.bits(fx),
-   F32.bits((scale * ry : F32)),F32.bits(F32.neg((scale * uy : F32))),F32.bits(fy),F32.bits(fy),
-   F32.bits((scale * rz : F32)),F32.bits(F32.neg((scale * uz : F32))),F32.bits(fz),F32.bits(fz),
-   F32.bits((scale * tx : F32)),F32.bits(F32.neg((scale * ty : F32))),F32.bits((tz - near : F32)),F32.bits(tz)]
+  [F32.bits((horizontal * rx : F32)),F32.bits(F32.neg((scale * ux : F32))),F32.bits(fx),F32.bits(fx),
+   F32.bits((horizontal * ry : F32)),F32.bits(F32.neg((scale * uy : F32))),F32.bits(fy),F32.bits(fy),
+   F32.bits((horizontal * rz : F32)),F32.bits(F32.neg((scale * uz : F32))),F32.bits(fz),F32.bits(fz),
+   F32.bits((horizontal * tx : F32)),F32.bits(F32.neg((scale * ty : F32))),F32.bits((tz - near : F32)),F32.bits(tz)]
+
+def matrix(basis: R.Basis) -> List<U32>:
+  matrix_extent(basis,512,512)
 
 def draw(+command: V.CommandBuffer, geometry: Geometry) -> V.Action(Unit):
   match geometry:

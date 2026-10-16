@@ -23,6 +23,36 @@ type CommandBuffer is Data:
 type Fence is Data:
   Fence{key: U32}
 
+type NativeWindow is Data:
+  NativeWindow{key: U32}
+type Surface is Data:
+  Surface{key: U32}
+type Swapchain is Data:
+  Swapchain{key: U32}
+type Semaphore is Data:
+  Semaphore{key: U32}
+type WindowSnapshot is Type:
+  WindowSnapshot{width: U32, height: U32, mapped: Bool, focused: Bool, captured: Bool, events: List<Event>}
+type SurfaceCapabilities is Data:
+  SurfaceCapabilities{min_images: U32, max_images: U32, width: U32, height: U32, min_width: U32, min_height: U32, max_width: U32, max_height: U32, transforms: U32, transform: U32, alpha: U32, usage: U32}
+type PresentationDeviceInfo is Data:
+  PresentationDeviceInfo{graphics_family: U32, present_family: U32, surface: Surface}
+type SwapchainCreateInfo is Data:
+  SwapchainCreateInfo{surface: Surface, image_count: U32, format: U32, color_space: U32, extent: Extent2D, usage: U32, transform: U32, alpha: U32, present_mode: U32}
+type AcquireOutcome is Data:
+  Acquired{index: U32, suboptimal: Bool}
+  AcquireOutOfDate{}
+  AcquireNotReady{}
+  AcquireTimeout{}
+  AcquireSurfaceLost{}
+type PresentOutcome is Data:
+  Presented{}
+  PresentSuboptimal{}
+  PresentOutOfDate{}
+  PresentSurfaceLost{}
+type SemaphoreWait is Data:
+  SemaphoreWait{semaphore: Semaphore, stages: U32}
+
 type ImageHandle is Data:
   ImageHandle{key: U32}
 type ImageView is Data:
@@ -464,6 +494,90 @@ def CommandBuffer.push_constants(command: CommandBuffer, words: List<U32>) -> IO
   import "./src/native.js"
 
 def CommandBuffer.draw_indexed(command: CommandBuffer, draw: IndexedDraw) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Entry.open_window(entry: Entry, title: String, width: U32, height: U32) -> IO(VkResult(NativeWindow)):
+  import "./src/window.c"
+  import "./src/native.js"
+
+def NativeWindow.poll(window: NativeWindow, timeout_ms: U32) -> IO(VkResult(WindowSnapshot)):
+  import "./src/window.c"
+  import "./src/native.js"
+
+def NativeWindow.capture(window: NativeWindow, capture: Bool) -> IO(VkResult(Bool)):
+  import "./src/window.c"
+  import "./src/native.js"
+
+def NativeWindow.close(window: NativeWindow) -> IO(VkResult(Unit)):
+  import "./src/window.c"
+  import "./src/native.js"
+
+def Instance.create_surface(instance: Instance, window: NativeWindow) -> IO(VkResult(Surface)):
+  import "./src/window.c"
+  import "./src/native.js"
+
+def Instance.destroy_surface(instance: Instance, surface: Surface) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.surface_capabilities(instance: Instance, physical: PhysicalDevice, surface: Surface) -> IO(VkResult(SurfaceCapabilities)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.surface_formats(instance: Instance, physical: PhysicalDevice, surface: Surface) -> IO(VkResult(List<(U32 & U32)>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.present_modes(instance: Instance, physical: PhysicalDevice, surface: Surface) -> IO(VkResult(List<U32>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.present_support(instance: Instance, physical: PhysicalDevice, surface: Surface, family: U32) -> IO(VkResult(Bool)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.presentation_supported(instance: Instance, physical: PhysicalDevice) -> IO(VkResult(Bool)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Instance.create_presentation_device(instance: Instance, physical: PhysicalDevice, info: PresentationDeviceInfo) -> IO(VkResult(Device)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_swapchain(device: Device, info: SwapchainCreateInfo) -> IO(VkResult(Swapchain)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.swapchain_images(device: Device, swapchain: Swapchain) -> IO(VkResult(List<ImageHandle>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_swapchain(device: Device, swapchain: Swapchain) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.acquire(device: Device, swapchain: Swapchain, fence: Fence, timeout_ns: W.U64) -> IO(VkResult(AcquireOutcome)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.release_acquired(device: Device, swapchain: Swapchain) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_semaphore(device: Device) -> IO(VkResult(Semaphore)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_semaphore(device: Device, semaphore: Semaphore) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.submit_synced(device: Device, command: CommandBuffer, fence: Fence, waits: List<SemaphoreWait>, signals: List<Semaphore>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.present(device: Device, swapchain: Swapchain, index: U32, wait: Semaphore, fence: Fence) -> IO(VkResult(PresentOutcome)):
   import "./src/native.c"
   import "./src/native.js"
 # END GENERATED EFFECTS

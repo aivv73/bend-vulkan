@@ -20,7 +20,11 @@ def run(*args, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sanitize", action="store_true", help="also run native checks under ASan and UBSan")
+    parser.add_argument("--presentation", action="store_true", help="also require real X11 window acceptance and presentation failure probes")
+    parser.add_argument("--isolated-display", action="store_true", help="use a private rootful Xwayland server for presentation checks")
     args = parser.parse_args()
+    if args.isolated_display and not args.presentation:
+        parser.error("--isolated-display requires --presentation")
     if not (ROOT / "deps/bend-collections/src/math/u64.bend").is_file():
         raise SystemExit("Initialize the pinned dependency: git submodule update --init --recursive")
     voxel = ROOT / "deps/bend-voxel"
@@ -53,6 +57,8 @@ def main():
     run(str(BUILD / "image-abi"), timeout=60)
     run("bend", "tests/graphics_abi.bend", "-o", str(BUILD / "graphics-abi"))
     run(str(BUILD / "graphics-abi"), timeout=60)
+    run("bend", "tests/presentation_abi.bend", "-o", str(BUILD / "presentation-abi"))
+    run(str(BUILD / "presentation-abi"), timeout=60)
     discovery_output = ""
     for source, name, expected in (
         ("examples/voxel_offscreen.bend", "voxel-offscreen", "Voxel complete geometry, RGBA8+D32 references"),
@@ -60,6 +66,9 @@ def main():
         ("examples/indexed_offscreen.bend", "indexed-offscreen", "Indexed RGBA8+D32 every-pixel occlusion"),
         ("examples/offscreen_roundtrip.bend", "offscreen-roundtrip", "Optimal RGBA8 image clear"),
         ("examples/buffer_roundtrip.bend", "buffer-roundtrip", "Host roundtrip and GPU buffer fill verified"),
+        ("tests/viewport.bend", "viewport", "Viewport square rays, wide-field picking and extent rejection passed"),
+        ("tests/interactive.bend", "interactive", "Queued edit/reset picking before upload passed"),
+        ("tests/semaphores.bend", "semaphores", "Binary semaphore signal-to-wait literal GPU readback passed"),
         ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
@@ -79,6 +88,10 @@ def main():
         print(completed.stdout, end="", flush=True)
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
+        if name in {"discover", "voxel-offscreen"}:
+            linked = subprocess.run(["ldd", str(binary)], check=True, text=True, capture_output=True).stdout
+            if "libX11" in linked or "libxcb" in linked:
+                raise SystemExit(f"Headless binary gained a display dependency: {name}\n{linked}")
         if name == "discover":
             discovery_output = completed.stdout
             (BUILD / "discovery.txt").write_text(discovery_output)
@@ -91,7 +104,7 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
+        for name in ("semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
             completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=180 if name == "voxel-offscreen" else 60)
             (BUILD / f"{name}-validation.log").write_text(completed.stdout + completed.stderr)
             diagnostics = completed.stdout + completed.stderr
@@ -126,6 +139,11 @@ def main():
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
     run(sys.executable, "tools/check_native.py", *(["--sanitize"] if args.sanitize else []))
+    if args.presentation:
+        presentation_flags = (["--sanitize"] if args.sanitize else []) + (["--isolated-display"] if args.isolated_display else [])
+        run(sys.executable, "tools/check_presentation.py", *presentation_flags)
+        run(sys.executable, "tools/check_window.py", "--build", "--all", *presentation_flags)
+        run(sys.executable, "tools/check_window.py", "--product", *(["--isolated-display"] if args.isolated_display else []))
     print("Generation, proofs, and native Vulkan integration passed.")
 
 

@@ -8,7 +8,7 @@ Allocation, binding, stage/access masks, timeouts, and reset remain explicit cal
 ## Registry and dependencies
 
 An Entry owns the loader library and global dispatch. An Instance owns instance dispatch and interned physical-device rows.
-A Device owns device dispatch, one selected queue, and its resources. Pools own command buffers.
+A Device owns device dispatch, its selected graphics queue, an optional present queue, and its resources. Pools own command buffers.
 The native registry stores one role-tagged dependency DAG.
 Commands retain deduplicated buffer, image, framebuffer, and graphics pipeline roots. Framebuffers retain passes and ordered views, views retain images, and buffers/images retain bound allocations.
 Pipelines retain layouts and render passes. Shader modules are creation-only inputs.
@@ -47,16 +47,16 @@ The Outside/Inside tag exists only in Recording. Pending and Uncertain retain th
 Begin-pass allocates all clears and references before dispatch. End-pass allocates nothing.
 Pools enable individual command reset. There is no public whole-pool reset or usage mode.
 
-The command union is the sole submission association. Registry scans find a device's active command or a fence's association.
-The device has Healthy/Lost health and a private convenience-fence cache. A fence has a native handle and caller/private lifetime.
-There is no device pending flag, fence backpointer, cached signal bit, or second submission registry.
-One selected queue and at most one Pending or Uncertain command keep these linear scans bounded by the live registry.
+The command union is the sole graphics submission association. Registry scans find a device's active command or a fence's association.
+The device has Healthy/Lost health and a private convenience-fence cache. A fence has a native handle, caller/private lifetime, and a tagged acquisition or presentation association when used for WSI.
+There is no device pending flag, command fence backpointer, cached fence signal bit, or second graphics submission registry.
+One selected graphics queue and at most one Pending or Uncertain command keep these linear scans bounded by the live registry.
 
-Fence SUCCESS and successful device idle use the same completion transition.
+Graphics fence SUCCESS and successful device idle use the same graphics completion transition.
 Timeouts, NOT_READY, and ordinary errors retain Pending protection. Submit OOM leaves command and fence unchanged.
 Unexpected submit errors enter Uncertain. Fence status/wait rejects that state because submission may never have occurred.
 Successful idle recovery makes Uncertain work Invalid without claiming execution or readback succeeded.
-Device loss is sticky. It invalidates every command, detaches associations, and permits dependency-ordered teardown with exact loss bits.
+Device loss is sticky. It invalidates every command, detaches command fence associations, and permits dependency-ordered teardown with exact loss bits.
 
 Host mapping follows active dependency edges and rejects the entire reached allocation, including aliases.
 The longest path is command to framebuffer to view to image to memory, four edges.
@@ -167,4 +167,26 @@ Real pre-observation rejection and staging bytes prove driver behavior. Controll
 No optimal-image mapped pixel read is claimed. The milestone-3 run uses the available Khronos layer with synchronization validation.
 
 Linear registry scans, allocation-wide host exclusion, and one-time recordings keep one ownership model for this milestone.
-Multiple queues, multiple active submissions, descriptors, and presentation remain outside this subset.
+The presentation profile adds a present queue and keeps one active graphics submission. Descriptors and overlapping graphics submissions remain outside this subset.
+
+
+## Presentation ownership
+
+`src/x11.c` contains the optional X11 adapter. The generator bundles it with the guarded core in `src/window.c` because Bend selects one C import per effect.
+The shared guard keeps one registry when both core and window effects are used. X11 headers and event dispatch are absent from headless translation units.
+The core registry invokes its window cleanup callback through a small context header.
+`NativeWindow` is an Entry child. `Surface` is an Instance child with a dependency on its window.
+`Swapchain` is a Device child with a dependency on its surface. Borrowed images remain Device children and retain their swapchain.
+Their monotonic keys identify a generation. Repeated image enumeration returns the same keys.
+Destroying a drained swapchain removes its borrowed rows without calling `vkDestroyImage`.
+
+A device has one tagged acquisition lease. Commands may use only its acquired image after acquisition completion.
+A new acquisition rejects recorded references to an earlier lease. Rendering completion preserves those references until successful reset.
+Binary semaphores retain pending submit use through command dependencies. Their presentation state survives render-fence observation and device idle.
+Only an associated maintenance presentation fence releases a present wait. Unknown errors retain uncertain state until completion evidence or device loss.
+Uncertain submit recovery quarantines semaphore state for destruction rather than reuse.
+
+The consumer observes acquisition, rendering, and presentation in sequence. It uses bounded waits and one frame in flight.
+Recreation destroys a drained generation before creating the next with `oldSwapchain = NULL`.
+A target-specific ownership list rolls back partially built depth, view, pass, pipeline, framebuffer, and swapchain resources.
+The [presentation contract](presentation.md) specifies lifecycle outcomes and the tested completion policy.

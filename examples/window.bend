@@ -49,7 +49,6 @@ def open_device(+window: V.NativeWindow, +instance: V.Instance, +surface: V.Surf
   (+physical,Core.QueuePair{+graphics,+present}) = chosen
   do V.Action<Context>:
     device : V.Device <- V.Instance.create_presentation_device(instance,physical,V.PresentationDeviceInfo{graphics,present,surface})
-    V.Action.lift(Unit,IO.print("Queues " ++ U32.show(graphics) ++ " " ++ U32.show(present)))
     return Context{window,instance,physical,surface,device,graphics,present}
 
 def open(+entry: V.Entry, title: String, +split: Bool) -> V.Action(Context):

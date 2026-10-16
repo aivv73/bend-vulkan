@@ -1,4 +1,6 @@
 import Base
+import ./examples/voxel/appearance.bend as Appearance
+import ./shaders/appearance_uniforms.bend as Uniform
 import ./examples/voxel/geometry-laws.bend as GeometryLaws
 import ./src/core.bend as Core
 import ./src/constants.bend as vk
@@ -265,3 +267,16 @@ law exterior_clipping_preserves_every_material:
   for +m: U32
   for +old: Exterior.Rect2
   {GeometryLaws.materials(Exterior.lift(rs,Exterior.Patch{normal,d,m,old})) == GeometryLaws.repeated(rs,m) : List<U32>}
+
+
+law appearance_payload_bytes:
+  {Uniform.byte_size() == 2336 : U32}
+
+law appearance_payload_words:
+  {Uniform.word_count() == 584 : U32}
+
+law appearance_selected_offset:
+  {Uniform.offset_selected() == 336 : U32}
+
+law appearance_ring_index_count:
+  {Appearance.ring_index_count() == 576 : U32}

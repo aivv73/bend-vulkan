@@ -140,3 +140,49 @@ law voxel_second_triangle_outward:
 
 law voxel_all_8cube_indices_bounded:
   {Geometry.fixture_index_bounds(3072n,0) == True{} : Bool}
+
+law presentation_common_queue:
+  {Core.queue_pair([Core.QueueSupport{1,1,True{}},Core.QueueSupport{4,1,True{}}],False{}) == Some{Core.QueuePair{0,0}} : Maybe<Core.QueuePair>}
+
+law presentation_split_queue:
+  {Core.queue_pair([Core.QueueSupport{1,1,False{}},Core.QueueSupport{4,1,True{}}],False{}) == Some{Core.QueuePair{0,1}} : Maybe<Core.QueuePair>}
+
+law presentation_forced_split_queue:
+  {Core.queue_pair([Core.QueueSupport{1,1,True{}},Core.QueueSupport{4,1,True{}}],True{}) == Some{Core.QueuePair{0,1}} : Maybe<Core.QueuePair>}
+
+law presentation_empty_queue_rejected:
+  {Core.queue_pair([Core.QueueSupport{1,0,True{}}],False{}) == None{} : Maybe<Core.QueuePair>}
+
+law presentation_image_count:
+  {(Core.present_image_count(2,0),Core.present_image_count(2,2),Core.present_image_count(2,4)) == (3,2,3) : U32 & U32 & U32}
+
+law presentation_suspend_before_clamp:
+  for mapped: Bool
+  {Core.drawable(mapped,0,720) == False{} : Bool}
+
+law presentation_variable_extent:
+  {Core.surface_extent(4294967295,4294967295,16,16,1024,1024,800,450) == (800,450) : U32 & U32}
+
+law presentation_fixed_extent:
+  {Core.surface_extent(450,700,16,16,1024,1024,800,450) == (450,700) : U32 & U32}
+
+law presentation_landscape_pixel_center:
+  {Core.viewport_pixel_units(800,450,399,224) == (4294967295,1) : U32 & U32}
+
+law presentation_portrait_pixel_center:
+  {Core.viewport_pixel_units(450,700,225,350) == (1,4294967295) : U32 & U32}
+
+law presentation_undefined_format:
+  {Core.surface_format([(0,17)]) == Some{(44,17)} : Maybe<(U32 & U32)>}
+
+law presentation_preserves_color_space:
+  {Core.surface_format([(7,0),(44,1000104001)]) == Some{(44,1000104001)} : Maybe<(U32 & U32)>}
+
+law presentation_fifo_required:
+  {(Core.fifo_supported([0,1]),Core.fifo_supported([0,2])) == (False{},True{}) : Bool & Bool}
+
+law presentation_prefers_unorm:
+  {Core.surface_format([(50,0),(44,0)]) == Some{(44,0)} : Maybe<(U32 & U32)>}
+
+law presentation_undefined_requires_single_format:
+  {Core.surface_format([(37,0),(0,17)]) == Some{(37,0)} : Maybe<(U32 & U32)>}

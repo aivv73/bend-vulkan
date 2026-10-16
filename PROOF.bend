@@ -115,3 +115,50 @@ def Laws.voxel_second_triangle_outward():
 
 def Laws.voxel_all_8cube_indices_bounded():
   {==}
+
+def Laws.presentation_common_queue():
+  {==}
+
+def Laws.presentation_split_queue():
+  {==}
+
+def Laws.presentation_forced_split_queue():
+  {==}
+
+def Laws.presentation_empty_queue_rejected():
+  {==}
+
+def Laws.presentation_image_count():
+  {==}
+
+def Laws.presentation_suspend_before_clamp(mapped):
+  match mapped:
+    case False{}: {==}
+    case True{}: {==}
+
+def Laws.presentation_variable_extent():
+  {==}
+
+def Laws.presentation_fixed_extent():
+  {==}
+
+def Laws.presentation_landscape_pixel_center():
+  {==}
+
+def Laws.presentation_portrait_pixel_center():
+  {==}
+
+def Laws.presentation_undefined_format():
+  {==}
+
+def Laws.presentation_preserves_color_space():
+  {==}
+
+def Laws.presentation_fifo_required():
+  {==}
+
+def Laws.presentation_prefers_unorm():
+  {==}
+
+def Laws.presentation_undefined_requires_single_format():
+  {==}

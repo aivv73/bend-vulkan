@@ -3,6 +3,7 @@
 import argparse
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,13 @@ def main():
     args = parser.parse_args()
     if not (ROOT / "deps/bend-collections/src/math/u64.bend").is_file():
         raise SystemExit("Initialize the pinned dependency: git submodule update --init --recursive")
+    voxel = ROOT / "deps/bend-voxel"
+    if not (voxel / "voxel.bend").is_file():
+        raise SystemExit("Initialize the pinned dependency: git submodule update --init --recursive")
+    pin = subprocess.run(["git", "-C", str(voxel), "rev-parse", "HEAD"], check=True,
+                         text=True, capture_output=True).stdout.strip()
+    if pin != "cdfd92d356229c5de5f4aaddd358f15ec3686dd4":
+        raise SystemExit(f"Unexpected bend-voxel revision: {pin}")
     if not shutil.which("bend"):
         raise SystemExit("Bend 2.0.37 is required on PATH")
     version = subprocess.run(["bend", "version"], cwd=ROOT, check=True,
@@ -47,6 +55,7 @@ def main():
     run(str(BUILD / "graphics-abi"), timeout=60)
     discovery_output = ""
     for source, name, expected in (
+        ("examples/voxel_offscreen.bend", "voxel-offscreen", "Voxel complete geometry, RGBA8+D32 references"),
         ("examples/discover.bend", "discover", "Loader API version bits:"),
         ("examples/indexed_offscreen.bend", "indexed-offscreen", "Indexed RGBA8+D32 every-pixel occlusion"),
         ("examples/offscreen_roundtrip.bend", "offscreen-roundtrip", "Optimal RGBA8 image clear"),
@@ -65,7 +74,8 @@ def main():
     ):
         binary = BUILD / name
         run("bend", source, "-o", str(binary))
-        completed = run(str(binary), text=True, capture_output=True, timeout=60)
+        completed = run(str(binary), text=True, capture_output=True, timeout=180 if name == "voxel-offscreen" else 60)
+        (BUILD / f"{name}.log").write_text(completed.stdout + completed.stderr)
         print(completed.stdout, end="", flush=True)
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
@@ -81,8 +91,9 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
-            completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=60)
+        for name in ("voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
+            completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=180 if name == "voxel-offscreen" else 60)
+            (BUILD / f"{name}-validation.log").write_text(completed.stdout + completed.stderr)
             diagnostics = completed.stdout + completed.stderr
             if "Validation Error" in diagnostics or "SYNC-HAZARD" in diagnostics:
                 raise SystemExit(f"Vulkan validation failed for {name}:\n{diagnostics}")
@@ -97,6 +108,23 @@ def main():
         env = dict(os.environ, ASAN_OPTIONS="detect_leaks=0", UBSAN_OPTIONS="halt_on_error=1")
         # Vulkan drivers may retain process-global allocations. The tests check our registry count.
         run(str(binary), env=env, timeout=60)
+    voxel_c = BUILD / "voxel-offscreen.c"
+    run("bend", "examples/voxel_offscreen.bend", "-o", str(voxel_c))
+    preprocessed = BUILD / "voxel-offscreen-preprocessed.c"
+    run("clang", "-std=c11", "-E", "-P", str(voxel_c), "-o", str(preprocessed))
+    if re.search(r"\b(?:cuLaunchKernel|cuInit|nvrtcCreateProgram)\s*\(", preprocessed.read_text()):
+        raise SystemExit("CPU voxel translation unit retains CUDA dispatch")
+    if (BUILD / "voxel-offscreen.gpu").exists():
+        raise SystemExit("Unexpected voxel GPU artifact; remove the stale build artifact and rerun")
+    if args.sanitize:
+        voxel_sanitized = BUILD / "voxel-offscreen-sanitized"
+        run("clang", "-std=c11", "-O1", "-g", "-fsanitize=address,undefined",
+            "-fno-omit-frame-pointer", str(voxel_c), "-lpthread", "-lm", "-ldl", "-o", str(voxel_sanitized))
+        completed = run(str(voxel_sanitized), env=env, text=True, capture_output=True, timeout=240)
+        (BUILD / "voxel-offscreen-sanitized.log").write_text(completed.stdout + completed.stderr)
+        print(completed.stdout, end="", flush=True)
+        if completed.stderr:
+            print(completed.stderr, end="", file=sys.stderr)
     run(sys.executable, "tools/check_native.py", *(["--sanitize"] if args.sanitize else []))
     print("Generation, proofs, and native Vulkan integration passed.")
 

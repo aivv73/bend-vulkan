@@ -14,7 +14,7 @@ Use Linux with glibc 2.34 or newer. Install Bend **2.0.37**, Clang, Python 3, Vu
 A hardware driver or a software ICD such as Lavapipe can provide the device.
 The examples select a graphics queue for transfer commands.
 
-Initialize the pinned dependency:
+Initialize the pinned dependencies:
 
 ```sh
 git submodule update --init --recursive
@@ -82,6 +82,21 @@ To rebuild the words after editing GLSL, run:
 python3 tools/build_shaders.py
 ```
 
+## Run the voxel consumer
+
+Build the pinned dense-body consumer and export the intact and carved cube:
+
+```sh
+bend examples/voxel_offscreen.bend -o build/voxel-offscreen
+./build/voxel-offscreen
+```
+
+It writes 512 by 512 frames to `build/voxel-intact.ppm` and `build/voxel-carved.ppm`.
+It also exports the reset/empty frames and the pinned upstream renderer's visual references.
+The [voxel contract](docs/voxel.md) defines packing, projection, edge comparison, ownership, and verification limits.
+Actual GPU checks cover full U32 material bytes, all six directions, edits, empty meshes, and camera frames without mesh uploads.
+The reference renderer runs on the CPU. CUDA is not a prerequisite.
+
 ## Use the API
 
 Import `Vulkan.bend`, `src/core.bend`, `src/constants.bend`, and the dependency's `src/math/u64.bend` with paths relative to your program.
@@ -146,3 +161,6 @@ The milestone-3 run on NVIDIA GeForce GTX 1660 passed `python3 tools/verify.py -
 Optimal color image requirements exposed no compatible host-visible memory type on that device.
 Real lifetime rejection and pixels use the driver and staging. Post-completion mapped access in the graph probe uses controlled dispatch and is labeled separately.
 Noncoherent cache paths have controlled flush-failure coverage. Their driver coverage depends on the selected memory type.
+
+The milestone-4 consumer also passes the complete sanitize suite on that device, including whole-frame reference checks, GPU metadata diagnostics, bounded edits, and zero-row cleanup.
+Its native translation unit preprocesses and builds without CUDA support.

@@ -88,3 +88,30 @@ def Laws.binding_alignment_high_limbs():
   {==}
 def Laws.binding_alignment_rejects_width():
   {==}
+
+def Laws.voxel_full_material_word(material):
+  {==}
+def Laws.voxel_high_material_bits():
+  {==}
+def Laws.voxel_rgb_direction_bytes():
+  {==}
+def Laws.voxel_all_direction_codes():
+  {==}
+def Laws.voxel_empty_face_count():
+  {==}
+def Laws.voxel_face_count_step(face,faces):
+  {==}
+def Laws.voxel_quad_index_pattern(base):
+  {==}
+def Laws.voxel_intact_counts():
+  {==}
+def Laws.voxel_max_fixture_index():
+  {==}
+def Laws.voxel_quad_outward():
+  {==}
+
+def Laws.voxel_second_triangle_outward():
+  {==}
+
+def Laws.voxel_all_8cube_indices_bounded():
+  {==}

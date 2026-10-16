@@ -5,7 +5,7 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Milestones 0 through 3 are implemented. Later milestones describe planned capabilities and proposed API names.
+Milestones 0 through 4 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
@@ -15,7 +15,7 @@ Milestones 0 through 3 are implemented. Later milestones describe planned capabi
 | 1. General transfers and completion | Implemented | Bulk uploads, explicit barriers, buffer copies, fences, command reuse | Repeated upload, copy, and readback with bounded live resources |
 | 2. Offscreen images | Implemented | Images, binding, views, barriers, color/depth passes, readback | Every-pixel and repeated color/depth clears with bounded resources |
 | 3. Indexed graphics | Implemented | SPIR-V modules, graphics pipelines, vertex/index binding, depth testing, push constants | Every-pixel RGBA8/D32 occlusion in both orders, both index widths, clipping, camera updates, and stable reuse |
-| 4. Voxel mesh consumer | Planned | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
+| 4. Voxel mesh consumer | Implemented | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
 | 5. Interactive presentation | Planned | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
 | 6. Full scene and appearance | Planned | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
 | 7. Repeated edits and throughput | Planned | Reusable upload storage, resource retirement, measured batching | Camera flight and repeated carving stay correct with stable resource use |
@@ -144,12 +144,12 @@ This milestone integrates the wrapper with bend-voxel. It does not add meshing p
 
 Renderer work:
 
-- [ ] Define a packed vertex/index contract shared by the Bend mesher and GLSL shaders.
-- [ ] Convert the dense body's exposed faces into indexed quads, retaining face direction and material identity.
-- [ ] Start with four vertices and six indices per quad. Share vertices or merge quads in a later optimization.
-- [ ] Rebuild and upload the mesh after carving or reset. Camera movement updates camera parameters without rebuilding geometry.
-- [ ] Export intact and carved 8³ cube frames at 512×512 through the offscreen graphics path.
-- [ ] Check complete exposed-face coverage, absence of interior faces, index bounds, outward winding, and preserved materials.
+- [x] Define a packed vertex/index contract shared by the Bend mesher and GLSL shaders.
+- [x] Convert the dense body's exposed faces into indexed quads, retaining face direction and material identity.
+- [x] Start with four vertices and six indices per quad. Share vertices or merge quads in a later optimization.
+- [x] Rebuild and upload the mesh after carving or reset. Camera movement updates camera parameters without rebuilding geometry.
+- [x] Export intact and carved 8³ cube frames at 512×512 through the offscreen graphics path.
+- [x] Check complete exposed-face coverage, absence of interior faces, index bounds, outward winding, and preserved materials.
 
 The existing [geometry module](https://github.com/aivv73/bend-voxel/blob/cdfd92d356229c5de5f4aaddd358f15ec3686dd4/voxel.bend) contains both unit `Face` values and larger `Rectangle` values.
 Its dense-body path extracts exposed faces. Its cuboid path emits six rectangles per cuboid.
@@ -158,6 +158,15 @@ Before using the cuboid path for the full scene, resolve shared and overlapping 
 Completion evidence: formal mesh properties and native rendered output agree on the intact and carved cube's geometry and materials.
 Keep the existing renderer as a visual reference. Compare rasterization edge coverage under a stated policy rather than assuming identical floating-point pixel output.
 Basic material colors are sufficient here. Production shadows and brush overlays arrive in milestone 6.
+
+Acceptance passed with `python3 tools/verify.py --sanitize` on NVIDIA GeForce GTX 1660 with Khronos and synchronization validation enabled.
+The [consumer](../examples/voxel_offscreen.bend) exports intact and metric-demo-carved 8³ cubes at 512×512, plus reset, empty, and unchanged upstream renderer references.
+Independent occupancy enumeration and decoded packed geometry checks verify all 384 intact and 396 carved quads, materials, both triangle windings, and indices.
+Whole-frame basic color/D32 and full-U32-material/direction diagnostic readbacks pass the [fixed edge policy](voxel.md#verification-policy), including all six directions and high-bit IDs through `0xffffffff`.
+Camera-only frames preserve mesh bytes and upload counts. Repeated carve/reset replacements have bounded live resources, empty geometry owns no mesh buffers, and scope cleanup leaves zero rows.
+Pure packing, quad, count, and fixture-bounded index laws pass `bend PROOF.bend`.
+The pinned upstream submodule is unmodified. Its visual renderer runs directly on the CPU, and preprocessing plus native artifact inspection confirm no CUDA prerequisite.
+Vulkan core and native implementation remain unchanged.
 
 ## 5. Interactive presentation
 
@@ -253,5 +262,4 @@ Finish each milestone's acceptance result before starting its dependent mileston
 
 ## Start here
 
-Start milestone 4 with the packed vertex/index contract in bend-voxel.
-Render intact and carved 8³ cubes at 512×512 through the indexed offscreen API.
+Milestone 4 is complete. Continue with milestone 5 native presentation and preserve the verified offscreen consumer as the headless acceptance path.

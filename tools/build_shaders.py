@@ -12,10 +12,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 def generate():
     lines = ["import Base", ""]
     with tempfile.TemporaryDirectory() as temporary:
-        for stage, name in (("vert", "vertex_words"), ("frag", "fragment_words")):
-            output = pathlib.Path(temporary) / f"indexed.{stage}.spv"
+        for shader, stage, name in (("indexed", "vert", "vertex_words"), ("indexed", "frag", "fragment_words"),
+                                    ("voxel", "vert", "voxel_vertex_words"), ("voxel", "frag", "voxel_fragment_words"),
+                                    ("voxel_material", "frag", "voxel_material_words"),
+                                    ("voxel_direction", "frag", "voxel_direction_words")):
+            output = pathlib.Path(temporary) / f"{shader}.{stage}.spv"
             subprocess.run(["glslc", "--target-env=vulkan1.0", "-O", "-o", str(output),
-                            str(ROOT / f"shaders/indexed.{stage}")], check=True)
+                            str(ROOT / f"shaders/{shader}.{stage}")], check=True)
             subprocess.run(["spirv-val", "--target-env", "vulkan1.0", str(output)], check=True)
             data = output.read_bytes()
             if len(data) % 4 or data[:4] != b"\x03\x02\x23\x07":

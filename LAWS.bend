@@ -2,6 +2,10 @@ import Base
 import ./src/core.bend as Core
 import ./src/constants.bend as vk
 import ./deps/bend-collections/src/math/u64.bend as W
+import ./examples/voxel/mesh.bend as Mesh
+import ./examples/voxel/geometry.bend as Geometry
+import ./deps/bend-voxel/voxel.bend as Voxel
+import ./deps/bend-voxel/render.bend as Reference
 
 # Native marshalling must preserve these limbs; the C boundary is tested separately.
 law size_words_roundtrip:
@@ -95,3 +99,44 @@ law binding_alignment_high_limbs:
   {Core.binding_aligned(W.U64{2,4294967295},W.U64{10,4294967295},4) == True{} : Bool}
 law binding_alignment_rejects_width:
   {Core.binding_aligned(W.zero(),W.zero(),3) == False{} : Bool}
+
+
+law voxel_full_material_word:
+  for material: U32
+  {Mesh.material_word(Mesh.quad(Voxel.Cell{0,0,0},0,0,material,0,[0 : U32^5n])) == material : U32}
+
+law voxel_high_material_bits:
+  {Mesh.material_word(Mesh.quad(Voxel.Cell{0,0,0},5,0,4294967295,0,[0 : U32^5n])) == 4294967295 : U32}
+
+law voxel_rgb_direction_bytes:
+  {Mesh.rgbd(1193046,5) == 89535506 : U32}
+
+law voxel_all_direction_codes:
+  {[Mesh.direction(Voxel.NegX{}),Mesh.direction(Voxel.PosX{}),Mesh.direction(Voxel.NegY{}),Mesh.direction(Voxel.PosY{}),Mesh.direction(Voxel.NegZ{}),Mesh.direction(Voxel.PosZ{})] == [0,1,2,3,4,5] : List<U32>}
+
+law voxel_empty_face_count:
+  {Mesh.count(Nil{}) == 0 : U32}
+
+law voxel_face_count_step:
+  for face: Voxel.Face
+  for faces: List<&2,Voxel.Face>
+  {Mesh.count(face <> faces) == U32.add(1,Mesh.count(faces)) : U32}
+
+law voxel_quad_index_pattern:
+  for base: U32
+  {Array.to_list(~U32,Mesh.index_quad(base,0,[0 : U32^3n])) == [base,U32.add(base,1),U32.add(base,2),U32.add(base,2),U32.add(base,3),base,0,0] : List<U32>}
+
+law voxel_intact_counts:
+  {((384 * 4 : U32),(384 * 6 : U32),(384 * 80 : U32),(384 * 24 : U32)) == (1536,2304,30720,9216) : U32 & U32 & U32 & U32}
+
+law voxel_max_fixture_index:
+  {Array.to_list(~U32,Mesh.index_quad(12284,0,[0 : U32^3n])) == [12284,12285,12286,12286,12287,12284,0,0] : List<U32>}
+
+law voxel_quad_outward:
+  {[Geometry.quad_normal(0),Geometry.quad_normal(1),Geometry.quad_normal(2),Geometry.quad_normal(3),Geometry.quad_normal(4),Geometry.quad_normal(5)] == [Voxel.Cell{4294967295,0,0},Voxel.Cell{1,0,0},Voxel.Cell{0,4294967295,0},Voxel.Cell{0,1,0},Voxel.Cell{0,0,4294967295},Voxel.Cell{0,0,1}] : List<Voxel.Cell>}
+
+law voxel_second_triangle_outward:
+  {[Geometry.quad_second_normal(0),Geometry.quad_second_normal(1),Geometry.quad_second_normal(2),Geometry.quad_second_normal(3),Geometry.quad_second_normal(4),Geometry.quad_second_normal(5)] == [Voxel.Cell{4294967295,0,0},Voxel.Cell{1,0,0},Voxel.Cell{0,4294967295,0},Voxel.Cell{0,1,0},Voxel.Cell{0,0,4294967295},Voxel.Cell{0,0,1}] : List<Voxel.Cell>}
+
+law voxel_all_8cube_indices_bounded:
+  {Geometry.fixture_index_bounds(3072n,0) == True{} : Bool}

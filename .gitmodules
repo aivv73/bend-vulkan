@@ -1,3 +1,6 @@
 [submodule "deps/bend-collections"]
 	path = deps/bend-collections
 	url = https://github.com/Giulio2002/bend-collections.git
+[submodule "deps/bend-voxel"]
+	path = deps/bend-voxel
+	url = https://github.com/aivv73/bend-voxel.git

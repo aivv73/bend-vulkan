@@ -159,8 +159,11 @@ def run_product(binary):
                 if time.monotonic()>deadline: raise AssertionError('Ordinary product window was not found')
                 time.sleep(.05)
             x.focus()
+            x.move(292,210); time.sleep(.35)
             intact=capture('intact')
-            x.move(320,240); x.button(1,1); x.button(1,0)
+            time.sleep(.2)
+            assert capture('hover-settled') == intact
+            x.button(1,1); x.button(1,0)
             carved=capture('click-carved',different=intact)
             x.tap(ord('r'))
             capture('reset',expected=intact,different=carved)
@@ -169,7 +172,7 @@ def run_product(binary):
             x.close(); process.wait(timeout=12)
             text=log.read_text()
             assert process.returncode==0, text[-6000:]
-            assert 'Native interactive shutdown rows=0' in text, text
+            assert not text.strip(), text
             assert not re.search(r'^STATE ',text,re.MULTILINE), 'Default product emitted per-turn STATE diagnostics'
             assert 'Validation Error' not in text and 'SYNC-HAZARD' not in text, text
             print(f'Ordinary product default quiet, edit pixels, exact reset and suspended WM close passed. Evidence {log.relative_to(ROOT)}',flush=True)
@@ -188,7 +191,7 @@ def run(binary, split=False, suspended_close=False, escape=False):
     env=dict(os.environ,VK_INSTANCE_LAYERS='VK_LAYER_KHRONOS_validation',VK_LAYER_VALIDATE_SYNC='1',ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1')
     x=X11()
     with log.open('w') as output:
-        process=subprocess.Popen([str(binary),'--trace',*(['--split'] if split else [])],cwd=ROOT,stdout=output,stderr=subprocess.STDOUT,env=env)
+        process=subprocess.Popen([str(binary),'--cube','--trace',*(['--split'] if split else [])],cwd=ROOT,stdout=output,stderr=subprocess.STDOUT,env=env)
         def wait(predicate, message, timeout=12):
             deadline=time.monotonic()+timeout
             while time.monotonic()<deadline:
@@ -339,11 +342,11 @@ def instrument_window(emitted):
     return emitted[:begin]+window+emitted[end:]
 
 
-def build_window(sanitize=False):
+def build_window(sanitize=False, compile_timeout=None):
     BUILD.mkdir(exist_ok=True)
     source=BUILD/'voxel-interactive-probes.c'
     binary=BUILD/('voxel-interactive-sanitized' if sanitize else 'voxel-interactive-checked')
-    subprocess.run(['bend','examples/voxel_interactive.bend','-o',str(source)],cwd=ROOT,check=True)
+    subprocess.run(['bend','examples/voxel_interactive.bend','-o',str(source)],cwd=ROOT,check=True,timeout=compile_timeout)
     emitted=deduplicate_native(source.read_text())
     allocator=(ROOT/'tests/probes.c').read_text().split('static unsigned bv_test_barrier_calls;')[0]+'\nstatic uint64_t bv_test_acquisitions;\n'
     begin=emitted.index('// Bend 2.0.37 effect ABI.')
@@ -360,7 +363,7 @@ def build_window(sanitize=False):
     native=native[:a]+native[a:b].replace('  return io_done(e,count);',check+'  return io_done(e,count);')+native[b:]
     source.write_text(instrument_window(emitted[:begin]+native+emitted[end:]))
     flags=['-fsanitize=address,undefined','-fno-omit-frame-pointer'] if sanitize else []
-    subprocess.run(['clang','-std=c11','-O1','-g',*flags,str(source),'-lpthread','-lm','-ldl','-o',str(binary)],check=True,cwd=ROOT)
+    subprocess.run(['clang','-std=c11','-O1','-g',*flags,str(source),'-lpthread','-lm','-ldl','-o',str(binary)],check=True,cwd=ROOT,timeout=compile_timeout)
     return binary
 
 @contextlib.contextmanager

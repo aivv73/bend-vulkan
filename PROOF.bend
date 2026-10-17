@@ -230,3 +230,16 @@ def Laws.exterior_clipping_preserves_every_material(rs,normal,d,m,old):
     case Exterior.Rect2{a,b,c,e} <> rest:
       %Laws.exterior_clipping_preserves_every_material(rest,normal,d,m,old) : {m <> GeometryLaws.materials(Exterior.lift(rest,Exterior.Patch{normal,d,m,old})) == m <> _ : List<U32>}
       {==}
+
+
+def Laws.appearance_payload_bytes():
+  {==}
+
+def Laws.appearance_payload_words():
+  {==}
+
+def Laws.appearance_selected_offset():
+  {==}
+
+def Laws.appearance_ring_index_count():
+  {==}

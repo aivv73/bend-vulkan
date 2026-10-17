@@ -183,7 +183,6 @@ def run(+entry: V.Entry) -> V.Action(Unit):
     intact : Loaded <- load(renderer,Atelier.body(),10304,1648640,247296)
     intact_state(intact)
     V.Action.lift(Unit,IO.print("Actual Vulkan Atelier logical-array bytes, state equality, resource rows and rendered rectangles passed"))
-    V.Action.lift(Unit,IO.print("DEFERRED owning-cell internal/outer-edge GPU identity and production appearance belong to the appearance unit"))
 
 def main() -> IO(Unit):
   do IO<Unit>:

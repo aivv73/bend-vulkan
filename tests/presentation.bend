@@ -22,7 +22,7 @@ def borrowed_images(xs: List<V.ImageHandle>, +device: V.Device, memory: V.Device
 def boundaries(context: WSI.Context, frame: P.Frame, target: P.Target) -> V.Action(Unit):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
   P.Frame{pool,command,acquire,render,present,finished} = frame
-  P.Target{+swapchain,images,E.Attachment{di,memory,dv},pass,layout,pipeline,width,height} = target
+  P.Target{+swapchain,images,E.Attachment{di,memory,dv},pass,layout,pipeline,width,height,format,production} = target
   do V.Action<Unit>:
     borrowed : List<V.ImageHandle> <- V.Device.swapchain_images(device,swapchain)
     borrowed_images(borrowed,device,memory)
@@ -33,7 +33,7 @@ def boundaries(context: WSI.Context, frame: P.Frame, target: P.Target) -> V.Acti
 def acquired(+context: WSI.Context, +frame: P.Frame, +target: P.Target, outcome: V.AcquireOutcome) -> V.Action(Unit):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
   P.Frame{pool,+command,+acquire,+render,+present,+finished} = frame
-  P.Target{+swapchain,images,depth,pass,layout,pipeline,width,height} = target
+  P.Target{+swapchain,images,depth,pass,layout,pipeline,width,height,format,production} = target
   match outcome:
     case V.Acquired{+index,suboptimal}:
       do V.Action<Unit>:
@@ -60,7 +60,7 @@ def get_device(context: WSI.Context) -> V.Device:
   device
 
 def get_swapchain(target: P.Target) -> V.Swapchain:
-  P.Target{swapchain,images,depth,pass,layout,pipeline,width,height} = target
+  P.Target{swapchain,images,depth,pass,layout,pipeline,width,height,format,production} = target
   swapchain
 
 def get_acquire(frame: P.Frame) -> V.Fence:

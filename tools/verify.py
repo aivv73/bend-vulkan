@@ -45,6 +45,10 @@ def main():
     run("bend", "PROOF.bend")
     BUILD.mkdir(exist_ok=True)
     run(sys.executable, "tools/check_geometry.py")
+    run(sys.executable, "tools/check_appearance_math.py")
+    run(sys.executable, "tools/check_reference_lighting.py")
+    run(sys.executable, "tools/check_appearance_gpu.py", *(["--sanitize"] if args.sanitize else []))
+    run(sys.executable, "tools/check_production.py", *(["--sanitize"] if args.sanitize else []))
     # The interpreted backend must fail explicitly, with a well-formed Result.
     unsupported = subprocess.run(["bend", "examples/discover.bend"], cwd=ROOT,
                                  text=True, capture_output=True, timeout=60)
@@ -163,8 +167,10 @@ def main():
     run(sys.executable, "tools/check_native.py", *(["--sanitize"] if args.sanitize else []))
     if args.presentation:
         presentation_flags = (["--sanitize"] if args.sanitize else []) + (["--isolated-display"] if args.isolated_display else [])
+        run(sys.executable, "tools/check_acquisition.py", *presentation_flags)
         run(sys.executable, "tools/check_presentation.py", *presentation_flags)
         run(sys.executable, "tools/check_window.py", "--build", "--all", *presentation_flags)
+        run(sys.executable, "tools/check_atelier_window.py", "--binary", str(BUILD / ("voxel-interactive-sanitized" if args.sanitize else "voxel-interactive-checked")), *(["--isolated-display"] if args.isolated_display else []))
         run(sys.executable, "tools/check_window.py", "--product", *(["--isolated-display"] if args.isolated_display else []))
     print("Generation, proofs, and native Vulkan integration passed.")
 

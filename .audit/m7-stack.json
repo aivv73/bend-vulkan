@@ -96,5 +96,58 @@
     ]
   },
   "scope": "Mapping groups describe responsibility. Individual replayed patches are not claimed byte-identical. The complete frame commit has exactly the saved full tree. Later commits may change only .audit files. Historical measurement revisions and executable hashes are preserved.",
-  "publication": []
+  "publication": {
+    "recorded_utc": "2026-10-17T15:14:16.943559+00:00",
+    "pull_requests": [
+      {
+        "number": 10,
+        "url": "https://github.com/aivv73/bend-vulkan/pull/10",
+        "title": "feat(voxel): add dirty chunks and greedy shadow meshes",
+        "state": "OPEN",
+        "isDraft": false,
+        "baseRefName": "main",
+        "headRefName": "t3code/m7-chunk-meshing",
+        "headRefOid": "2efc7400d6d3c1125915178cc37b16294adaaebc"
+      },
+      {
+        "number": 11,
+        "url": "https://github.com/aivv73/bend-vulkan/pull/11",
+        "title": "test(voxel): measure completed native flight and edits",
+        "state": "OPEN",
+        "isDraft": false,
+        "baseRefName": "t3code/m7-chunk-meshing",
+        "headRefName": "t3code/m7-native-measurements",
+        "headRefOid": "188c197e49b479a94053dff145e11ad09d9a5b43"
+      },
+      {
+        "number": 12,
+        "url": "https://github.com/aivv73/bend-vulkan/pull/12",
+        "title": "feat(vulkan): retain transactional chunk generations",
+        "state": "OPEN",
+        "isDraft": false,
+        "baseRefName": "t3code/m7-native-measurements",
+        "headRefName": "t3code/m7-chunk-generations",
+        "headRefOid": "23caf6f8046796424e24a3cfc7d27b0e16709921"
+      },
+      {
+        "number": 13,
+        "url": "https://github.com/aivv73/bend-vulkan/pull/13",
+        "title": "feat(voxel): render ordered independent frame slots",
+        "state": "OPEN",
+        "isDraft": false,
+        "baseRefName": "t3code/m7-chunk-generations",
+        "headRefName": "t3code/implement-milestone-7",
+        "headRefOid": "6b1e3cc6694b04667d4b18d5f54a0d38732cb4fc"
+      }
+    ],
+    "t3_chain": [
+      10,
+      11,
+      12,
+      13
+    ],
+    "all_linked": true,
+    "watching": false,
+    "scope": "GitHub view and T3 linking receipts at publication. Later audit-only commits may advance the top head."
+  }
 }

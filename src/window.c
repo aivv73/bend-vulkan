@@ -20,7 +20,7 @@
 
 typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
   BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER, BV_SHADER, BV_LAYOUT, BV_PIPELINE,
-  BV_WINDOW, BV_SURFACE, BV_SWAPCHAIN, BV_SEMAPHORE } BvKind;
+  BV_WINDOW, BV_SURFACE, BV_SWAPCHAIN, BV_SEMAPHORE, BV_DESCRIPTOR_LAYOUT, BV_DESCRIPTOR_POOL, BV_DESCRIPTOR_SET, BV_SAMPLER, BV_KIND_COUNT } BvKind;
 typedef struct BvRow BvRow;
 typedef struct { void (*destroy)(BvRow*); } BvWindowContext;
 typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN, BV_COMPLETED, BV_COMMAND_INVALID } BvCommandPhase;
@@ -33,7 +33,10 @@ typedef struct {
   uint32_t index_width;
   bool index_ready,viewport_ready,scissor_ready,push_ready;
 } BvRecording;
+#define BV_MAX_DESCRIPTOR_SETS 64u
+#define BV_MAX_DESCRIPTOR_SLOTS 4096u
 typedef struct {
+  BvRow* sets[BV_MAX_DESCRIPTOR_SETS];
   BvCommandPhase phase;
   union { BvRecording recording; struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
 } BvCommand;
@@ -43,7 +46,8 @@ typedef struct { BvFenceLifetime lifetime; BvFenceUse use; BvRow* swapchain; } B
 typedef enum { BV_HEALTHY, BV_LOST } BvHealth;
 typedef enum { BV_DEP_RECORDED, BV_DEP_BINDING, BV_DEP_VIEW_IMAGE,
   BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW, BV_DEP_PIPELINE_LAYOUT, BV_DEP_PIPELINE_PASS,
-  BV_DEP_WINDOW, BV_DEP_SURFACE, BV_DEP_SWAPCHAIN, BV_DEP_SUBMIT_WAIT, BV_DEP_SUBMIT_SIGNAL } BvDepRole;
+  BV_DEP_WINDOW, BV_DEP_SURFACE, BV_DEP_SWAPCHAIN, BV_DEP_SUBMIT_WAIT, BV_DEP_SUBMIT_SIGNAL,
+  BV_DEP_LAYOUT_SET, BV_DEP_SET_POOL, BV_DEP_SET_LAYOUT, BV_DEP_UNIFORM, BV_DEP_SAMPLED_VIEW, BV_DEP_SAMPLER } BvDepRole;
 typedef struct BvDep {
   BvRow* target;
   BvDepRole role;
@@ -61,7 +65,18 @@ typedef struct { uint32_t count; BvRow** images; VkFormat format; VkExtent2D ext
 typedef struct { VkImageViewType type; VkImageSubresourceRange range; } BvImageView;
 typedef struct { uint32_t colors,count; VkAttachmentDescription* attachments; } BvRenderPass;
 typedef struct { VkExtent2D extent; uint32_t count; BvDep** attachments; } BvFramebuffer;
-typedef struct { uint32_t stages,bytes; } BvPushRange;
+typedef struct { uint32_t stages,bytes,count; BvRow** sets; } BvPipelineLayout;
+typedef struct { uint32_t count,slots,uniforms,sampled; VkDescriptorSetLayoutBinding* bindings; } BvDescriptorSchema;
+typedef enum { BV_POOL_READY, BV_POOL_QUARANTINED } BvDescriptorPoolPhase;
+typedef struct { BvDescriptorPoolPhase phase; uint32_t max_sets,sets,uniforms,sampled,used_uniforms,used_sampled; } BvDescriptorPool;
+typedef enum { BV_UNWRITTEN_UNIFORM, BV_UNIFORM_SLOT, BV_UNWRITTEN_SAMPLED, BV_SAMPLED_SLOT } BvDescriptorSlotTag;
+typedef struct {
+  BvDescriptorSlotTag tag;
+  union { struct { BvRow* buffer; uint64_t offset,range; } uniform;
+    struct { BvRow *view,*sampler; VkImageLayout layout; } sampled; } data;
+} BvDescriptorSlot;
+typedef struct { BvDescriptorSlot* slots; } BvDescriptorSet;
+typedef struct { VkFilter min,mag; VkSamplerMipmapMode mip; } BvSampler;
 typedef struct { uint32_t binding,stride,rate,alignment,first_end; } BvVertexRequirement;
 typedef struct { uint32_t count; BvVertexRequirement* required; } BvPipeline;
 struct BvRow {
@@ -71,7 +86,7 @@ struct BvRow {
   uint64_t handle, size;
   VkMemoryRequirements requirements;
   uint32_t flags, memory_type;
-  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; BvPushRange layout; BvPipeline pipeline; } object;
+  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; BvPipelineLayout layout; BvPipeline pipeline; BvDescriptorSchema schema; BvDescriptorPool descriptor_pool; BvDescriptorSet set; BvSampler sampler; } object;
   BvCommand command;
   BvFence fence;
   BvSemaphore semaphore;
@@ -121,6 +136,9 @@ typedef struct {
   X(CmdBeginRenderPass) X(CmdEndRenderPass) \
   X(CreateShaderModule) X(DestroyShaderModule) X(CreatePipelineLayout) X(DestroyPipelineLayout) \
   X(CreateGraphicsPipelines) X(DestroyPipeline) \
+  X(CreateDescriptorSetLayout) X(DestroyDescriptorSetLayout) X(CreateDescriptorPool) X(DestroyDescriptorPool) \
+  X(AllocateDescriptorSets) X(FreeDescriptorSets) X(ResetDescriptorPool) X(UpdateDescriptorSets) \
+  X(CreateSampler) X(DestroySampler) X(CmdBindDescriptorSets) \
   X(CmdBindPipeline) X(CmdSetViewport) X(CmdSetScissor) X(CmdBindVertexBuffers) \
   X(CmdBindIndexBuffer) X(CmdPushConstants) X(CmdDrawIndexed) \
   X(AllocateMemory) X(FreeMemory) X(BindBufferMemory) X(MapMemory) X(UnmapMemory) \
@@ -203,6 +221,9 @@ static void bv_remove(BvRow* row) {
   if (row->kind==BV_RENDER_PASS) free(row->object.pass.attachments);
   if (row->kind==BV_FRAMEBUFFER) free(row->object.framebuffer.attachments);
   if (row->kind==BV_PIPELINE) free(row->object.pipeline.required);
+  if (row->kind==BV_LAYOUT) free(row->object.layout.sets);
+  if (row->kind==BV_DESCRIPTOR_LAYOUT) free(row->object.schema.bindings);
+  if (row->kind==BV_DESCRIPTOR_SET) free(row->object.set.slots);
   free(row);
 }
 static BvRow* bv_child(uint32_t id, BvKind kind, BvRow* owner) {
@@ -285,16 +306,16 @@ static int bv_image_available(BvRow* image) {
 static uint64_t bv_bound_offset(const BvRow* row) {
   return bv_dependency(row,BV_DEP_BINDING)->data.binding.offset;
 }
-static int bv_reaches_depth(const BvRow* row,const BvRow* target,unsigned remaining) {
+static int bv_may_reach_depth(const BvRow* row,const BvRow* target,unsigned remaining) {
   if (row==target) return 1;
-  if (!remaining) return 0;
+  if (!remaining) return row->deps!=NULL;
   for (BvDep* dep=row->deps;dep;dep=dep->next)
-    if (bv_reaches_depth(dep->target,target,remaining-1)) return 1;
+    if (bv_may_reach_depth(dep->target,target,remaining-1)) return 1;
   return 0;
 }
 static int bv_memory_busy(BvRow* memory) {
   BvRow* command=bv_active(memory->parent,NULL);
-  return command && bv_reaches_depth(command,memory,4);
+  return command && bv_may_reach_depth(command,memory,BV_KIND_COUNT);
 }
 static BvRow* bv_public_fence(uint32_t id) {
   BvRow* fence=bv_get(id,BV_FENCE);
@@ -397,13 +418,17 @@ static void bv_destroy_device(BvRow* row) {
     }
   }
   device->convenience=NULL;
-  const BvKind order[]={BV_PIPELINE,BV_LAYOUT,BV_SHADER,BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
+  const BvKind order[]={BV_PIPELINE,BV_LAYOUT,BV_DESCRIPTOR_SET,BV_DESCRIPTOR_POOL,BV_DESCRIPTOR_LAYOUT,BV_SAMPLER,BV_SHADER,BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
   for (unsigned j=0;j<sizeof(order)/sizeof(*order);j++)
     for (BvRow* child=bv_rows,*next;child;child=next) {
       next=child->next;
       if (child->parent!=row || child->kind!=order[j]) continue;
       if (child->kind==BV_PIPELINE) device->DestroyPipeline(device->handle,(VkPipeline)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_LAYOUT) device->DestroyPipelineLayout(device->handle,(VkPipelineLayout)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_DESCRIPTOR_SET) {bv_remove(child);continue;}
+      else if (child->kind==BV_DESCRIPTOR_POOL) device->DestroyDescriptorPool(device->handle,(VkDescriptorPool)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_DESCRIPTOR_LAYOUT) device->DestroyDescriptorSetLayout(device->handle,(VkDescriptorSetLayout)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_SAMPLER) device->DestroySampler(device->handle,(VkSampler)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_SHADER) device->DestroyShaderModule(device->handle,(VkShaderModule)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_FRAMEBUFFER) device->DestroyFramebuffer(device->handle,(VkFramebuffer)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_RENDER_PASS) device->DestroyRenderPass(device->handle,(VkRenderPass)(uintptr_t)child->handle,NULL);
@@ -1450,20 +1475,284 @@ static Term bv_create_shader_module(Env e,Term* f,IoWork* w) {
   row->handle=(uint64_t)(uintptr_t)handle;return io_done(e,term_pak(CID(ShaderModule),row->id));
 }
 #endif
+static int bv_stage_counts(BvDevice* d,uint64_t uniforms,uint64_t sampled) {
+  return uniforms<=d->limits.maxDescriptorSetUniformBuffers && sampled<=d->limits.maxDescriptorSetSamplers && sampled<=d->limits.maxDescriptorSetSampledImages;
+}
+static int bv_per_stage_counts(BvDevice* d,uint64_t uniforms,uint64_t sampled) {
+  return uniforms<=d->limits.maxPerStageDescriptorUniformBuffers && sampled<=d->limits.maxPerStageDescriptorSamplers &&
+    sampled<=d->limits.maxPerStageDescriptorSampledImages && uniforms+sampled<=d->limits.maxPerStageResources;
+}
+static int bv_stage_edge(BvDep** deps,BvRow* target,BvDepRole role) {
+  for(BvDep* dep=*deps;dep;dep=dep->next)if(dep->target==target && dep->role==role)return 1;
+  BvDep* dep=malloc(sizeof(*dep));if(!dep)return 0;
+  *dep=(BvDep){.target=target,.role=role,.next=*deps};*deps=dep;return 1;
+}
+static int bv_schema_equal(const BvDescriptorSchema* a,const BvDescriptorSchema* b) {
+  if(a->count!=b->count)return 0;
+  for(uint32_t j=0;j<a->count;j++) {
+    const VkDescriptorSetLayoutBinding *x=&a->bindings[j],*y=&b->bindings[j];
+    if(x->binding!=y->binding || x->descriptorType!=y->descriptorType || x->descriptorCount!=y->descriptorCount || x->stageFlags!=y->stageFlags)return 0;
+  }
+  return 1;
+}
+static BvRow* bv_set_layout(BvRow* set) {return bv_dependency(set,BV_DEP_SET_LAYOUT)->target;}
+static BvRow* bv_set_pool(BvRow* set) {return bv_dependency(set,BV_DEP_SET_POOL)->target;}
+static int bv_descriptor_pool_referenced(BvRow* pool) {
+  for(BvRow* set=bv_rows;set;set=set->next)
+    if(set->kind==BV_DESCRIPTOR_SET && bv_set_pool(set)==pool && bv_referenced(set))return 1;
+  return 0;
+}
+static void bv_descriptor_pool_clear(BvRow* pool) {
+  for(BvRow* set=bv_rows,*next;set;set=next) {
+    next=set->next;if(set->kind==BV_DESCRIPTOR_SET && bv_set_pool(set)==pool)bv_remove(set);
+  }
+  BvDescriptorPool* p=&pool->object.descriptor_pool;p->sets=p->used_uniforms=p->used_sampled=0;
+}
+#ifdef CID(Device.descriptor_set_layout_raw)
+static Term bv_create_descriptor_set_layout(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[1];bv_unpack(e,f[1],1,p);
+  uint32_t code=!owner ? BV_INVALID : bv_lost(owner) ? (uint32_t)VK_ERROR_DEVICE_LOST : 0;
+  VkDescriptorSetLayoutBinding* bindings=NULL;uint32_t count=0,slots=0,uniforms=0,sampled=0;uint64_t stage[2][2]={{0}};
+  if(!code && !(bindings=calloc(BV_MAX_DESCRIPTOR_SLOTS,sizeof(*bindings))))code=BV_LIMIT;
+  Term list=p[0];
+  while(term_aux(list)==CID(Con)) {
+    Term item[2],b[4];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],4,b);
+    if(code)continue;
+    if(b[1]>1 || !b[2] || !b[3] || (b[3]&~17u) || (count && bindings[count-1].binding>=b[0]) || b[2]>BV_MAX_DESCRIPTOR_SLOTS-slots) {code=BV_ARGUMENT;continue;}
+    VkDescriptorType kind=b[1] ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[count++]=(VkDescriptorSetLayoutBinding){.binding=b[0],.descriptorType=kind,.descriptorCount=b[2],.stageFlags=b[3]};slots+=b[2];
+    if(b[1])sampled+=b[2];else uniforms+=b[2];
+    if(b[3]&1)stage[0][b[1]]+=b[2];if(b[3]&16)stage[1][b[1]]+=b[2];
+  }
+  if(!code && (!bv_stage_counts(owner->context,uniforms,sampled) || !bv_per_stage_counts(owner->context,stage[0][0],stage[0][1]) || !bv_per_stage_counts(owner->context,stage[1][0],stage[1][1])))code=BV_LIMIT;
+  BvRow* row=NULL;if(!code && !(row=bv_add(BV_DESCRIPTOR_LAYOUT,owner)))code=BV_LIMIT;
+  if(code) {free(bindings);return io_fail(e,code,"descriptor schema ownership, sorted unique bindings, count, stages or limits");}
+  BvDevice* d=owner->context;VkDescriptorSetLayout handle=VK_NULL_HANDLE;
+  VkDescriptorSetLayoutCreateInfo info={.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,.bindingCount=count,.pBindings=bindings};
+  VkResult result=d->CreateDescriptorSetLayout(d->handle,&info,NULL,&handle);
+  if(result!=VK_SUCCESS) {bv_remove(row);free(bindings);return bv_device_error(e,owner,result,"vkCreateDescriptorSetLayout");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.schema=(BvDescriptorSchema){count,slots,uniforms,sampled,bindings};
+  return io_done(e,term_pak(CID(DescriptorSetLayout),row->id));
+}
+#endif
+#ifdef CID(Device.create_descriptor_pool)
+static Term bv_create_descriptor_pool(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[2];bv_unpack(e,f[1],2,p);
+  uint32_t code=!owner ? BV_INVALID : bv_lost(owner) ? (uint32_t)VK_ERROR_DEVICE_LOST : !p[0] ? BV_ARGUMENT : 0;
+  uint32_t capacities[2]={0},seen=0;Term list=p[1];
+  while(term_aux(list)==CID(Con)) {
+    Term item[2],size[2];bv_unpack(e,list,2,item);list=item[1];bv_unpack(e,item[0],2,size);
+    if(code)continue;
+    if(size[0]>1 || !size[1] || (seen&(1u<<size[0]))) {code=BV_ARGUMENT;continue;}
+    seen|=1u<<size[0];capacities[size[0]]=size[1];
+  }
+  BvRow* row=NULL;if(!code && !(row=bv_add(BV_DESCRIPTOR_POOL,owner)))code=BV_LIMIT;
+  if(code)return io_fail(e,code,"descriptor pool ownership, positive capacities or metadata");
+  VkDescriptorPoolSize sizes[2];uint32_t count=0;
+  for(unsigned j=0;j<2;j++)if(capacities[j])sizes[count++]=(VkDescriptorPoolSize){j ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,capacities[j]};
+  VkDescriptorPoolCreateInfo info={.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,.flags=VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,.maxSets=p[0],.poolSizeCount=count,.pPoolSizes=sizes};
+  BvDevice* d=owner->context;VkDescriptorPool handle=VK_NULL_HANDLE;VkResult result=d->CreateDescriptorPool(d->handle,&info,NULL,&handle);
+  if(result!=VK_SUCCESS) {bv_remove(row);return bv_device_error(e,owner,result,"vkCreateDescriptorPool");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.descriptor_pool=(BvDescriptorPool){.phase=BV_POOL_READY,.max_sets=p[0],.uniforms=capacities[0],.sampled=capacities[1]};
+  return io_done(e,term_pak(CID(DescriptorPool),row->id));
+}
+#endif
+#ifdef CID(Device.allocate_descriptor_set)
+static Term bv_allocate_descriptor_set(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*pool=bv_child(bv_key(e,f[1]),BV_DESCRIPTOR_POOL,owner),*layout=bv_child(bv_key(e,f[2]),BV_DESCRIPTOR_LAYOUT,owner);
+  if(!owner || !pool || !layout)return io_fail(e,BV_INVALID,"descriptor allocation ownership");
+  if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"allocate descriptor set");
+  BvDescriptorPool* p=&pool->object.descriptor_pool;BvDescriptorSchema* schema=&layout->object.schema;
+  if(p->phase!=BV_POOL_READY)return io_fail(e,BV_LIFETIME,"descriptor pool quarantined");
+  if(p->sets==p->max_sets || schema->uniforms>p->uniforms-p->used_uniforms || schema->sampled>p->sampled-p->used_sampled)return io_fail(e,BV_LIMIT,"descriptor pool exhausted");
+  BvDescriptorSlot* slots=calloc(schema->slots ? schema->slots : 1,sizeof(*slots));BvDep* deps=NULL;BvRow* row=NULL;
+  if(!slots || !bv_stage_edge(&deps,pool,BV_DEP_SET_POOL) || !bv_stage_edge(&deps,layout,BV_DEP_SET_LAYOUT) || !(row=bv_add(BV_DESCRIPTOR_SET,owner))) {
+    free(slots);bv_free_refs(deps);return io_fail(e,BV_LIMIT,"descriptor set metadata");
+  }
+  uint32_t at=0;for(uint32_t j=0;j<schema->count;j++)for(uint32_t k=0;k<schema->bindings[j].descriptorCount;k++)slots[at++].tag=schema->bindings[j].descriptorType==VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ? BV_UNWRITTEN_UNIFORM : BV_UNWRITTEN_SAMPLED;
+  BvDevice* d=owner->context;VkDescriptorSetLayout native_layout=(VkDescriptorSetLayout)(uintptr_t)layout->handle;VkDescriptorSet handle=VK_NULL_HANDLE;
+  VkDescriptorSetAllocateInfo info={.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,.descriptorPool=(VkDescriptorPool)(uintptr_t)pool->handle,.descriptorSetCount=1,.pSetLayouts=&native_layout};
+  VkResult result=d->AllocateDescriptorSets(d->handle,&info,&handle);
+  if(result!=VK_SUCCESS) {bv_remove(row);free(slots);bv_free_refs(deps);return bv_device_error(e,owner,result,"vkAllocateDescriptorSets");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->deps=deps;row->object.set.slots=slots;p->sets++;p->used_uniforms+=schema->uniforms;p->used_sampled+=schema->sampled;
+  return io_done(e,term_pak(CID(DescriptorSet),row->id));
+}
+#endif
+static Term bv_descriptor_pool_operation(Env e,Term* f,int reset) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*pool=bv_child(bv_key(e,f[1]),BV_DESCRIPTOR_POOL,owner);
+  if(!owner || !pool)return io_fail(e,BV_INVALID,"descriptor pool ownership");
+  if(bv_descriptor_pool_referenced(pool))return io_fail(e,BV_LIFETIME,"descriptor pool contains recorded sets");
+  BvDevice* d=owner->context;
+  if(reset) {
+    if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"reset descriptor pool");
+    if(pool->object.descriptor_pool.phase!=BV_POOL_READY)return io_fail(e,BV_LIFETIME,"descriptor pool quarantined");
+    VkResult result=d->ResetDescriptorPool(d->handle,(VkDescriptorPool)(uintptr_t)pool->handle,0);
+    if(result!=VK_SUCCESS) {pool->object.descriptor_pool.phase=BV_POOL_QUARANTINED;return bv_device_error(e,owner,result,"vkResetDescriptorPool");}
+    bv_descriptor_pool_clear(pool);
+  } else {d->DestroyDescriptorPool(d->handle,(VkDescriptorPool)(uintptr_t)pool->handle,NULL);bv_descriptor_pool_clear(pool);bv_remove(pool);}
+  return bv_ok(e);
+}
+#ifdef CID(Device.reset_descriptor_pool)
+static Term bv_reset_descriptor_pool(Env e,Term* f,IoWork* w) {return bv_descriptor_pool_operation(e,f,1);}
+#endif
+#ifdef CID(Device.destroy_descriptor_pool)
+static Term bv_destroy_descriptor_pool(Env e,Term* f,IoWork* w) {return bv_descriptor_pool_operation(e,f,0);}
+#endif
+#ifdef CID(Device.free_descriptor_set)
+static Term bv_free_descriptor_set(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*set=bv_child(bv_key(e,f[1]),BV_DESCRIPTOR_SET,owner);
+  if(!owner || !set)return io_fail(e,BV_INVALID,"descriptor free ownership");
+  if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"free descriptor set");
+  BvRow* pool=bv_set_pool(set);BvDescriptorPool* p=&pool->object.descriptor_pool;
+  if(p->phase!=BV_POOL_READY || bv_referenced(set))return io_fail(e,BV_LIFETIME,"descriptor set recorded or pool quarantined");
+  BvDevice* d=owner->context;VkDescriptorSet handle=(VkDescriptorSet)(uintptr_t)set->handle;
+  VkResult result=d->FreeDescriptorSets(d->handle,(VkDescriptorPool)(uintptr_t)pool->handle,1,&handle);
+  if(result!=VK_SUCCESS) {p->phase=BV_POOL_QUARANTINED;return bv_device_error(e,owner,result,"vkFreeDescriptorSets");}
+  BvDescriptorSchema* schema=&bv_set_layout(set)->object.schema;p->sets--;p->used_uniforms-=schema->uniforms;p->used_sampled-=schema->sampled;bv_remove(set);return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.create_sampler)
+static Term bv_create_sampler(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[9];bv_unpack(e,f[1],9,p);
+  if(!owner)return io_fail(e,BV_INVALID,"sampler ownership");
+  if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create sampler");
+  float minimum=f32_unbox(p[6]),maximum=f32_unbox(p[7]);
+  if(p[0]>1 || p[1]>1 || p[2]>1 || p[3]>3 || p[4]>3 || p[5]>3 || p[8]>5 || !isfinite(minimum) || !isfinite(maximum) || minimum<0 || maximum<minimum)return io_fail(e,BV_ARGUMENT,"sampler filters, address, border or finite ordered LOD");
+  uint32_t count=0;BvDevice* device=owner->context;
+  for(BvRow* row=bv_rows;row;row=row->next)if(row->parent==owner && row->kind==BV_SAMPLER)count++;
+  if(count>=device->limits.maxSamplerAllocationCount)return io_fail(e,BV_LIMIT,"sampler allocation limit");
+  BvRow* row=bv_add(BV_SAMPLER,owner);if(!row)return io_fail(e,BV_LIMIT,"sampler metadata");
+  VkSamplerCreateInfo info={.sType=VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,.minFilter=p[0],.magFilter=p[1],.mipmapMode=p[2],.addressModeU=p[3],.addressModeV=p[4],.addressModeW=p[5],.minLod=minimum,.maxLod=maximum,.borderColor=p[8]};
+  BvDevice* d=owner->context;VkSampler handle=VK_NULL_HANDLE;VkResult result=d->CreateSampler(d->handle,&info,NULL,&handle);
+  if(result!=VK_SUCCESS) {bv_remove(row);return bv_device_error(e,owner,result,"vkCreateSampler");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.sampler=(BvSampler){p[0],p[1],p[2]};return io_done(e,term_pak(CID(Sampler),row->id));
+}
+#endif
+static Term bv_destroy_descriptor_resource(Env e,Term* f,BvKind kind) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),kind,owner);
+  if(!owner || !row)return io_fail(e,BV_INVALID,"descriptor resource ownership");
+  if(bv_referenced(row))return io_fail(e,BV_LIFETIME,"descriptor resource retained");
+  BvDevice* d=owner->context;
+  if(kind==BV_SAMPLER)d->DestroySampler(d->handle,(VkSampler)(uintptr_t)row->handle,NULL);
+  else d->DestroyDescriptorSetLayout(d->handle,(VkDescriptorSetLayout)(uintptr_t)row->handle,NULL);
+  bv_remove(row);return bv_ok(e);
+}
+#ifdef CID(Device.destroy_descriptor_set_layout)
+static Term bv_destroy_descriptor_set_layout(Env e,Term* f,IoWork* w) {return bv_destroy_descriptor_resource(e,f,BV_DESCRIPTOR_LAYOUT);}
+#endif
+#ifdef CID(Device.destroy_sampler)
+static Term bv_destroy_sampler(Env e,Term* f,IoWork* w) {return bv_destroy_descriptor_resource(e,f,BV_SAMPLER);}
+#endif
+static uint32_t bv_sampled_slot(BvRow* owner,BvRow* view,BvRow* sampler,uint32_t layout) {
+  if(!view || !sampler)return BV_INVALID;
+  BvRow* image=bv_dependency(view,BV_DEP_VIEW_IMAGE)->target;BvImage* i=&image->object.image;BvSampler* s=&sampler->object.sampler;
+  if(i->storage!=BV_ALLOCATED_IMAGE || !bv_bound_memory(image))return BV_LIFETIME;
+  if(!(i->usage&VK_IMAGE_USAGE_SAMPLED_BIT) || !bv_image_layout(image,layout,0) || (layout!=VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && layout!=VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL && layout!=VK_IMAGE_LAYOUT_GENERAL) ||
+    (layout==VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL && view->object.view.range.aspectMask!=VK_IMAGE_ASPECT_DEPTH_BIT))return BV_ARGUMENT;
+  BvDevice* d=owner->context;BvInstance* instance=owner->parent->context;VkFormatProperties props;instance->formats(d->physical,i->format,&props);
+  if(!(props.optimalTilingFeatures&VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) || ((s->min==VK_FILTER_LINEAR || s->mag==VK_FILTER_LINEAR || s->mip==VK_SAMPLER_MIPMAP_MODE_LINEAR) && !(props.optimalTilingFeatures&VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)))return BV_ARGUMENT;
+  return 0;
+}
+#ifdef CID(Device.update_descriptor_set)
+static Term bv_update_descriptor_set(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*set=bv_child(bv_key(e,f[1]),BV_DESCRIPTOR_SET,owner);
+  uint32_t code=!owner || !set ? BV_INVALID : bv_lost(owner) ? (uint32_t)VK_ERROR_DEVICE_LOST : bv_referenced(set) || bv_set_pool(set)->object.descriptor_pool.phase!=BV_POOL_READY ? BV_LIFETIME : 0;
+  BvDescriptorSchema* schema=set ? &bv_set_layout(set)->object.schema : NULL;uint32_t n=schema ? schema->slots : 0,count=0;
+  BvDescriptorSlot* slots=NULL;bool* touched=NULL;VkWriteDescriptorSet* writes=NULL;VkDescriptorBufferInfo* buffers=NULL;VkDescriptorImageInfo* images=NULL;BvDep* deps=NULL;
+  if(!code) {
+    slots=malloc((n ? n : 1)*sizeof(*slots));touched=calloc(n ? n : 1,sizeof(*touched));writes=calloc(n ? n : 1,sizeof(*writes));buffers=calloc(n ? n : 1,sizeof(*buffers));images=calloc(n ? n : 1,sizeof(*images));
+    if(!slots || !touched || !writes || !buffers || !images)code=BV_LIMIT;
+    else memcpy(slots,set->object.set.slots,n*sizeof(*slots));
+  }
+  Term list=f[2];
+  while(term_aux(list)==CID(Con)) {
+    Term item[2],p[3];bv_unpack(e,list,2,item);list=item[1];uint64_t tag=term_aux(item[0]);bv_unpack(e,item[0],3,p);
+    uint32_t base=0,binding=0,first=p[1],values=0;int uniform=tag==CID(UniformWrite);
+    if(!code) {
+      if(tag!=CID(UniformWrite) && tag!=CID(SampledWrite))code=BV_ARGUMENT;
+      while(binding<schema->count && schema->bindings[binding].binding!=p[0])base+=schema->bindings[binding++].descriptorCount;
+      if(binding==schema->count || schema->bindings[binding].descriptorType!=(uniform ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER))code=BV_ARGUMENT;
+    }
+    Term value_list=p[2];
+    while(term_aux(value_list)==CID(Con)) {
+      Term value[2],v[5];bv_unpack(e,value_list,2,value);value_list=value[1];bv_unpack(e,value[0],uniform ? 5 : 3,v);values++;
+      if(code)continue;
+      if(first>=schema->bindings[binding].descriptorCount || touched[base+first]) {code=BV_ARGUMENT;continue;}
+      uint32_t at=base+first++;touched[at]=true;
+      writes[count]=(VkWriteDescriptorSet){.sType=VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,.dstSet=(VkDescriptorSet)(uintptr_t)set->handle,.dstBinding=p[0],.dstArrayElement=first-1,.descriptorCount=1,.descriptorType=schema->bindings[binding].descriptorType};
+      if(uniform) {
+        BvRow* buffer=bv_child(v[0],BV_BUFFER,owner);uint64_t offset=((uint64_t)(uint32_t)v[2]<<32)|(uint32_t)v[1],range=((uint64_t)(uint32_t)v[4]<<32)|(uint32_t)v[3];BvDevice* d=owner->context;
+        if(!buffer)code=BV_INVALID;
+        else if(!bv_bound_memory(buffer))code=BV_LIFETIME;
+        else if(!(buffer->flags&VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) || !range || range>d->limits.maxUniformBufferRange || offset>buffer->size || range>buffer->size-offset || (d->limits.minUniformBufferOffsetAlignment && offset%d->limits.minUniformBufferOffsetAlignment))code=BV_ARGUMENT;
+        else {slots[at]=(BvDescriptorSlot){.tag=BV_UNIFORM_SLOT,.data.uniform={buffer,offset,range}};buffers[count]=(VkDescriptorBufferInfo){(VkBuffer)(uintptr_t)buffer->handle,offset,range};writes[count].pBufferInfo=&buffers[count];}
+      } else {
+        BvRow* view=bv_child(v[0],BV_IMAGE_VIEW,owner),*sampler=bv_child(v[1],BV_SAMPLER,owner);code=bv_sampled_slot(owner,view,sampler,v[2]);
+        if(!code) {slots[at]=(BvDescriptorSlot){.tag=BV_SAMPLED_SLOT,.data.sampled={view,sampler,v[2]}};images[count]=(VkDescriptorImageInfo){(VkSampler)(uintptr_t)sampler->handle,(VkImageView)(uintptr_t)view->handle,v[2]};writes[count].pImageInfo=&images[count];}
+      }
+      count++;
+    }
+    if(!values && !code)code=BV_ARGUMENT;
+  }
+  if(!code && !count)code=BV_ARGUMENT;
+  if(!code && (!bv_stage_edge(&deps,bv_set_pool(set),BV_DEP_SET_POOL) || !bv_stage_edge(&deps,bv_set_layout(set),BV_DEP_SET_LAYOUT)))code=BV_LIMIT;
+  for(uint32_t j=0;!code && j<n;j++) {
+    BvDescriptorSlot* slot=&slots[j];
+    if(slot->tag==BV_UNIFORM_SLOT && !bv_stage_edge(&deps,slot->data.uniform.buffer,BV_DEP_UNIFORM))code=BV_LIMIT;
+    if(slot->tag==BV_SAMPLED_SLOT && (!bv_stage_edge(&deps,slot->data.sampled.view,BV_DEP_SAMPLED_VIEW) || !bv_stage_edge(&deps,slot->data.sampled.sampler,BV_DEP_SAMPLER)))code=BV_LIMIT;
+  }
+  if(!code) {
+    BvDevice* d=owner->context;d->UpdateDescriptorSets(d->handle,count,writes,0,NULL);
+    BvDescriptorSlot* old=set->object.set.slots;BvDep* old_deps=set->deps;set->object.set.slots=slots;slots=old;set->deps=deps;deps=old_deps;
+  }
+  free(slots);free(touched);free(writes);free(buffers);free(images);bv_free_refs(deps);
+  return code ? io_fail(e,code,"descriptor update ownership, frozen state, typed destinations, resource range/filter/layout or metadata") : bv_ok(e);
+}
+#endif
+
+static int bv_descriptor_feedback(BvRow* set,BvRow* framebuffer) {
+  BvDescriptorSchema* schema=&bv_set_layout(set)->object.schema;
+  for(uint32_t j=0;j<schema->slots;j++) {
+    BvDescriptorSlot* slot=&set->object.set.slots[j];if(slot->tag!=BV_SAMPLED_SLOT)continue;
+    BvRow* view=slot->data.sampled.view,*image=bv_dependency(view,BV_DEP_VIEW_IMAGE)->target;
+    for(uint32_t k=0;k<framebuffer->object.framebuffer.count;k++) {
+      BvRow* attachment=framebuffer->object.framebuffer.attachments[k]->target;
+      if(bv_dependency(attachment,BV_DEP_VIEW_IMAGE)->target==image && bv_ranges_overlap(view->object.view.range,attachment->object.view.range))return 1;
+    }
+  }
+  return 0;
+}
+
 #ifdef CID(Device.create_pipeline_layout)
 static Term bv_create_pipeline_layout(Env e,Term* f,IoWork* w) {
-  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[3];bv_unpack(e,f[1],3,p);
-  if (!owner) return io_fail(e,BV_INVALID,"invalid layout device");
-  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create layout");
-  BvDevice* d=owner->context;
-  if (p[0]>1 || (p[0] && (!p[1] || (p[1]&~17u) || !p[2] || (p[2]&3) || p[2]>128 || p[2]>d->limits.maxPushConstantsSize)))
-    return io_fail(e,BV_ARGUMENT,"push range requires vertex/fragment stages and 4..128 bytes");
-  BvRow* row=bv_add(BV_LAYOUT,owner);if (!row) return io_fail(e,BV_LIMIT,"layout registry allocation");
-  VkPushConstantRange push={p[1],0,p[2]};VkPipelineLayout handle=VK_NULL_HANDLE;
-  VkPipelineLayoutCreateInfo info={.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,.pushConstantRangeCount=p[0],.pPushConstantRanges=p[0] ? &push : NULL};
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);Term p[4];bv_unpack(e,f[1],4,p);
+  uint32_t code=!owner ? BV_INVALID : bv_lost(owner) ? (uint32_t)VK_ERROR_DEVICE_LOST : 0;
+  BvRow** sets=NULL;BvDep* deps=NULL;VkDescriptorSetLayout handles[BV_MAX_DESCRIPTOR_SETS];uint32_t count=0;
+  uint64_t uniforms=0,sampled=0,stage[2][2]={{0}};BvDevice* d=owner ? owner->context : NULL;
+  if(!code && (p[1]>1 || (p[1] && (!p[2] || (p[2]&~17u) || !p[3] || (p[3]&3) || p[3]>128 || p[3]>d->limits.maxPushConstantsSize))))code=BV_ARGUMENT;
+  Term list=p[0];
+  if(!code && term_aux(list)==CID(Con) && !(sets=calloc(BV_MAX_DESCRIPTOR_SETS,sizeof(*sets))))code=BV_LIMIT;
+  while(term_aux(list)==CID(Con)) {
+    Term item[2];bv_unpack(e,list,2,item);list=item[1];BvRow* layout=bv_child(bv_key(e,item[0]),BV_DESCRIPTOR_LAYOUT,owner);
+    if(code)continue;
+    if(!layout) {code=BV_INVALID;continue;}
+    if(count>=BV_MAX_DESCRIPTOR_SETS || count>=d->limits.maxBoundDescriptorSets) {code=BV_LIMIT;continue;}
+    BvDescriptorSchema* schema=&layout->object.schema;uniforms+=schema->uniforms;sampled+=schema->sampled;
+    for(uint32_t j=0;j<schema->count;j++) {
+      VkDescriptorSetLayoutBinding* b=&schema->bindings[j];unsigned kind=b->descriptorType==VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+      if(b->stageFlags&1)stage[0][kind]+=b->descriptorCount;if(b->stageFlags&16)stage[1][kind]+=b->descriptorCount;
+    }
+    sets[count]=layout;handles[count++]=(VkDescriptorSetLayout)(uintptr_t)layout->handle;
+    if(!bv_stage_edge(&deps,layout,BV_DEP_LAYOUT_SET))code=BV_LIMIT;
+  }
+  if(!code && (!bv_stage_counts(d,uniforms,sampled) || !bv_per_stage_counts(d,stage[0][0],stage[0][1]) || !bv_per_stage_counts(d,stage[1][0],stage[1][1])))code=BV_LIMIT;
+  BvRow* row=NULL;if(!code && !(row=bv_add(BV_LAYOUT,owner)))code=BV_LIMIT;
+  if(code) {free(sets);bv_free_refs(deps);return io_fail(e,code,"pipeline layout owner, push range, ordered schemas, limits or metadata");}
+  VkPushConstantRange push={p[2],0,p[3]};VkPipelineLayout handle=VK_NULL_HANDLE;
+  VkPipelineLayoutCreateInfo info={.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,.setLayoutCount=count,.pSetLayouts=handles,.pushConstantRangeCount=p[1],.pPushConstantRanges=p[1] ? &push : NULL};
   VkResult result=d->CreatePipelineLayout(d->handle,&info,NULL,&handle);
-  if (result!=VK_SUCCESS) {bv_remove(row);return bv_device_error(e,owner,result,"vkCreatePipelineLayout");}
-  row->handle=(uint64_t)(uintptr_t)handle;row->object.layout=(BvPushRange){p[0] ? p[1] : 0,p[0] ? p[2] : 0};
+  if(result!=VK_SUCCESS) {bv_remove(row);free(sets);bv_free_refs(deps);return bv_device_error(e,owner,result,"vkCreatePipelineLayout");}
+  row->handle=(uint64_t)(uintptr_t)handle;row->object.layout=(BvPipelineLayout){p[1] ? p[2] : 0,p[1] ? p[3] : 0,count,sets};row->deps=deps;
   return io_done(e,term_pak(CID(PipelineLayout),row->id));
 }
 #endif
@@ -1584,7 +1873,34 @@ static Term bv_cmd_bind_graphics_pipeline(Env e,Term* f,IoWork* w) {
   if (code) return io_fail(e,code,"bind pipeline owner, recording or reference allocation");
   BvDevice* d=owner->context;d->CmdBindPipeline((VkCommandBuffer)(uintptr_t)command->handle,VK_PIPELINE_BIND_POINT_GRAPHICS,(VkPipeline)(uintptr_t)pipeline->handle);
   BvRecording* r=&command->command.submission.recording;r->pipeline=pipeline;r->vertices_ready=0;
+  memset(command->command.sets,0,sizeof(command->command.sets));
   r->push_ready=!bv_dependency(pipeline,BV_DEP_PIPELINE_LAYOUT)->target->object.layout.bytes;return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.bind_descriptor_sets)
+static Term bv_cmd_bind_descriptor_sets(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);uint32_t code=bv_graphics_recording(command),first=f[1],count=0;
+  BvRecording* r=command ? &command->command.submission.recording : NULL;
+  BvRow* layout=!code && r->pipeline ? bv_dependency(r->pipeline,BV_DEP_PIPELINE_LAYOUT)->target : NULL;
+  if(!code && !layout)code=BV_LIFETIME;
+  BvRow* sets[BV_MAX_DESCRIPTOR_SETS];VkDescriptorSet handles[BV_MAX_DESCRIPTOR_SETS];Term list=f[2];
+  while(term_aux(list)==CID(Con)) {
+    Term item[2];bv_unpack(e,list,2,item);list=item[1];BvRow* set=bv_child(bv_key(e,item[0]),BV_DESCRIPTOR_SET,owner);
+    if(code)continue;
+    if(!set) {code=BV_INVALID;continue;}
+    if(first>=layout->object.layout.count || count>=layout->object.layout.count-first) {code=BV_ARGUMENT;continue;}
+    if(bv_set_pool(set)->object.descriptor_pool.phase!=BV_POOL_READY) {code=BV_LIFETIME;continue;}
+    BvDescriptorSchema* schema=&bv_set_layout(set)->object.schema;
+    if(!bv_schema_equal(schema,&layout->object.layout.sets[first+count]->object.schema)) {code=BV_ARGUMENT;continue;}
+    for(uint32_t j=0;j<schema->slots;j++)if(set->object.set.slots[j].tag==BV_UNWRITTEN_UNIFORM || set->object.set.slots[j].tag==BV_UNWRITTEN_SAMPLED)code=BV_LIFETIME;
+    if(!code && r->scope.tag==BV_INSIDE && bv_descriptor_feedback(set,r->scope.data.inside.framebuffer))code=BV_LIFETIME;
+    sets[count]=set;handles[count++]=(VkDescriptorSet)(uintptr_t)set->handle;
+  }
+  if(!code && !count)code=BV_ARGUMENT;
+  if(!code && !bv_prepare_refs(command,count,sets))code=BV_LIMIT;
+  if(code)return io_fail(e,code,"descriptor bind recording, complete compatible schemas, feedback or metadata");
+  BvDevice* d=owner->context;d->CmdBindDescriptorSets((VkCommandBuffer)(uintptr_t)command->handle,VK_PIPELINE_BIND_POINT_GRAPHICS,(VkPipelineLayout)(uintptr_t)layout->handle,first,count,handles,0,NULL);
+  for(uint32_t j=0;j<count;j++)command->command.sets[first+j]=sets[j];return bv_ok(e);
 }
 #endif
 #ifdef CID(CommandBuffer.set_viewport)
@@ -1671,6 +1987,12 @@ static Term bv_cmd_draw_indexed(Env e,Term* f,IoWork* w) {
   BvRecording* r=&command->command.submission.recording;
   if (r->scope.tag!=BV_INSIDE || !r->pipeline || !r->index_ready || !r->viewport_ready || !r->scissor_ready || !r->push_ready)
     return io_fail(e,BV_LIFETIME,"indexed draw requires pass, pipeline, index, dynamic state and complete pushes");
+  BvPipelineLayout* layout=&bv_dependency(r->pipeline,BV_DEP_PIPELINE_LAYOUT)->target->object.layout;
+  for(uint32_t j=0;j<layout->count;j++) {
+    BvRow* set=command->command.sets[j];
+    if((layout->sets[j]->object.schema.slots && !set) || (set && (bv_set_pool(set)->object.descriptor_pool.phase!=BV_POOL_READY || bv_descriptor_feedback(set,r->scope.data.inside.framebuffer))))
+      return io_fail(e,BV_LIFETIME,"draw requires complete descriptors without attachment feedback");
+  }
   BvPipeline* pipeline=&r->pipeline->object.pipeline;
   uint64_t mask=pipeline->count==64 ? UINT64_MAX : (UINT64_C(1)<<pipeline->count)-1;
   if ((r->vertices_ready&mask)!=mask || bv_dependency(r->pipeline,BV_DEP_PIPELINE_PASS)->target!=bv_dependency(r->scope.data.inside.framebuffer,BV_DEP_FRAMEBUFFER_PASS)->target)
@@ -2128,7 +2450,10 @@ static Term bv_submit_core_impl(Env e,BvRow* owner,BvRow* command,BvRow* fence,c
   if (fence->fence.use!=BV_FENCE_FREE) return io_fail(e,BV_LIFETIME,"submit fence has WSI association");
   if (command->command.phase!=BV_EXECUTABLE || bv_active(owner,NULL)) return io_fail(e,BV_LIFETIME,"submit needs executable command and idle queue");
   BvDevice* device=owner->context;
-  for(BvRow* image=bv_rows;image;image=image->next)if(image->kind==BV_IMAGE && image->parent==owner && image->object.image.storage==BV_BORROWED_IMAGE && bv_reaches_depth(command,image,5) && !bv_image_available(image))return io_fail(e,BV_LIFETIME,"submit borrowed image does not match completed acquisition");
+  for(BvDep* dep=command->deps;dep;dep=dep->next)
+    if(dep->target->kind==BV_DESCRIPTOR_SET && bv_set_pool(dep->target)->object.descriptor_pool.phase!=BV_POOL_READY)
+      return io_fail(e,BV_LIFETIME,"submit descriptor pool quarantined");
+  for(BvRow* image=bv_rows;image;image=image->next)if(image->kind==BV_IMAGE && image->parent==owner && image->object.image.storage==BV_BORROWED_IMAGE && bv_may_reach_depth(command,image,BV_KIND_COUNT) && !bv_image_available(image))return io_fail(e,BV_LIFETIME,"submit borrowed image does not match completed acquisition");
   VkResult result=bv_device_result(owner,device->GetFenceStatus(device->handle,(VkFence)(uintptr_t)fence->handle));
   if (result==VK_SUCCESS) return io_fail(e,BV_LIFETIME,"submit fence must be unsignaled");
   if (result!=VK_NOT_READY) return bv_vk_error(e,result,"submit / vkGetFenceStatus");
@@ -2138,11 +2463,11 @@ static Term bv_submit_core_impl(Env e,BvRow* owner,BvRow* command,BvRow* fence,c
   if (result==VK_SUCCESS) {
     memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_PENDING;command->command.submission.pending.fence=fence;
-    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_reaches_depth(command,device->lease.swapchain,6)) device->lease.phase=BV_LEASE_RENDERING;
+    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_may_reach_depth(command,device->lease.swapchain,BV_KIND_COUNT)) device->lease.phase=BV_LEASE_RENDERING;
   } else if (result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST) {
     memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_UNCERTAIN;command->command.submission.uncertain.fence=fence;
-    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_reaches_depth(command,device->lease.swapchain,6))device->lease.phase=BV_LEASE_RENDER_UNCERTAIN;
+    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_may_reach_depth(command,device->lease.swapchain,BV_KIND_COUNT))device->lease.phase=BV_LEASE_RENDER_UNCERTAIN;
   }
   return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkQueueSubmit");
 }
@@ -2271,7 +2596,7 @@ static Term bv_reset_command_buffer(Env e,Term* f,IoWork* w) {
   command->command.phase=result==VK_SUCCESS ? BV_INITIAL : BV_COMMAND_INVALID;
   memset(&command->command.submission,0,sizeof(command->command.submission));
   if (result!=VK_SUCCESS) return bv_vk_error(e,result,"vkResetCommandBuffer");
-  bv_free_refs(command->deps);command->deps=NULL;return bv_ok(e);
+  bv_free_refs(command->deps);command->deps=NULL;memset(command->command.sets,0,sizeof(command->command.sets));return bv_ok(e);
 }
 #endif
 #ifdef CID(Device.submit_and_wait)
@@ -2423,7 +2748,7 @@ static Term bv_acquire(Env e,Term* f,IoWork* w) {
   if(!owner || !row || !fence || fence->parent!=owner)return io_fail(e,BV_INVALID,"acquire ownership");
   BvDevice* device=owner->context;if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"acquire");
   if(device->lease.phase!=BV_LEASE_NONE || bv_active(owner,NULL) || fence->fence.use!=BV_FENCE_FREE)return io_fail(e,BV_LIFETIME,"acquire requires idle lease and free fence");
-  for(BvRow* command=bv_rows;command;command=command->next)if(command->kind==BV_COMMAND && bv_command_device(command)==owner && bv_reaches_depth(command,row,6))return io_fail(e,BV_LIFETIME,"reset previous borrowed-image recording before acquire");
+  for(BvRow* command=bv_rows;command;command=command->next)if(command->kind==BV_COMMAND && bv_command_device(command)==owner && bv_may_reach_depth(command,row,BV_KIND_COUNT))return io_fail(e,BV_LIFETIME,"reset previous borrowed-image recording before acquire");
   VkResult result=device->GetFenceStatus(device->handle,(VkFence)(uintptr_t)fence->handle);
   if(result!=VK_NOT_READY)return result==VK_SUCCESS ? io_fail(e,BV_LIFETIME,"acquire fence must be unsignaled") : bv_device_error(e,owner,result,"acquire fence status");
   if(device->lease_serial==UINT64_MAX)return io_fail(e,BV_LIMIT,"acquisition sequence exhausted");
@@ -2773,6 +3098,39 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(Device.present)
   io_eff(CID(Device.present), bv_present);
+#endif
+#ifdef CID(Device.descriptor_set_layout_raw)
+  io_eff(CID(Device.descriptor_set_layout_raw), bv_create_descriptor_set_layout);
+#endif
+#ifdef CID(Device.destroy_descriptor_set_layout)
+  io_eff(CID(Device.destroy_descriptor_set_layout), bv_destroy_descriptor_set_layout);
+#endif
+#ifdef CID(Device.create_descriptor_pool)
+  io_eff(CID(Device.create_descriptor_pool), bv_create_descriptor_pool);
+#endif
+#ifdef CID(Device.destroy_descriptor_pool)
+  io_eff(CID(Device.destroy_descriptor_pool), bv_destroy_descriptor_pool);
+#endif
+#ifdef CID(Device.reset_descriptor_pool)
+  io_eff(CID(Device.reset_descriptor_pool), bv_reset_descriptor_pool);
+#endif
+#ifdef CID(Device.allocate_descriptor_set)
+  io_eff(CID(Device.allocate_descriptor_set), bv_allocate_descriptor_set);
+#endif
+#ifdef CID(Device.free_descriptor_set)
+  io_eff(CID(Device.free_descriptor_set), bv_free_descriptor_set);
+#endif
+#ifdef CID(Device.update_descriptor_set)
+  io_eff(CID(Device.update_descriptor_set), bv_update_descriptor_set);
+#endif
+#ifdef CID(Device.create_sampler)
+  io_eff(CID(Device.create_sampler), bv_create_sampler);
+#endif
+#ifdef CID(Device.destroy_sampler)
+  io_eff(CID(Device.destroy_sampler), bv_destroy_sampler);
+#endif
+#ifdef CID(CommandBuffer.bind_descriptor_sets)
+  io_eff(CID(CommandBuffer.bind_descriptor_sets), bv_cmd_bind_descriptor_sets);
 #endif
 // END GENERATED REGISTRATIONS
 }

@@ -140,7 +140,7 @@ def create(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device
     upload(device,vertices,i16,i32)
     +vertex : V.ShaderModule <- V.Device.create_shader_module(device,Shaders.vertex_words())
     +fragment : V.ShaderModule <- V.Device.create_shader_module(device,Shaders.fragment_words())
-    +layout : V.PipelineLayout <- V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{Some{V.PushConstantRange{1,64}}})
+    +layout : V.PipelineLayout <- V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{[],Some{V.PushConstantRange{1,64}}})
     +pass : V.RenderPass <- V.Device.create_render_pass(device,V.RenderPassCreateInfo{[V.AttachmentInfo{37,1,0}],Some{V.AttachmentInfo{126,1,0}}})
     +pipeline : V.GraphicsPipeline <- V.Device.create_graphics_pipeline(device,pipeline_info(layout,pass,vertex,fragment,1))
     V.Device.destroy_shader_module(device,vertex)

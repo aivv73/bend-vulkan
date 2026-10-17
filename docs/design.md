@@ -167,7 +167,7 @@ Real pre-observation rejection and staging bytes prove driver behavior. Controll
 No optimal-image mapped pixel read is claimed. The milestone-3 run uses the available Khronos layer with synchronization validation.
 
 Linear registry scans, allocation-wide host exclusion, and one-time recordings keep one ownership model for this milestone.
-The presentation profile adds a present queue and keeps one active graphics submission. Descriptors and overlapping graphics submissions remain outside this subset.
+The presentation profile adds a present queue and keeps one active graphics submission. Descriptor sets join the same dependency graph and freeze until recorded references reset. Overlapping graphics submissions remain outside this subset.
 
 
 ## Presentation ownership

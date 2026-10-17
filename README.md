@@ -7,7 +7,7 @@ Vulkan 64-bit sizes, offsets, and alignments use the actual two-limb `U64` from 
 This is a 64-bit Linux Vulkan 1.0 subset with optional X11 presentation. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, color/depth attachment clears, and indexed depth-tested draws.
 Images use a six-format, optimal-tiled 2D profile with explicit mips, layers, binding, views, and staging readback.
 X11 presentation requires `VK_EXT_swapchain_maintenance1`. Headless binaries keep the Vulkan 1.0 path and load no X11 library.
-Descriptors, callbacks, and general `pNext` chains are not implemented.
+Uniform-buffer and combined-image-sampler descriptors support sparse bindings, arrays, and normalized samplers. Recorded sets stay frozen until command reset. Callbacks and general `pNext` chains are not implemented.
 
 ## Run the buffer example
 

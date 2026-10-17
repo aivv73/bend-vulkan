@@ -260,7 +260,7 @@ def abandon(+entry: V.Entry) -> V.Action(Unit):
     E.prepare(scene)
     E.begin_frame(scene,True{},False{})
     unused_shader : V.ShaderModule <- V.Device.create_shader_module(device,Shaders.vertex_words())
-    unused_layout : V.PipelineLayout <- V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{None{}})
+    unused_layout : V.PipelineLayout <- V.Device.create_pipeline_layout(device,V.PipelineLayoutCreateInfo{[],None{}})
     IO.pure(V.VkResult(Unit),Fail{(93,"Controlled graphics scope failure")})
 
 def all_checks() -> V.Action(Unit):

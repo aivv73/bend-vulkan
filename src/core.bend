@@ -215,3 +215,19 @@ def fifo_supported(modes: List<U32>) -> Bool:
   match modes:
     case Nil{}: False{}
     case Con{mode,rest}: U32.is_eq(mode,2) || fifo_supported(rest)
+
+def descriptor_order(~A: Data, ordered: Bool, value: A, head: A, next: A -> List<A>) -> List<A>:
+  match ordered:
+    case True{}: value <> next(head)
+    case False{}: head <> next(value)
+
+def descriptor_insert(~A: Data, ~number: A -> U32, bindings: List<A>, +value: A) -> List<A>:
+  match bindings:
+    case Nil{}: [value]
+    case Con{+head,rest}:
+      descriptor_order(~A,U32.is_le(number(value),number(head)),value,head,high => descriptor_insert(~A,~number,rest,high))
+
+def descriptor_schema(~A: Data, ~number: A -> U32, bindings: List<A>) -> List<A>:
+  match bindings:
+    case Nil{}: []
+    case Con{binding,rest}: descriptor_insert(~A,~number,descriptor_schema(~A,~number,rest),binding)

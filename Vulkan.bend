@@ -69,8 +69,47 @@ type GraphicsPipeline is Data:
   GraphicsPipeline{key: U32}
 type PushConstantRange is Data:
   PushConstantRange{stages: U32, bytes: U32}
-type PipelineLayoutCreateInfo is Data:
-  PipelineLayoutCreateInfo{push: Maybe<&2, PushConstantRange>}
+type DescriptorSetLayout is Data:
+  DescriptorSetLayout{key: U32}
+type DescriptorPool is Data:
+  DescriptorPool{key: U32}
+type DescriptorSet is Data:
+  DescriptorSet{key: U32}
+type Sampler is Data:
+  Sampler{key: U32}
+type DescriptorKind is Data:
+  UniformDescriptor{}
+  SampledDescriptor{}
+type DescriptorBinding is Data:
+  DescriptorBinding{binding: U32, kind: DescriptorKind, count: U32, stages: U32}
+type DescriptorSetLayoutCreateInfo is Type:
+  DescriptorSetLayoutCreateInfo{bindings: List<DescriptorBinding>}
+type DescriptorPoolSize is Data:
+  DescriptorPoolSize{kind: DescriptorKind, count: U32}
+type DescriptorPoolCreateInfo is Type:
+  DescriptorPoolCreateInfo{max_sets: U32, sizes: List<DescriptorPoolSize>}
+type DescriptorBuffer is Data:
+  DescriptorBuffer{buffer: Buffer, offset: W.U64, range: W.U64}
+type DescriptorImage is Data:
+  DescriptorImage{view: ImageView, sampler: Sampler, layout: U32}
+type DescriptorWrite is Type:
+  UniformWrite{binding: U32, first: U32, values: List<DescriptorBuffer>}
+  SampledWrite{binding: U32, first: U32, values: List<DescriptorImage>}
+type SamplerCreateInfo is Data:
+  SamplerCreateInfo{min_filter: U32, mag_filter: U32, mipmap_mode: U32, address_u: U32, address_v: U32, address_w: U32, min_lod: F32, max_lod: F32, border_color: U32}
+type PipelineLayoutCreateInfo is Type:
+  PipelineLayoutCreateInfo{sets: List<DescriptorSetLayout>, push: Maybe<&2, PushConstantRange>}
+
+def descriptor_number(binding: DescriptorBinding) -> U32:
+  DescriptorBinding{number,kind,count,stages} = binding
+  number
+
+def descriptor_schema(bindings: List<DescriptorBinding>) -> List<DescriptorBinding>:
+  Core.descriptor_schema(~DescriptorBinding,~descriptor_number,bindings)
+
+def Device.create_descriptor_set_layout(device: Device, info: DescriptorSetLayoutCreateInfo) -> IO(VkResult(DescriptorSetLayout)):
+  DescriptorSetLayoutCreateInfo{bindings} = info
+  Device.descriptor_set_layout_raw(device,DescriptorSetLayoutCreateInfo{descriptor_schema(bindings)})
 type VertexInputBinding is Data:
   VertexInputBinding{binding: U32, stride: U32, input_rate: U32}
 type VertexInputAttribute is Data:
@@ -578,6 +617,50 @@ def Device.submit_synced(device: Device, command: CommandBuffer, fence: Fence, w
   import "./src/native.js"
 
 def Device.present(device: Device, swapchain: Swapchain, index: U32, wait: Semaphore, fence: Fence) -> IO(VkResult(PresentOutcome)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.descriptor_set_layout_raw(device: Device, info: DescriptorSetLayoutCreateInfo) -> IO(VkResult(DescriptorSetLayout)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_descriptor_set_layout(device: Device, layout: DescriptorSetLayout) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_descriptor_pool(device: Device, info: DescriptorPoolCreateInfo) -> IO(VkResult(DescriptorPool)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_descriptor_pool(device: Device, pool: DescriptorPool) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.reset_descriptor_pool(device: Device, pool: DescriptorPool) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.allocate_descriptor_set(device: Device, pool: DescriptorPool, layout: DescriptorSetLayout) -> IO(VkResult(DescriptorSet)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.free_descriptor_set(device: Device, set: DescriptorSet) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.update_descriptor_set(device: Device, set: DescriptorSet, writes: List<DescriptorWrite>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_sampler(device: Device, info: SamplerCreateInfo) -> IO(VkResult(Sampler)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_sampler(device: Device, sampler: Sampler) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.bind_descriptor_sets(command: CommandBuffer, first: U32, sets: List<DescriptorSet>) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 # END GENERATED EFFECTS

@@ -126,7 +126,7 @@ The creation profile accepts these formats when the driver supports the requeste
 
 Usages are a nonempty subset of TRANSFER_SRC, TRANSFER_DST, SAMPLED, COLOR_ATTACHMENT, and DEPTH_STENCIL_ATTACHMENT.
 Color and depth attachment usages must match the format's role. Stencil, linear tiling, MSAA, compressed formats, sparse images, and format reinterpretation are absent.
-SAMPLED usage permits resource preparation. Descriptors, samplers, and shader sampling commands are absent.
+SAMPLED images can be read through combined image samplers. See the descriptor and sampler contract below.
 
 `ImageFormatInfo{format, image_type, tiling, usage, flags}` queries recognized core-1.0 configurations beyond the creation profile.
 Invalid enum values return the wrapper argument error. A driver rejection preserves exact `VK_ERROR_FORMAT_NOT_SUPPORTED` bits, `4294967285`.
@@ -243,10 +243,9 @@ These header checks do not validate shader instructions, capabilities, interface
 The library consumes the list and copies native aligned words. No Bend pointer survives the effect.
 Shader modules are creation inputs. They can be destroyed after pipeline creation.
 
-`PipelineLayoutCreateInfo{push}` has `None{}` or `Some{PushConstantRange{stages, bytes}}`.
+`PipelineLayoutCreateInfo{sets,push}` declares ordered descriptor set layouts. Its `push` field has `None{}` or `Some{PushConstantRange{stages, bytes}}`.
 The sole optional range starts at byte zero. Its nonzero stage mask is a subset of VERTEX and FRAGMENT.
 Its size is a multiple of four, between 4 and 128 bytes, and within the device limit.
-There are no descriptor set layouts.
 
 `GraphicsPipelineCreateInfo` has these fields in order:
 
@@ -310,7 +309,7 @@ Every mentioned pipeline and vertex/index buffer remains referenced, including o
 Observed completion permits host access but keeps those roots. Successful reset or pool destruction releases them.
 Pending and Uncertain commands exclude host access to reached allocations, including overwritten vertex/index resources.
 Shader semantics, capabilities, stage interfaces, valid index contents, vertex/instance fetch bounds, image layouts, and synchronization remain caller obligations.
-Shaders must match the descriptor-free layout and the declared vertex inputs, push block, and attachment outputs.
+Shaders must match the declared descriptor schemas, vertex inputs, push block, and attachment outputs.
 
 ## Example mesh and camera contract
 
@@ -410,3 +409,19 @@ The [X11 presentation contract](presentation.md) specifies the optional maintena
 `Device.create_presentation_device` supplements the existing device constructor.
 `Device.submit_synced` supplements the existing fence submission with wait/stage and signal lists.
 Headless device creation and submission remain available without X11 runtime dependencies.
+
+## Descriptors and samplers
+
+`Device.create_descriptor_set_layout` accepts `DescriptorSetLayoutCreateInfo` with sparse `DescriptorBinding` numbers and arrays. Bindings use `UniformDescriptor` or `SampledDescriptor` and vertex/fragment stage masks. Bend sorts the schema by binding number. Duplicate bindings fail. Independently created identical schemas are compatible.
+
+`PipelineLayoutCreateInfo{sets,push}` declares ordered set positions and the optional push range. Bind the pipeline, then call `CommandBuffer.bind_descriptor_sets(command,first,sets)`. Every declared slot must be initialized. Every nonempty set position must be bound before drawing. Binding any pipeline clears descriptor readiness. Recorded resource dependencies remain until successful command reset or command-pool destruction.
+
+`Device.create_descriptor_pool` takes positive `max_sets` and unique per-kind capacities. Allocate and free one set per call. `Device.update_descriptor_set` applies a batch of `UniformWrite{binding,first,values}` and `SampledWrite{binding,first,values}` to one set. A batch cannot overlap destinations or cross a binding. An empty update or bind batch fails. An update prepares the full replacement and its dependencies before dispatch, so metadata allocation failure preserves existing contents.
+
+`DescriptorBuffer{buffer,offset,range}` uses an ordinary bound buffer with uniform usage. Offset zero is valid. The positive U64 range must fit the buffer and the device's uniform range limit. The offset must satisfy the cached uniform alignment limit. `DescriptorImage{view,sampler,layout}` requires an owned, bound sampled image and a supported shader-read layout. Borrowed swapchain images cannot be sampled. Linear filters require the format's linear sampling support. Draws reject sampled attachment feedback.
+
+`SamplerCreateInfo` supports nearest/linear filters and mip modes, core repeat/mirror/edge/border address modes, core border colors, and finite ordered nonnegative LODs. Coordinates are normalized. Comparison and anisotropy are disabled, and LOD bias is zero. Creation checks the cached sampler allocation limit.
+
+A set freezes when any recording binds it. Fence completion alone does not thaw it. Updates, free, pool reset, and pool destruction fail until every referencing command has reset successfully or its command pool has been destroyed. Pending and uncertain commands protect uniform and sampled-image memory transitively, including aliases. A failed native set free or pool reset quarantines the pool, preserves its keys and dependencies, and returns the exact Vulkan error. Destroy the quarantined pool after recorded references have been released.
+
+The subset allows up to 4096 declared slots per schema and 64 set positions, subject to tighter device limits. Empty schemas and pools without descriptor capacities are valid for empty sets. Dynamic/storage descriptors, descriptor copies, comparison samplers, reflection, and update-after-bind are outside this API. `descriptor_set_layout_raw` is the generated native boundary for already sorted schemas; callers use `create_descriptor_set_layout`.

@@ -37,7 +37,7 @@ def upload_result(owned: Array<U32> & V.VkResult(Unit), alternate: Bool) -> V.Ac
 
 def upload(+device: V.Device, memory: V.DeviceMemory, +alternate: Bool) -> V.Action(Unit):
   do IO<V.VkResult(Unit)>:
-    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(device, memory, W.of_u32(3), W.of_u32(7), payload(alternate))
+    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(device, memory, W.of_u32(3),W.zero(), W.of_u32(7), payload(alternate))
     upload_result(owned, alternate)
 
 def poll(fuel: Nat, +fence: V.Fence, status: U32) -> V.Action(Unit):
@@ -69,7 +69,7 @@ def complete(mode: U32, +device: V.Device, +fence: V.Fence) -> V.Action(Unit):
 def pending_checks(resources: Resources) -> V.Action(Unit):
   Resources{+device,+pool,+command,+spare,+fence,+spare_fence,+staging,+staging_memory,gpu,+readback,+readback_memory,guard,+unrelated} = resources
   do V.Action<Unit>:
-    T.expect_error(Unit, 1610612740, V.Device.submit(device, spare, spare_fence))
+    V.Device.submit(device, spare, spare_fence)
     T.expect_error(Unit, 1610612740, V.Device.submit_and_wait(device, spare))
     T.expect_error(Unit, 1610612740, V.CommandBuffer.reset(command))
     T.expect_error(Unit, 1610612740, V.Device.destroy_command_pool(device, pool))
@@ -83,6 +83,12 @@ def pending_checks(resources: Resources) -> V.Action(Unit):
     V.Device.write_memory(device, unrelated, W.zero(), [91])
     bytes : List<U32> <- V.Device.read_memory(device, unrelated, W.zero(), 1)
     Demo.require(Demo.bytes_equal(bytes,[91]), "Unrelated memory was blocked")
+    spare_done : U32 <- V.Fence.wait(spare_fence,W.of_u32(1000000000))
+    Demo.require(U32.is_zero(spare_done),"Independent pending submission timed out")
+    V.Fence.reset(spare_fence)
+    V.CommandBuffer.reset(spare)
+    V.CommandBuffer.begin(spare)
+    V.CommandBuffer.end(spare)
 
 def cycle(+resources: Resources, +alternate: Bool, mode: U32) -> V.Action(Unit):
   Resources{+device,pool,+command,spare,+fence,spare_fence,+staging,+staging_memory,+gpu,+readback,+readback_memory,+guard,unrelated} = resources

@@ -83,7 +83,7 @@ The frame has separate acquisition, rendering, and presentation fences, plus one
 The phases are idle, acquiring, submitted, and presenting. Each phase returns to native event processing on timeout.
 The rendering fence resets after recording succeeds and immediately before submission. Acquisition paths that skip submission never reset it.
 
-Acquisition returns `Acquired{index, suboptimal}`, `AcquireOutOfDate`, `AcquireNotReady`, `AcquireTimeout`, or `AcquireSurfaceLost`.
+Acquisition returns `Acquired{acquisition, index, suboptimal}`, `AcquireOutOfDate`, `AcquireNotReady`, `AcquireTimeout`, or `AcquireSurfaceLost`.
 Suboptimal and out-of-date request recreation. Timeout and not-ready preserve the generation.
 Surface loss ends this checkpoint with an explicit error and cleanup. Full surface and device recovery remain outside its scope.
 An acquired frame may be released after its acquire fence completes, without draining an acquire semaphore.
@@ -98,7 +98,7 @@ A failed reset preserves recorded references. Known device loss permits scoped t
 A render fence proves graphics completion. It does not retire a present wait.
 `Device.wait_idle` completes graphics state while preserving presentation associations.
 Every present supplies `VkSwapchainPresentFenceInfoEXT`. Its fence proves that the associated resources can be released.
-That fence does not prove visible scanout. The consumer observes it before acquiring another image.
+That fence does not prove visible scanout. It completes only the matching acquisition; independent acquisitions may remain pending.
 The [Khronos fence contract](https://docs.vulkan.org/refpages/latest/refpages/source/VkSwapchainPresentFenceInfoKHR.html) defines this distinction.
 If cleanup cannot establish completion, it reports a failure and keeps the resource tree live.
 
@@ -149,3 +149,21 @@ They do not prove floating-point calculations, native effects, Vulkan drivers, o
 `tests/appearance_acquisition.bend` acquires a real native image, queues edits and changes to the camera and hover during Acquiring, then checks actual device geometry and all 2,336 frame bytes against that recorded revision. It also queues pointer input during Submitted and flight during Presenting and requires dirty state to survive completion and command reset. `tests/interactive.bend` covers button coordinates without a prior Move and capture-release pointer state.
 
 The complete milestone 6 gate passed with `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display`. Actual Atelier app-only captures and traces remain under `build/milestone-6-atelier-window-*`; quiet product captures remain under `build/window-product-*`. The [appearance contract](voxel.md#production-appearance-and-evidence) states exact identity, lighting and shadow comparison limits.
+
+
+Each successful `Device.acquire` returns an `Acquisition{swapchain, serial}`
+beside its image index and suboptimal flag. A swapchain preallocates independent
+lease storage for its images. The serial is never reused. `CommandBuffer.use_acquisition`
+binds the completed acquisition explicitly after begin and before recording
+borrowed-image commands. Recording and submission reject mismatched or stale
+acquisition generations.
+
+`Device.present(device, acquisition, wait, fence)` and
+`Device.release_acquired(device, acquisition)` require that exact token. Acquire,
+render and presentation fence completion update only their associated lease.
+A fence cannot be reused while a command or WSI operation owns it. Semaphore
+provenance retains the exact acquisition serial. Uncertain WSI ownership remains
+quarantined through recovery and requires the affected swapchain to be drained
+and destroyed when its image ownership cannot be recovered.
+
+A successful presentation retains its own completion owner, while a later acquisition may own the same image index. Current-image checks exclude retained presentation owners. Each swapchain preallocates twice its image count in lease records. Exhausting those records rejects a new acquire before dispatch. Observing an older presentation fence releases only its matching serial and semaphore.

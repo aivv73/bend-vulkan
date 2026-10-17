@@ -49,8 +49,11 @@ def frame(renderer: GPU.Renderer, faces: List<&2,X.Face>, +camera: R.Camera, +mo
     read_frame(result,faces,R.Camera.basis(camera),mode,path)
 
 def uploaded(body: X.Body, faces: List<&2,X.Face>, pair: GPU.Renderer & M.Mesh) -> V.Action(State):
-  (renderer,mesh) = pair
-  V.Action.pure(State,State{body,faces,renderer})
+  (+renderer,mesh) = pair
+  GPU.Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,uploads} = renderer
+  do V.Action<State>:
+    V.Device.collect_retired(device)
+    return State{body,faces,renderer}
 
 def checked(renderer: GPU.Renderer, pair: X.Body & (M.Mesh & Bool)) -> V.Action(State):
   (body,(M.Mesh{+faces,+size,bounds,vs,ix},valid)) = pair
@@ -107,10 +110,10 @@ def legacy_image(scene: R.RenderScene, path: String) -> IO(Unit):
 def legacy(+faces: List<&2,X.Face>, path: String) -> V.Action(Unit):
   V.Action.lift(Unit,legacy_image(R.RenderScene.build(X.Surface{faces},R.Camera.initial(),5n),path))
 
-def live(expected: U32) -> V.Action(Unit):
+def live(+expected: U32) -> V.Action(Unit):
   do V.Action<Unit>:
-    actual : U32 <- V.debug_live_objects()
-    D.require(U32.is_eq(actual,expected),"Voxel replacements changed live resources")
+    +actual : U32 <- V.debug_live_objects()
+    D.require(U32.is_eq(actual,expected),"Voxel replacements changed live resources, expected " ++ U32.show(expected) ++ ", actual " ++ U32.show(actual))
 
 def camera_frames(renderer: GPU.Renderer, +faces: List<&2,X.Face>) -> V.Action(Unit):
   +gpu = renderer

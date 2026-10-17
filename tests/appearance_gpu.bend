@@ -191,7 +191,7 @@ def upload_checked(pair: Array<U32> & V.VkResult(Unit)) -> V.Action(Unit):
 
 def upload_array(+device: V.Device, memory: V.DeviceMemory, array: Array<U32>) -> V.Action(Unit):
   do V.Action<Unit>:
-    pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,memory,W.zero(),W.of_u32(2336),array))
+    pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,memory,W.zero(),W.zero(),W.of_u32(2336),array))
     upload_checked(pair)
 
 def upload(+f: Fixture, array: Maybe<Array<U32>>) -> V.Action(Unit):

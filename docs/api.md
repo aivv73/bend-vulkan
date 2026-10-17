@@ -70,9 +70,11 @@ Copy-alignment limits do not impose an alignment restriction on buffer-to-buffer
 | `Device.allocate_memory(device, size, memory_type_index)` | An allocation |
 | `Device.bind_buffer_memory(device, buffer, memory, offset)` | A binding after size, alignment, type, and owner checks |
 | `Device.write_memory(device, memory, offset, bytes)` | Checked host write, including flush for noncoherent memory |
-| `Device.write_memory_words(device, memory, offset, byte_length, words)` | Original `Array<U32>` beside `VkResult(Unit)` |
+| `Device.write_memory_words(device, memory, offset, source_byte, byte_length, words)` | Original `Array<U32>` beside `VkResult(Unit)` |
 | `Device.read_memory(device, memory, offset, count)` | Byte list, including invalidation for noncoherent memory |
 | `Device.destroy_buffer(device, buffer)` | Buffer teardown |
+| `Device.retire_buffers(device, pairs)` | Atomically validate and seal a complete set of dedicated buffer/allocation pairs |
+| `Device.collect_retired(device)` | Reclaim sealed pairs after all recorded references disappear |
 | `Device.free_memory(device, memory)` | Allocation teardown, rejecting bound buffers and images |
 | `Device.wait_idle(device)` | Device completion |
 | `Device.destroy(device)` | Device teardown, rejecting live resources |
@@ -87,10 +89,18 @@ Each host operation maps the whole allocation temporarily and copies a checked s
 `read_memory` takes a U32 byte count. Host reads and both upload paths are limited to 16 MiB per call.
 Memory allocation sizes and copy offsets retain all 64 bits.
 Packed uploads emit each word's low-order byte first and truncate the final partial word.
-The explicit U64 byte length must fit the array capacity, allocation range, and 16 MiB chunk limit.
+The U64 source byte offset and length must fit the array capacity. The destination offset and length must fit the allocation. Native checks use subtraction to reject overflow. Each write retains the 16 MiB limit.
 Zero bytes at an in-bounds offset is valid. Every outcome returns the unchanged array, including the interpreted backend's native-only error.
 A flush failure can leave mapped destination bytes changed.
 No Bend heap pointer survives the operation.
+
+`Device.retire_buffers` consumes a list of `(Buffer & DeviceMemory)` pairs. It validates the complete set before sealing any member. Each buffer must own its bound allocation at offset zero, without another allocation owner or an active Recording reference. Invalid ownership, a late invalid pair, device loss, or scratch allocation failure leaves all retirement flags unchanged. Empty sets succeed on a healthy device. Exact duplicates and repeated retirement succeed while the rows remain live. Collected handles are stale. Recorded references retain sealed resources through completion until successful command reset or pool destruction. Future recording and submission reject sealed resources.
+
+Geometry publication retires every obsolete color and shadow allocation in one call. Unchanged residents and reusable frame staging are excluded. The synchronous installer completes and resets its upload command, releases temporary staging, and then attempts retirement. Rejection cleans every fresh candidate and preserves the installed generation. Success returns the replacement and counters immediately. Collection runs at a later lifecycle boundary after the caller has selected its owner.
+
+`src/upload.bend` provides reusable staging allocations, checked source and destination slices, and writes split at 16 MiB. Reserve the aggregate capacity before staging a batch. If retiring old storage fails, growth destroys its unused candidate and returns the original owner with the error. If retirement succeeds but collection fails, growth returns the new owner and an explicit committed-growth error. The old sealed pair remains tracked by native retirement. Reset the staging cursor only when its frame slot is free. Native allocation-wide host exclusion still applies.
+
+Retirement requires a dedicated allocation bound at byte zero. It rejects resources referenced by an active recording. It rejects another allocation owner and seals subsequent recording, submission, descriptor updates, bindings, and host access. Completion retains recorded references. Successful command reset or command-pool destruction removes them. Collection releases the buffer before its memory. A failed reset retains both. Repeated collection is valid. Device loss is reported and leaves teardown to the existing device cleanup path.
 
 The wrapper checks common lifetime and memory-access errors. Callers remain responsible for Vulkan validity requirements for chosen flags, extensions, and resource use.
 Handle keys are checked process-local identifiers. They provide no raw Vulkan handle interoperation or access-control guarantee.
@@ -386,9 +396,9 @@ Barrier arguments and every new reference node are validated and allocated befor
 Buffer barriers use `VK_QUEUE_FAMILY_IGNORED` for both family indices. Ownership transfers are absent.
 Stage/access validation accepts supported core Vulkan 1.0 bits. Optional geometry and tessellation features remain disabled.
 `ALL_COMMANDS` excludes HOST. The fill caller records its transfer-to-host barrier explicitly.
-The selected queue must support transfers. There is one selected graphics queue and at most one Pending or Uncertain command per device. The optional presentation profile adds a present queue with separate completion tracking.
+The selected queue must support transfers. There is one selected graphics queue. Independent commands may be Pending together with distinct unsignaled fences. The optional presentation profile adds a present queue with separate completion tracking.
 
-Pending/Uncertain commands reject command reset, affected pool destruction, associated fence reset/destruction, and further submission.
+Pending/Uncertain commands reject their own command reset, affected pool destruction, associated fence reset/destruction and resubmission. Any uncertain submission or acquisition quarantines new submissions until recovery.
 Protection remains deterministic until a caller observes completion, even if the GPU has already finished.
 Host access rejects entire allocations reached through active references and bindings, including aliases.
 The transitive framebuffer path is command to framebuffer to view to image to memory.
@@ -396,7 +406,7 @@ Framebuffers retain their pass and views. Views retain images. Bound images reta
 Completion releases host exclusion but retains all recorded references until successful reset or pool destruction.
 Unrelated allocations remain usable. No destructor or mapping operation polls for completion.
 
-Graphics fence SUCCESS and successful device idle complete Pending graphics work. TIMEOUT, NOT_READY, and ordinary wait errors preserve protection.
+Graphics fence SUCCESS completes only its matching command. Successful device idle completes every Pending graphics command. TIMEOUT, NOT_READY, and ordinary wait errors preserve protection.
 Known submission OOM leaves command and fence unchanged. Other submit errors enter Uncertain.
 Uncertain fence status/wait rejects with `BV_LIFETIME`. Successful idle recovery makes that command Invalid without claiming execution succeeded.
 Device loss is sticky, returns exact `VK_ERROR_DEVICE_LOST` bits, invalidates commands, detaches command fence associations, and permits ordered destruction.
@@ -437,3 +447,31 @@ Headless device creation and submission remain available without X11 runtime dep
 A set freezes when any recording binds it. Fence completion alone does not thaw it. Updates, free, pool reset, and pool destruction fail until every referencing command has reset successfully or its command pool has been destroyed. Pending and uncertain commands protect uniform and sampled-image memory transitively, including aliases. A failed native set free or pool reset quarantines the pool, preserves its keys and dependencies, and returns the exact Vulkan error. Destroy the quarantined pool after recorded references have been released.
 
 The subset allows up to 4096 declared slots per schema and 64 set positions, subject to tighter device limits. Empty schemas and pools without descriptor capacities are valid for empty sets. Dynamic/storage descriptors, descriptor copies, comparison samplers, reflection, and update-after-bind are outside this API. `descriptor_set_layout_raw` is the generated native boundary for already sorted schemas; callers use `create_descriptor_set_layout`.
+
+
+## Timestamp queries and monotonic diagnostics
+
+`Device.timestamp_properties` reports the selected queue's valid counter bits and
+timestamp period in nanoseconds. `Device.create_timestamp_pool(device, count)`
+creates 1 to 4096 timestamp queries when that queue supports timestamps.
+`Device.destroy_query_pool` requires every recorded reference to be released.
+
+`CommandBuffer.reset_timestamp_queries(command, pool, first, count)` resets a
+checked nonempty subrange outside render passes. Another command cannot own
+recorded references to the same pool. `CommandBuffer.write_timestamp(command,
+pool, query, stage)` requires a query reset by that recording and permits one
+write per reset. The stage must be one supported core stage bit and cannot be
+HOST. Query references survive completion and failed command reset.
+
+`Device.timestamp_results(device, pool, first, count)` returns `Timestamp`
+records with U64 values and availability. A reset that has not completed reports
+zero and unavailable, including when a previous generation had valid results.
+Completed writes use 64-bit Vulkan results with availability. Ordinary result
+errors preserve the query generation for retry.
+
+`Device.timestamp_duration(device, start, end, cpu_bound_ns)` masks counter wrap
+using `valid_bits` and returns F32 nanoseconds. Its monotonic CPU bound must be
+positive, less than half the counter wrap period and at least the calculated
+interval. Ambiguous or inconsistent intervals fail explicitly. `monotonic_ns()`
+returns an independent U64 CPU clock; device and CPU timestamp epochs are never
+compared.

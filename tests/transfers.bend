@@ -9,7 +9,7 @@ import ./native.bend as T
 
 def upload(+device: V.Device, +memory: V.DeviceMemory, offset: W.U64, length: W.U64, expected: U32) -> V.Action(Unit):
   do IO<V.VkResult(Unit)>:
-    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(device, memory, offset, length, A.words())
+    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(device, memory, offset,W.zero(), length, A.words())
     A.check_owned(owned, expected)
 
 def allocate(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, requirements: V.MemoryRequirements, required: U32) -> V.Action(V.DeviceMemory):
@@ -30,15 +30,27 @@ def buffer(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device
 def shared_upload(+device: V.Device, +memory: V.DeviceMemory, pair: Array<U32> & Array<U32>) -> V.Action(Unit):
   (words, original) = pair
   do V.Action<Unit>:
-    owned : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit), V.Device.write_memory_words(device,memory,W.zero(),W.of_u32(7),words))
+    owned : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit), V.Device.write_memory_words(device,memory,W.zero(),W.zero(),W.of_u32(7),words))
     A.check_owned(owned,0)
     Demo.require(Demo.bytes_equal(Array.to_list(~U32,original),[16909060,134678021,202050057,269422093]),"Shared original changed")
+
+def source_range(+device: V.Device, +memory: V.DeviceMemory, source: W.U64, length: W.U64, expected: U32) -> V.Action(Unit):
+  do IO<V.VkResult(Unit)>:
+    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(device,memory,W.of_u32(24),source,length,A.words())
+    A.check_owned(owned,expected)
 
 def transfer_body(+device: V.Device, source: V.Buffer & V.DeviceMemory, destination: V.Buffer & V.DeviceMemory) -> V.Action(Unit):
   (+src, +source_memory) = source
   (+dst, +dest_memory) = destination
   do V.Action<Unit>:
     shared_upload(device, source_memory, Array.fork(U32,A.words()))
+    source_range(device,source_memory,W.of_u32(3),W.of_u32(7),0)
+    slice : List<U32> <- V.Device.read_memory(device,source_memory,W.of_u32(24),7)
+    Demo.require(Demo.bytes_equal(slice,[1,5,6,7,8,9,10]),"Source byte range must cross unaligned words exactly")
+    source_range(device,source_memory,W.of_u32(16),W.zero(),0)
+    source_range(device,source_memory,W.of_u32(15),W.of_u32(2),1610612739)
+    source_range(device,source_memory,Core.whole_size(),W.of_u32(2),1610612739)
+    source_range(device,source_memory,W.of_u32(17),W.zero(),1610612739)
     upload(device, source_memory, W.zero(), W.of_u32(1), 0)
     one : List<U32> <- V.Device.read_memory(device, source_memory, W.zero(), 1)
     Demo.require(Demo.bytes_equal(one, [4]), "One byte packing")

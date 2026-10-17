@@ -1,0 +1,49 @@
+Complete packed geometry verified, faces 384
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Pixels 262144, excluded 19015, mismatches 0, invalid edges 0, upstream 0, covered 39142, materials 1, directions 42
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 396
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Pixels 262144, excluded 19499, mismatches 0, invalid edges 0, upstream 0, covered 39142, materials 1, directions 43
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 396
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 390
+Pixels 262144, excluded 19012, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 0
+Pixels 262144, excluded 0, mismatches 0, invalid edges 0, upstream 0, covered 0, materials 0, directions 0
+Complete packed geometry verified, faces 34
+Pixels 262144, excluded 1777, mismatches 0, invalid edges 0, upstream 0, covered 3298, materials 255, directions 42
+Pixels 262144, excluded 1772, mismatches 0, invalid edges 0, upstream 0, covered 3198, materials 255, directions 42
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 128, directions 2
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 128, directions 2
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 1, directions 1
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 1, directions 1
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 8
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 8
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 4
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 4
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 32
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 32
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 16
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 16
+GPU full U32 materials including high bits and all six directions verified
+Voxel complete geometry, RGBA8+D32 references, camera reuse, carve/repeat/reset, empty mesh and bounded replacements passed

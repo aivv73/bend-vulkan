@@ -1,0 +1,4 @@
+PASS 15 exact canonical streams, signed rectangle coverage, dense/cuboid greedy reductions, analytic huge source, dirty neighbors and retained generations
+PASS 15 exact canonical streams, signed rectangle coverage, dense/cuboid greedy reductions, analytic huge source, dirty neighbors and retained generations
+PASS material-mutated Body with matching mesh/reference rejected by independent original Body
+PASS deterministic chunk builds with 1 and 6 threads and no display/GPU dependency

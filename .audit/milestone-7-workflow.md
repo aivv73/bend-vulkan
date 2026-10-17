@@ -1,12 +1,14 @@
 # Milestone 7 workflow
 
+This document records the initial plan. The [results](m7-results.md) and [delivery mapping](m7-stack.json) record completed work.
+
 The completion predicate is a passing full sanitizer and isolated-display suite, exact geometry after repeated boundary edits and resets, bounded live resources, and reproducible complete-frame measurements on the native application.
 
 ## Scope
 
 The required changes cover reusable staging and subrange uploads, completion-based retirement, isolated frame resources, dirty chunk rebuilding, and greedy rectangle merging. Timestamp queries provide GPU attribution when supported. Memory suballocation, culling, and additional batching require evidence that they help representative workloads.
 
-The expected work has three coupled implementation units across the wrapper, voxel consumer, and executable verification. The native singleton presentation lease is a known design constraint. Existing geometry, production appearance, and native presentation contracts remain acceptance gates.
+The expected work has three coupled implementation units across the wrapper, voxel consumer, and executable verification. At the initial checkpoint, the native singleton presentation lease constrained the design. Existing geometry, production appearance, and native presentation contracts remain acceptance gates.
 
 ## Phases
 

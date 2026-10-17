@@ -58,4 +58,4 @@ The [decision trail](milestone-7.tsv) preserves failures, corrections, excluded 
 
 The final trail review caught an overbroad GPU-median summary and mixed provenance in an older seven-report bundle. The workload-specific GPU values above are corrected. The [historical bundle](m7-historical-production-archive.json) is labeled mixed and cannot bind all reports to the old source run. The final passing acceptance archive is unaffected. The canonical trail retains both original mistakes and their corrections.
 
-Fresh [trail review](m7-trail-review.md) confirms both evidence corrections and reports no flags through its documented 101-decision scope. The four-layer reconstruction and delivery mapping are pending.
+Fresh [trail review](m7-trail-review.md) confirms both evidence corrections and reports no flags through its documented 101-decision scope. The [delivery mapping](m7-stack.json) records four reconstructed layers and exact full-tree identity for the frame commit. Fresh [layer checks](m7-stack-checks.json) pass, including actual intermediate windows. Later metadata commits change only audit files. Publication and its independent trail review follow.

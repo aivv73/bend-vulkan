@@ -1,0 +1,100 @@
+{
+  "recorded_utc": "2026-10-17T15:11:30.838005+00:00",
+  "baseline": "928bee9e677983c063811e0540f8783d86467a83",
+  "original_accepted_implementation": "ab3f2a1102db132ab60ec26afd69a7784b1e1c67",
+  "private_backup": {
+    "recorded_utc": "2026-10-17T14:43:08.103409+00:00",
+    "branch": "backup/m7-final-before-stack-20261017",
+    "commit": "7a6f62fd3ac07eca00896703415afe4e5184b3a8",
+    "tree": "377aef673943a2a6985076cce32cbf5ba9f714b9",
+    "original_implementation": "ab3f2a1102db132ab60ec26afd69a7784b1e1c67",
+    "journal_sha256": "001eb9a4ac5c2e0d262e4d441f2501d8dfdbadeefe0f00a3d8362dff10c5c5a2",
+    "journal_bytes": 61167
+  },
+  "frame_identity": {
+    "recorded_utc": "2026-10-17T15:09:14.422687+00:00",
+    "backup_commit": "7a6f62fd3ac07eca00896703415afe4e5184b3a8",
+    "backup_tree": "377aef673943a2a6985076cce32cbf5ba9f714b9",
+    "restored_staged_tree": "377aef673943a2a6985076cce32cbf5ba9f714b9",
+    "generation_commit": "23caf6f8046796424e24a3cfc7d27b0e16709921",
+    "journal_saved_sha256": "001eb9a4ac5c2e0d262e4d441f2501d8dfdbadeefe0f00a3d8362dff10c5c5a2",
+    "journal_saved_bytes": 61167,
+    "journal_working_bytes": 64859,
+    "journal_prefix_matches": true,
+    "unstaged_paths": [
+      ".audit/milestone-7.tsv"
+    ],
+    "frame_commit": "453b76f5f495bff5eb5d338e48242bf7845f4069",
+    "committed_tree": "377aef673943a2a6985076cce32cbf5ba9f714b9",
+    "proof": {
+      "command": [
+        "bend",
+        "PROOF.bend"
+      ],
+      "exit_code": 0,
+      "log": "build/m7-stack-frame-proof.log",
+      "sha256": "931f1e664a679af1355a9ca547ac1daef9f7b14137bc7cc21b110b0cc504b5b1"
+    }
+  },
+  "layers": [
+    {
+      "name": "chunks",
+      "branch": "t3code/m7-chunk-meshing",
+      "base_branch": "main",
+      "code_commit": "2efc7400d6d3c1125915178cc37b16294adaaebc",
+      "code_tree": "d51ab57111d9e5c00657ed19a39005b32be412d9",
+      "parent_commit": "928bee9e677983c063811e0540f8783d86467a83"
+    },
+    {
+      "name": "measurement",
+      "branch": "t3code/m7-native-measurements",
+      "base_branch": "t3code/m7-chunk-meshing",
+      "code_commit": "188c197e49b479a94053dff145e11ad09d9a5b43",
+      "code_tree": "c49c39d27730517d00e01f6f8ba11ea471301d30",
+      "parent_commit": "2efc7400d6d3c1125915178cc37b16294adaaebc"
+    },
+    {
+      "name": "generation",
+      "branch": "t3code/m7-chunk-generations",
+      "base_branch": "t3code/m7-native-measurements",
+      "code_commit": "23caf6f8046796424e24a3cfc7d27b0e16709921",
+      "code_tree": "58f5f92744928f1482c718d582389a36a6c52892",
+      "parent_commit": "188c197e49b479a94053dff145e11ad09d9a5b43"
+    },
+    {
+      "name": "frame",
+      "branch": "t3code/implement-milestone-7",
+      "base_branch": "t3code/m7-chunk-generations",
+      "code_commit": "453b76f5f495bff5eb5d338e48242bf7845f4069",
+      "code_tree": "377aef673943a2a6985076cce32cbf5ba9f714b9",
+      "parent_commit": "23caf6f8046796424e24a3cfc7d27b0e16709921"
+    }
+  ],
+  "original_commit_groups": {
+    "chunks": [
+      "0eab0080251e87115c563963ae82a3c5624f054a",
+      "3bf6303acde570aad76ae91f2eefa83bed9e5b42"
+    ],
+    "measurement": [
+      "9982444b8dde9f6071b7c8ed314a53ab30769e8b"
+    ],
+    "generation": [
+      "4657f758781d802bd47e3a3144396f4cb9037acc",
+      "c3f612d972b10db943d94453476fbccf925fe86a",
+      "e080779a8acae3e0af8b590f3c8c7a8a8986d15a",
+      "835cbb1767e756ddc8bb1b37aee47e85d9e8e25e",
+      "2fc2b418b37500c2723434b1dd0d3674e173a6f8",
+      "3309960514b8fbe7ba176d79886dd545d5b0401c",
+      "ab3f2a1102db132ab60ec26afd69a7784b1e1c67"
+    ],
+    "frame": [
+      "ae910819ebf6beb93f77cbd661cb2b75bec96f92",
+      "56aa17d60521c6ac4bd53947f92029496a4ca2eb",
+      "c230bff41c3090cc039246dd4752a0529d6e6665",
+      "3a5286dbc2b26c6d90b249f5b84c0f26cd693552",
+      "7a6f62fd3ac07eca00896703415afe4e5184b3a8"
+    ]
+  },
+  "scope": "Mapping groups describe responsibility. Individual replayed patches are not claimed byte-identical. The complete frame commit has exactly the saved full tree. Later commits may change only .audit files. Historical measurement revisions and executable hashes are preserved.",
+  "publication": []
+}

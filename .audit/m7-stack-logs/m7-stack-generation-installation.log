@@ -1,0 +1,2 @@
+Handled post-prepare begin and mid-copy failures preserved installed bytes and rows across retries
+Post-prepare reset failure and device loss terminated installation with exact scope cleanup

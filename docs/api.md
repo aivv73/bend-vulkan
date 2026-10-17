@@ -98,6 +98,8 @@ No Bend heap pointer survives the operation.
 
 Geometry publication retires every obsolete color and shadow allocation in one call. Unchanged residents and reusable frame staging are excluded. The synchronous installer completes and resets its upload command, releases temporary staging, and then attempts retirement. Rejection cleans every fresh candidate and preserves the installed generation. Success returns the replacement and counters immediately. Collection runs at a later lifecycle boundary after the caller has selected its owner.
 
+The historical whole-mesh uploader follows the same publication rule. If retirement rejects, it disposes both fresh candidates and preserves the previous geometry. Its offscreen acceptance caller explicitly collects after receiving and selecting the returned Renderer. A collector error ends that continuation without reverting to sealed old handles.
+
 `src/upload.bend` provides reusable staging allocations, checked source and destination slices, and writes split at 16 MiB. Reserve the aggregate capacity before staging a batch. If retiring old storage fails, growth destroys its unused candidate and returns the original owner with the error. If retirement succeeds but collection fails, growth returns the new owner and an explicit committed-growth error. The old sealed pair remains tracked by native retirement. Reset the staging cursor only when its frame slot is free. Native allocation-wide host exclusion still applies.
 
 Retirement requires a dedicated allocation bound at byte zero. It rejects resources referenced by an active recording. It rejects another allocation owner and seals subsequent recording, submission, descriptor updates, bindings, and host access. Completion retains recorded references. Successful command reset or command-pool destruction removes them. Collection releases the buffer before its memory. A failed reset retains both. Repeated collection is valid. Device loss is reported and leaves teardown to the existing device cleanup path.
@@ -475,3 +477,11 @@ positive, less than half the counter wrap period and at least the calculated
 interval. Ambiguous or inconsistent intervals fail explicitly. `monotonic_ns()`
 returns an independent U64 CPU clock; device and CPU timestamp epochs are never
 compared.
+
+
+The interactive consumer treats timestamp diagnostics as optional. It retains
+the owning query pool independently of a frame's active diagnostic view. A
+failed reset disables that view for the frame; later observation cannot read
+completed values left by an older generation. CPU diagnostics use exact low/high
+nanosecond limbs, and GPU durations use explicitly labeled finite F32 bits.
+Rendering proceeds when a scope is unsupported, unavailable or ambiguous.

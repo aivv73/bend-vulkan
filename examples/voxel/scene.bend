@@ -12,6 +12,7 @@ import ./generation.bend as G
 import ../../src/upload.bend as Upload
 import ./mesh.bend as M
 import ./appearance.bend as A
+import ./timing.bend as Timing
 
 type Assets is Data:
   Assets{uniform: E.BoundBuffer, schema: V.DescriptorSetLayout, sampled_schema: V.DescriptorSetLayout, pool: V.DescriptorPool, frame: V.DescriptorSet, sampled: V.DescriptorSet, sampler: V.Sampler, shadow: E.Attachment, shadow_pass: V.RenderPass, shadow_framebuffer: V.Framebuffer, shadow_pipeline: V.GraphicsPipeline, frame_layout: V.PipelineLayout, main_layout: V.PipelineLayout, indices: E.BoundBuffer, palette: A.Palette}
@@ -139,28 +140,6 @@ def destroy_programs(+device: V.Device, p: Programs) -> V.Action(Unit):
     V.Device.destroy_graphics_pipeline(device,background)
     V.Device.destroy_graphics_pipeline(device,world)
 
-def upload_increment(geometry: GPU.Geometry) -> U32:
-  match geometry:
-    case GPU.Empty{}: 0
-    case _: 2
-
-def installed(result: GPU.Geometry & M.Mesh, a: Assets, +revision: U32, uploads: U32) -> Group & M.Mesh:
-  (+geometry,mesh) = result
-  +increment = upload_increment(geometry)
-  (Group{a,geometry,revision,(uploads + increment : U32)},mesh)
-
-def install_needed(needed: Bool, +instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, group: Group, revision: U32, mesh: M.Mesh) -> V.Action(Group & M.Mesh):
-  match needed group:
-    case False{} _: V.Action.pure(Group & M.Mesh,(group,mesh))
-    case True{} Group{a,geometry,previous,uploads}:
-      do V.Action<Group & M.Mesh>:
-        result : GPU.Geometry & M.Mesh <- GPU.upload_mesh(instance,physical,device,geometry,mesh)
-        return installed(result,a,revision,uploads)
-
-def install(instance: V.Instance, physical: V.PhysicalDevice, device: V.Device, +group: Group, +revision: U32, mesh: M.Mesh) -> V.Action(Group & M.Mesh):
-  Group{a,g,+previous,u} = group
-  install_needed(U32.is_ne(previous,revision),instance,physical,device,group,revision,mesh)
-
 def failed_install(+device: V.Device, command: V.CommandBuffer, plan: G.Plan, staging: Upload.Staging, primary: V.VkResult(Unit)) -> V.Action(Unit):
   do IO<V.VkResult(Unit)>:
     reset : V.VkResult(Unit) <- V.CommandBuffer.reset(command)
@@ -253,10 +232,11 @@ def record_rings(enabled: Bool, +command: V.CommandBuffer, rings: V.GraphicsPipe
         V.CommandBuffer.bind_index_buffer(command,indices,W.zero(),1)
         V.CommandBuffer.draw_indexed(command,V.IndexedDraw{576,1,0,V.BaseVertex{0},0})
 
-def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuffer: V.Framebuffer, +width: U32, +height: U32, show_rings: Bool) -> V.Action(Unit):
+def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuffer: V.Framebuffer, +width: U32, +height: U32, show_rings: Bool, +queries: Maybe<&2,V.QueryPool>) -> V.Action(Unit):
   Group{Assets{uniform,s,ss,p,+frame,+sampled,sampler,E.Attachment{+shadow,sm,sv},sp,sf,shadow_pipeline,fl,ml,E.BoundBuffer{+indices,im},palette},+geometry,revision,uploads} = group
   Programs{world,background,rings} = programs
   do V.Action<Unit>:
+    Timing.write(command,queries,2)
     GPU.publish(command,geometry)
     V.CommandBuffer.pipeline_barrier(command,16384,140,[V.MemoryBarrier{16384,14}],[],[])
     V.CommandBuffer.pipeline_barrier(command,4992,768,[V.MemoryBarrier{3616,1536}],[],[])
@@ -268,6 +248,8 @@ def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuf
     GPU.draw_shadow(command,geometry)
     V.CommandBuffer.end_render_pass(command)
     E.transition(command,shadow,2,3,4,768,128,1024,32)
+    Timing.write(command,queries,3)
+    Timing.write(command,queries,4)
     V.CommandBuffer.begin_render_pass(command,framebuffer,V.RenderArea{V.Offset2D{0,0},V.Extent2D{width,height}},[V.ColorClear{V.ClearColor{0.0,0.0,0.0,1.0}},V.DepthClear{1.0}])
     viewport(command,width,height)
     V.CommandBuffer.bind_graphics_pipeline(command,background)
@@ -279,3 +261,20 @@ def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuf
     GPU.draw(command,geometry)
     record_rings(show_rings,command,rings,frame,indices)
     V.CommandBuffer.end_render_pass(command)
+    Timing.write(command,queries,5)
+
+
+def slot_assets(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, shared: Assets) -> V.Action(Assets):
+  Assets{u,+schema,+sampled_schema,p,f,sd,+sampler,sh,+shadow_pass,sf,+shadow_pipeline,+frame_layout,+main_layout,+indices,+palette} = shared
+  do V.Action<Assets>:
+    +uniform : E.BoundBuffer <- E.buffer(instance,physical,device,U.byte_size(),16)
+    +pool : V.DescriptorPool <- V.Device.create_descriptor_pool(device,V.DescriptorPoolCreateInfo{2,[V.DescriptorPoolSize{V.UniformDescriptor{},1},V.DescriptorPoolSize{V.SampledDescriptor{},1}]})
+    +frame : V.DescriptorSet <- V.Device.allocate_descriptor_set(device,pool,schema)
+    +sampled : V.DescriptorSet <- V.Device.allocate_descriptor_set(device,pool,sampled_schema)
+    +shadow : E.Attachment <- attachment(instance,physical,device,126,2,37,V.Extent2D{512,512})
+    +sv : V.ImageView = attachment_view(shadow)
+    ub : V.Buffer = buffer_handle(uniform)
+    V.Device.update_descriptor_set(device,frame,[V.UniformWrite{0,0,[V.DescriptorBuffer{ub,W.zero(),W.of_u32(U.byte_size())}]}])
+    V.Device.update_descriptor_set(device,sampled,[V.SampledWrite{0,0,[V.DescriptorImage{sv,sampler,4}]}])
+    framebuffer : V.Framebuffer <- V.Device.create_framebuffer(device,V.FramebufferCreateInfo{shadow_pass,[sv],V.Extent2D{512,512}})
+    return Assets{uniform,schema,sampled_schema,pool,frame,sampled,sampler,shadow,shadow_pass,framebuffer,shadow_pipeline,frame_layout,main_layout,indices,palette}

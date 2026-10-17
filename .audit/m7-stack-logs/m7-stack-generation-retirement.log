@@ -1,0 +1,3 @@
+Index-only Recording publication rejection preserved all old bytes/handles/counters/rows and held command submitted before retry
+Mixed reused/changed/removed generation retained exact resident handles after atomic rejection and retry
+Legacy complete upload and empty replacement retirement rejection preserved old bytes and cleaned both candidates before successful retry

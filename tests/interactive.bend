@@ -2,7 +2,7 @@ import Base
 import ../Vulkan.bend as V
 import ../examples/buffer_roundtrip.bend as D
 import ../examples/voxel/interactive.bend as I
-import ../examples/voxel/mesh.bend as M
+import ../examples/voxel/chunks.bend as C
 import ../examples/voxel/viewport.bend as View
 import ../deps/bend-voxel/voxel.bend as X
 
@@ -25,18 +25,18 @@ def occupied(result: Maybe<I.World>) -> U32:
 
 def queued(events: List<Event>) -> V.Action(Maybe<I.World>):
   do V.Action<Maybe<I.World>>:
-    world : I.World <- I.initial(M.build(X.Body.solid(3n)))
+    world : I.World <- I.initial(C.build(X.Body.solid(3n),0))
     I.events(events,world,View.Mapping{640,480,640,480})
 
 def reset_click() -> V.Action(Maybe<I.World>):
   do V.Action<Maybe<I.World>>:
-    world : I.World <- I.initial(M.build(X.Body.cut(X.Body.solid(3n),X.MetricSphere.demo())))
+    world : I.World <- I.initial(C.build(X.Body.cut(X.Body.solid(3n),X.MetricSphere.demo()),0))
     I.events([Key{114,True{}},Mouse{320,240,0,True{}}],world,View.Mapping{640,480,640,480})
 
 def cavity_hit(result: Maybe<I.World>) -> Maybe<&2,X.MetricSphere>:
   match result:
     case None{}: None{}
-    case Some{I.World{body,M.Mesh{faces,size,bounds,vs,ix},camera,controls,revision,original,pointer,changed}}:
+    case Some{I.World{body,C.ChunkSet{chunks,primitives,faces,bounds,count,shadow,rebuilt,retained},camera,controls,revision,original,pointer,changed}}:
       View.target(View.Viewport{640,480},camera,faces,320,240)
 
 def cavity_point(hit: Maybe<&2,X.MetricSphere>) -> Bool:

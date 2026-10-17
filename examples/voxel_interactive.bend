@@ -4,18 +4,18 @@ import ./voxel/interactive.bend as Interactive
 import ./buffer_roundtrip.bend as D
 
 type Options is Data:
-  Options{split: Bool, trace: Bool, cube: Bool}
+  Options{split: Bool, trace: Bool, cube: Bool, slots: U32}
 
 def options(args: List<String>, flags: Options) -> Options:
   match args:
     case Nil{}: flags
     case Con{+arg,rest}:
-      Options{split,trace,cube} = flags
-      options(rest,Options{split || String.eq(arg,"--split"),trace || String.eq(arg,"--trace"),cube || String.eq(arg,"--cube")})
+      Options{split,trace,cube,slots} = flags
+      options(rest,Options{split || String.eq(arg,"--split"),trace || String.eq(arg,"--trace"),cube || String.eq(arg,"--cube"),Bool.pick(U32,String.eq(arg,"--slots=1"),1,Bool.pick(U32,String.eq(arg,"--slots=2"),2,slots))})
 
 def run(entry: V.Entry, flags: Options) -> V.Action(Unit):
-  Options{split,trace,cube} = flags
-  Interactive.run(entry,split,trace,Bool.pick(Interactive.Original,cube,Interactive.Cube{},Interactive.Atelier{}))
+  Options{split,trace,cube,slots} = flags
+  Interactive.run(entry,split,trace,Bool.pick(Interactive.Original,cube,Interactive.Cube{},Interactive.Atelier{}),slots)
 
 def shutdown(trace: Bool) -> IO(Unit):
   match trace:
@@ -23,13 +23,13 @@ def shutdown(trace: Bool) -> IO(Unit):
     case True{}: IO.print("Native interactive shutdown rows=0")
 
 def traced(flags: Options) -> Bool:
-  Options{s,t,c} = flags
+  Options{s,t,c,n} = flags
   t
 
 def main() -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
-    +flags : Options = options(args,Options{False{},False{},False{}})
+    +flags : Options = options(args,Options{False{},False{},False{},2})
     result : V.VkResult(Unit) <- V.Entry.with(Unit,entry => run(entry,flags))
     V.or_exit(Unit,result)
     live : V.VkResult(U32) <- V.debug_live_objects()

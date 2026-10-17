@@ -79,8 +79,8 @@ Destroy views and reset recorded references before destroying a swapchain. Destr
 
 ## Frame and failure states
 
-The frame has separate acquisition, rendering, and presentation fences, plus one binary render-finished semaphore.
-The phases are idle, acquiring, submitted, and presenting. Each phase returns to native event processing on timeout.
+Each slot has separate acquisition, rendering, and presentation fences, plus one binary render-finished semaphore.
+Its phases are Free, Acquiring, Submitted, Presenting, and Discarding. Each pending phase returns to native event processing.
 The rendering fence resets after recording succeeds and immediately before submission. Acquisition paths that skip submission never reset it.
 
 Acquisition returns `Acquired{acquisition, index, suboptimal}`, `AcquireOutOfDate`, `AcquireNotReady`, `AcquireTimeout`, or `AcquireSurfaceLost`.
@@ -102,7 +102,9 @@ That fence does not prove visible scanout. It completes only the matching acquis
 The [Khronos fence contract](https://docs.vulkan.org/refpages/latest/refpages/source/VkSwapchainPresentFenceInfoKHR.html) defines this distinction.
 If cleanup cannot establish completion, it reports a failure and keeps the resource tree live.
 
-Recreation observes both completion domains, resets the command, destroys the old target, and requeries the surface.
+Resize and suspension mark the target obsolete before servicing slots. A suboptimal or out-of-date outcome makes that knowledge visible to later slots in the same traversal. No further present is issued for that target. Already-issued presents retain their exact resource fences. A rendered packet that has not been presented consumes its render-finished semaphore through an empty wait submission. After that submission's fence is observed, the slot releases its exact acquisition lease. These discarded packets consume their submission positions without increasing frame or completed-revision counters.
+
+Recreation observes every matching completion owner, resets commands, destroys the old target, and requeries the surface.
 It creates with `oldSwapchain = NULL`. A failed target build destroys its partial resources and produces no target.
 Each generation rebuilds format-compatible passes/pipelines and extent-dependent depth, views, and framebuffers.
 Unmapped and zero-sized windows suspend acquisition before extent clamping and poll with a 50 ms timeout.
@@ -116,12 +118,12 @@ Landscape and portrait resize therefore preserve agreement between displayed fac
 
 The consumer reuses the packed mesh, upload, publication, and indexed draw helpers used by the offscreen renderer.
 Each cut and reset prepares the CPU body and picking mesh together, so queued clicks use the current surface before upload.
-World owns CPU Body and Mesh, original scene choice, camera, controls, uncaptured pointer, dirty state and CPU geometry revision. Session owns the single GPU geometry group, installed revision and upload count beside the existing frame phase and target state. Camera changes retain mesh buffers and uploads.
-After acquisition-fence SUCCESS, the loop installs the latest prepared CPU mesh, computes hover, exact selected cells, camera, viewport and the 2,336-byte frame from that revision, then uploads and records before processing another event batch. Events received while Submitted or Presenting remain dirty for the next frame. Host writes occur only after previous completion and command reset.
+World owns the authoritative Body and derived ChunkSet, original scene choice, camera, controls, pointer and CPU revision. Session owns a nonempty fleet of independently owned slots and the latest immutable GPU generation. Camera changes retain chunk buffers and mesh upload counts.
+After acquisition-fence SUCCESS, the loop reuses the installed generation when the authoritative body revision is unchanged. Otherwise it prepares the latest CPU chunks. It computes hover, exact selection, camera, viewport and all 2,336 appearance bytes from that same revision. Upload, record and submit finish before another event batch. Each slot keeps those bytes frozen in its own uniform and attachments. The immutable submitted receipt carries the acquisition, image index, body revision, CPU start time, active query view and submission sequence. Native recorded references retain its geometry through completion and successful reset. Inputs during Submitted or Presenting update World for a later acquisition. A presented slot becomes reusable after observing its matching presentation-resource fence and successfully resetting its command. That fence can signal before the full present operation completes. Packets receive consecutive U64 submission sequences. A ready packet waits until its sequence is the next present call, independent of slot index, acquisition serial or body revision. Every resolved present outcome consumes that position; completion fences remain independently observable. UINT64_MAX is never submitted, so exhaustion fails before another upload or recording.
 
 Move and button events refresh the uncaptured pointer. Captured look and edits deliberately use the current viewport center. Ground is not pickable and does not write the voxel depth that hides rings.
 
-The stable scene group retains descriptors, uniform, sampler, fixed 512-square shadow resources, layouts and ring indices during resize. The target rebuilds world, background and ring pipelines against its actual format and render pass. Partial construction unwinds in dependency order. Both native presentation and offscreen readback call `Scene.record`; their output ownership remains separate.
+Programs, schemas, sampler and ring indices are immutable shared resources. Every slot separately owns commands, acquisition/render/presentation fences, semaphore, reusable staging, uniform/descriptors, fixed 512-square shadow attachment, depth attachment and per-image framebuffers. Trace-enabled slots also own independent query pools; quiet product runs allocate none. A target recreation stops acquisition, drains every matching lease and resets recorded references before releasing local framebuffers and the shared target. The shared `Target` owns the swapchain, borrowed-image views and compatible programs. Each `SlotTarget` owns only its depth attachment and framebuffers and has a distinct destructor. The shared target allocates no unused depth or framebuffers. Both native presentation and offscreen readback call `Scene.record`.
 
 ## Evidence boundaries
 
@@ -146,7 +148,14 @@ They do not prove floating-point calculations, native effects, Vulkan drivers, o
 
 `tools/check_atelier_window.py` drives actual default Atelier runs with graphics and presentation queue families 0/0 and 0/2. It checks images after settled-hover clicks, Space and reset, revisions and upload counts, flight and relative look, resize, suspension and remapping and zero-row shutdown. `tools/check_window.py` retains explicit `--cube` regression invocations; its quiet-product check uses default Atelier and settles hover before capturing the intact image. A pointer-only image change cannot count as carving.
 
-`tests/appearance_acquisition.bend` acquires a real native image, queues edits and changes to the camera and hover during Acquiring, then checks actual device geometry and all 2,336 frame bytes against that recorded revision. It also queues pointer input during Submitted and flight during Presenting and requires dirty state to survive completion and command reset. `tests/interactive.bend` covers button coordinates without a prior Move and capture-release pointer state.
+`tests/appearance_acquisition.bend` runs four real-device sessions. The first
+queues an acquisition-time edit, submits two distinct geometry/camera packets,
+rejects host reads of both uniforms before either render fence is observed,
+then compares every uniform byte, distinct actual D32 shadow readbacks and the
+latest installed geometry. The second changes camera/pointer state during
+Presenting and checks that a later acquisition uses it without uploading
+geometry. The third checks dispatch order for camera-only packets with equal body revision. The fourth drains two obsolete submitted packets through their semaphore waits and exact acquisition releases without presenting or counting them. Each Entry scope checks zero remaining rows. `tests/interactive.bend`
+retains literal queued cut/cut/reset/cut picking checks.
 
 The complete milestone 6 gate passed with `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display`. Actual Atelier app-only captures and traces remain under `build/milestone-6-atelier-window-*`; quiet product captures remain under `build/window-product-*`. The [appearance contract](voxel.md#production-appearance-and-evidence) states exact identity, lighting and shadow comparison limits.
 
@@ -167,3 +176,45 @@ quarantined through recovery and requires the affected swapchain to be drained
 and destroyed when its image ownership cannot be recovered.
 
 A successful presentation retains its own completion owner, while a later acquisition may own the same image index. Current-image checks exclude retained presentation owners. Each swapchain preallocates twice its image count in lease records. Exhausting those records rejects a new acquire before dispatch. Observing an older presentation fence releases only its matching serial and semaphore.
+
+
+The native loop services every slot and fills free acquisitions before it polls
+new render submissions. `--slots=1` and `--slots=2` select one or two owners.
+Normal event polling waits up to 1 ms after slot work; suspension waits up to
+50 ms. `STATE completed_revision` is the newest body revision with an observed matching
+presentation-resource fence after a successful present call. An older completion cannot overwrite it.
+Installation alone does not advance the tag, and physical scanout is outside
+this observation. UINT32_MAX means unavailable and is never a body revision.
+The last valid revision is UINT32_MAX-1; a further edit fails before changing
+Body, so completion ordering never crosses a revision wrap.
+
+With `--trace`, CPU scopes use CLOCK_MONOTONIC U64 nanoseconds. Event/mesh work,
+allocation/staging/uniform upload, command recording/submission and the present
+call are disjoint scopes. Fence waiting and display latency are separate from
+those CPU calls. Upload preparation includes any deferred realization of packed
+source arrays; the event scope alone does not claim all meshing cost. GPU timestamp windows bracket upload, shadow and main command groups with
+TOP_OF_PIPE starts and BOTTOM_OF_PIPE ends. These inclusive windows can include
+preceding work still completing and overlap following work. They do not isolate
+exclusive stage costs, and neither the windows nor CPU and GPU samples can be
+added. The [timestamp command contract](https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdWriteTimestamp.html) defines those synchronization scopes. Display timing remains unmeasured. Capabilities report the actual valid bits and period.
+Unsupported timestamps, unavailable results, failed query reset and ambiguous
+half-wrap bounds emit explicit unavailable diagnostics and preserve rendering.
+A failed reset disables that frame's query view, so old completed values cannot
+be attributed to a new frame. `tools/check_timing.py` injects that exact failure.
+`tools/measure_m7.py` decodes the known integer-limb/F32 protocol and preserves
+the producer scope labels. No absent baseline attribution is inferred.
+
+The complete milestone 7 sanitizer and isolated-display gate passed on NVIDIA
+GeForce GTX 1660 with Khronos and synchronization validation. Its log is
+`build/milestone-7-final-verification.log`. Shared and split queue pairs 0/0 and
+0/2 passed actual Atelier edits, flight, resize, suspension, remap and close.
+The acquisition fixture verifies both pending uniform owners before either
+render fence is observed, all 2,336 bytes after completion, distinct shadow
+readbacks, equal-revision camera ordering and discarded-packet cleanup.
+
+The measurement driver alternates fresh native processes and requires exact
+static RGB, geometry and view signatures across each pair. A mismatch excludes
+that pair from comparative timing. Its flight workload shares scripted input
+duration across sides, while time-driven camera poses can differ. Reported
+throughput counts observed matching presentation-resource fences. It does not
+measure physical scanout or establish identical per-frame GPU work.

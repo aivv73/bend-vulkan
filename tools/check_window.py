@@ -173,7 +173,7 @@ def run_product(binary):
             text=log.read_text()
             assert process.returncode==0, text[-6000:]
             assert not text.strip(), text
-            assert not re.search(r'^STATE ',text,re.MULTILINE), 'Default product emitted per-turn STATE diagnostics'
+            assert not re.search(r'^(STATE|TIMING) ',text,re.MULTILINE), 'Default product emitted runtime diagnostics'
             assert 'Validation Error' not in text and 'SYNC-HAZARD' not in text, text
             print(f'Ordinary product default quiet, edit pixels, exact reset and suspended WM close passed. Evidence {log.relative_to(ROOT)}',flush=True)
         finally:
@@ -282,7 +282,7 @@ def run(binary, split=False, suspended_close=False, escape=False):
             suspended_acquisitions=acquisitions()
             time.sleep(.25); current=states(log)[-1]
             assert acquisitions()==suspended_acquisitions, 'Suspended app continued native acquisition dispatch'
-            assert current['frame']<=suspended['frame']+1 and current['generation']==suspended['generation'], 'Suspended app continued acquisition/recreation'
+            assert current['frame']<=suspended['frame']+2 and current['generation']==suspended['generation'], 'Suspended app continued acquisition/recreation'
             if not suspended_close:
                 x.map(True); x.focus(); restored=wait(lambda s:s['mapped']==1 and s['frame']>current['frame']+2,'Restore')
                 x.tap(ord('r')); wait(lambda s:s['quads']==384 and s['uploads']>restored['uploads'],'Input after restore')
@@ -298,10 +298,10 @@ def run(binary, split=False, suspended_close=False, escape=False):
             if counts:
                 assert 'Native metadata allocations=0' in text
                 assert max(rows for rows,allocs in counts)<100
-                assert max(allocs for rows,allocs in counts)<200
+                assert max(allocs for rows,allocs in counts)<300
                 assert counts[-1]==(0,0)
             steady=[s['rows'] for s in states(log) if s['generation']>=1 and s['uploads']>=2]
-            assert max(steady)-min(steady)<=8, 'Recreation or editing leaked rows'
+            assert max(steady)-min(steady)<=16, 'Recreation or editing leaked rows'
             assert 'Validation Error' not in text and 'SYNC-HAZARD' not in text, text
             assert 'AddressSanitizer' not in text and 'runtime error:' not in text, text
             queues=re.search(r'Queues (\d+) (\d+)',text)

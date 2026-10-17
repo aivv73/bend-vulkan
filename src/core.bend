@@ -235,3 +235,25 @@ def descriptor_schema(~A: Data, ~number: A -> U32, bindings: List<A>) -> List<A>
 
 def subrange_contains(+capacity: W.U64, +offset: W.U64, length: W.U64) -> Bool:
   Bool.not(size_less(capacity,offset)) && Bool.not(size_less(W.add(capacity,W.neg(offset)),length))
+
+def completed_revision(previous: U32, incoming: U32) -> U32:
+  match previous incoming:
+    case p 4294967295: p
+    case 4294967295 n: n
+    case p n: U32.max(p,n)
+
+def next_revision(current: U32) -> Maybe<&2,U32>:
+  match current:
+    case 4294967294: None{}
+    case 4294967295: None{}
+    case n: Some{U32.inc(n)}
+
+def sequence_ready(expected: W.U64, sequence: W.U64) -> Bool:
+  W.U64{lo,hi} = expected
+  W.U64{other_lo,other_hi} = sequence
+  U32.is_eq(lo,other_lo) && U32.is_eq(hi,other_hi)
+
+def sequence_next(current: W.U64) -> Maybe<&2,W.U64>:
+  match current:
+    case W.U64{4294967295,4294967295}: None{}
+    case value: Some{W.add(value,W.of_u32(1))}

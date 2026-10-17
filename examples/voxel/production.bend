@@ -47,7 +47,7 @@ def render(+device: V.Device, commands: Commands, target: Target, +group: Scene.
     V.CommandBuffer.pipeline_barrier(command,4864,1792,[V.MemoryBarrier{3584,1792}],[],[])
     E.transition(command,color,1,0,2,4096,1024,0,256)
     E.transition(command,depth,2,0,3,4864,768,0,1536)
-    Scene.record(command,group,programs,framebuffer,width,height,preview)
+    Scene.record(command,group,programs,framebuffer,width,height,preview,None{})
     E.transition(command,color,1,2,6,1024,4096,256,2048)
     E.transition(command,depth,2,3,6,768,4096,1024,2048)
     E.transition(command,shadow,2,4,6,128,4096,32,2048)

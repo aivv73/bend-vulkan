@@ -47,10 +47,12 @@ def main():
                              text=True, capture_output=True).stdout.strip()
     if version != "bend 2.0.37":
         raise SystemExit(f"The native effect ABI requires bend 2.0.37; found {version}")
+    BUILD.mkdir(exist_ok=True)
     run(sys.executable, "tools/generate.py", "--check")
+    run(sys.executable, "tools/check_measurement.py")
+    run(sys.executable, "tools/check_timing.py", *(["--sanitize"] if args.sanitize else []))
     run(sys.executable, "tools/build_shaders.py", "--check")
     run("bend", "PROOF.bend")
-    BUILD.mkdir(exist_ok=True)
     run(sys.executable, "tools/check_geometry.py")
     run(sys.executable, "tools/check_chunks.py")
     run(sys.executable, "tools/check_generations.py", *(["--sanitize"] if args.sanitize else []))

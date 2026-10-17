@@ -64,3 +64,27 @@ archive is unchanged. Executable sources still equal `ab3f2a1`.
 The task is `m7-final-trail-audit-r3`. Reconstruction, restored-tree identity
 and publication remain pending and outside this review's verdict. No compiler,
 GPU workload or write was performed by either reviewer.
+
+## Published delivery review
+
+The fresh task `m7-final-delivery-audit-r4` reports no flags. It uses the
+configured gpt-6.1-sol model at xhigh as an independent reviewer. This is
+an independent same-model review.
+
+Its fresh coverage includes decisions 102 through 112, TSV lines 103 through
+113, ending at 15:15:51Z. It reads only the root thread, with paginated messages
+and focused activity covering positions 2115 through 2287. Earlier coverage
+relies on the preceding reports. It also rechecks corrections 99 and 100.
+
+The reviewer confirms exact frame/backup tree identity, all 1,810 accepted
+producer hashes, the saved journal prefix, all 20 archived layer log hashes,
+all 13 generation checks and two added window commands. It verifies the eight
+fresh intermediate production reports, six sanitizer command groups, the
+intermediate source fingerprint and all five zero-row window shutdowns.
+GitHub and T3 confirm the four open ready PRs and their chain. Published
+evidence blobs, acceptance hashes and both corrected evidence records match.
+
+The [full report](m7-final-delivery-review.md) records the independent checks.
+The verdict excludes this later closure commit, CI outcomes and merging.
+Scanout, instrumentation overhead and complete memory bounds remain unavailable.
+The reviewer writes no files and runs no compiler, window or GPU workload.

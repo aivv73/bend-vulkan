@@ -35,7 +35,7 @@ def pipeline_finished(+device: V.Device, fragment: V.ShaderModule, result: V.VkR
 def pipeline(+device: V.Device, layout: V.PipelineLayout, pass: V.RenderPass, vertex: V.ShaderModule, words: List<U32>) -> V.Action(V.GraphicsPipeline):
   do V.Action<V.GraphicsPipeline>:
     +fragment : V.ShaderModule <- V.Device.create_shader_module(device,words)
-    result : V.VkResult(V.GraphicsPipeline) <- V.Action.lift(V.VkResult(V.GraphicsPipeline),V.Device.create_graphics_pipeline(device,V.GraphicsPipelineCreateInfo{layout,pass,vertex,fragment,[V.VertexInputBinding{0,40,0}],[V.VertexInputAttribute{0,0,106,0},V.VertexInputAttribute{1,0,37,12},V.VertexInputAttribute{2,0,37,16}],3,V.RasterState{2,0},Some{V.DepthState{True{},True{},1}},15}))
+    result : V.VkResult(V.GraphicsPipeline) <- V.Action.lift(V.VkResult(V.GraphicsPipeline),V.Device.create_graphics_pipeline(device,V.GraphicsPipelineCreateInfo{layout,pass,vertex,fragment,[V.VertexInputBinding{0,20,0}],[V.VertexInputAttribute{0,0,106,0},V.VertexInputAttribute{1,0,37,12},V.VertexInputAttribute{2,0,37,16}],3,V.RasterState{2,0},Some{V.DepthState{True{},True{},1}},15}))
     pipeline_finished(device,fragment,result)
 
 def framebuffer(device: V.Device, pass: V.RenderPass, color: E.Attachment, depth: E.Attachment) -> V.Action(V.Framebuffer):
@@ -96,57 +96,26 @@ def upload(+device: V.Device, buffer: E.BoundBuffer, length: U32, words: Array<U
     pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,m,W.zero(),W.of_u32(length),words))
     upload_checked(pair)
 
-def upload_sizes(size: M.PackedSize) -> V.Action(Unit):
-  M.PackedSize{q,vc,ic,vw,iw,+vb,+ib,vs,iscap,vd,id} = size
-  do V.Action<Unit>:
-    D.require(Bool.not(Core.size_less(W.of_u32(16777216),vb)),"Mesh logical vertex bytes exceed the 16 MiB single-write upload limit")
-    D.require(Bool.not(Core.size_less(W.of_u32(16777216),ib)),"Mesh logical index bytes exceed the 16 MiB single-write upload limit")
-
-def quads(s: M.PackedSize) -> U32:
-  M.PackedSize{q,vc,ic,vw,iw,vb,ib,vsize,isize,vd,id} = s
-  q
-
-def index_count(s: M.PackedSize) -> U32:
-  M.PackedSize{q,vc,ic,vw,iw,vb,ib,vsize,isize,vd,id} = s
-  ic
-
-def vertex_length(s: M.PackedSize) -> U32:
-  M.PackedSize{q,vc,ic,vw,iw,W.U64{vb,hi},ib,vsize,isize,vd,id} = s
-  vb
-
-def index_length(s: M.PackedSize) -> U32:
-  M.PackedSize{q,vc,ic,vw,iw,vb,W.U64{ib,hi},vsize,isize,vd,id} = s
-  ib
-
-def upload_nonempty(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, old: Geometry, mesh: M.Mesh, empty: Bool) -> V.Action(Geometry & M.Mesh):
-  match mesh empty:
-    case M.Mesh{fs,s,bounds,vs,ix} True{}:
-      do V.Action<Geometry & M.Mesh>:
-        release(device,old)
-        return (Empty{},M.Mesh{fs,s,bounds,vs,ix})
-    case M.Mesh{fs,+s,bounds,vs,ix} False{}:
-      +ic = index_count(s)
-      +vb = vertex_length(s)
-      +ib = index_length(s)
-      do V.Action<Geometry & M.Mesh>:
-        release(device,old)
-        +vbuffer : E.BoundBuffer <- E.buffer(instance,physical,device,vb,128)
-        +ibuffer : E.BoundBuffer <- E.buffer(instance,physical,device,ib,64)
-        vertices : Array<U32> <- upload(device,vbuffer,vb,vs)
-        indices : Array<U32> <- upload(device,ibuffer,ib,ix)
-        return (Geometry{vbuffer,ibuffer,ic},M.Mesh{fs,s,bounds,vertices,indices})
-
 def upload_mesh(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, old: Geometry, mesh: M.Mesh) -> V.Action(Geometry & M.Mesh):
-  M.Mesh{fs,+s,bounds,vs,ix} = mesh
-  do V.Action<Geometry & M.Mesh>:
-    upload_sizes(s)
-    upload_nonempty(instance,physical,device,old,M.Mesh{fs,s,bounds,vs,ix},U32.is_zero(quads(s)))
+  M.Mesh{fs,+count,vs,ix} = mesh
+  match count:
+    case 0:
+      do V.Action<Geometry & M.Mesh>:
+        release(device,old)
+        return (Empty{},M.Mesh{fs,0,vs,ix})
+    case +n:
+      do V.Action<Geometry & M.Mesh>:
+        release(device,old)
+        +vb : E.BoundBuffer <- E.buffer(instance,physical,device,(n * 80 : U32),128)
+        +ib : E.BoundBuffer <- E.buffer(instance,physical,device,(n * 24 : U32),64)
+        vertices : Array<U32> <- upload(device,vb,(n * 80 : U32),vs)
+        indices : Array<U32> <- upload(device,ib,(n * 24 : U32),ix)
+        return (Geometry{vb,ib,(n * 6 : U32)},M.Mesh{fs,n,vertices,indices})
 
 def mesh_replaced(renderer: Renderer, result: Geometry & M.Mesh) -> Renderer & M.Mesh:
   Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,old,uploads} = renderer
-  (geometry,M.Mesh{fs,+s,bounds,vs,ix}) = result
-  M.PackedSize{count,vc,ic,vw,iw,vb,ib,vsize,isize,vd,id} = s
-  (Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,(uploads + Bool.pick(U32,U32.is_zero(count),0,2) : U32)},M.Mesh{fs,s,bounds,vs,ix})
+  (geometry,M.Mesh{fs,+count,vs,ix}) = result
+  (Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,(uploads + Bool.pick(U32,U32.is_zero(count),0,2) : U32)},M.Mesh{fs,count,vs,ix})
 
 def replace_mesh(+renderer: Renderer, mesh: M.Mesh) -> V.Action(Renderer & M.Mesh):
   Renderer{+instance,+physical,+device,command,fence,fb,color,depth,stage,basic,mat,dir,old,uploads} = renderer
@@ -219,6 +188,6 @@ def geometry_bytes(renderer: Renderer) -> V.Action(List<U32>):
     case Empty{}: V.Action.pure(List<U32>,Nil{})
     case Geometry{E.BoundBuffer{vb,vm},E.BoundBuffer{ib,im},+count}:
       do V.Action<List<U32>>:
-        vs : List<U32> <- V.Device.read_memory(device,vm,W.zero(),(count / 6 * 160 : U32))
+        vs : List<U32> <- V.Device.read_memory(device,vm,W.zero(),(count / 6 * 80 : U32))
         ix : List<U32> <- V.Device.read_memory(device,im,W.zero(),(count * 4 : U32))
         return List.append(&1,U32,vs,ix)

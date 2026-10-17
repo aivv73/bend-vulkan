@@ -4,7 +4,6 @@ import ../../deps/bend-voxel/render.bend as R
 import ../../deps/bend-voxel/material.bend as P
 import ../../deps/bend-voxel/lighting.bend as L
 import ./mesh.bend as M
-import ./exterior.bend as Exterior
 import ./geometry.bend as G
 
 type Sample is Data:
@@ -17,8 +16,7 @@ def project(fs: List<&2,X.Face>, +basis: R.Basis, +palette: L.Palette) -> List<&
     case Nil{}: Nil{}
     case Con{X.Face{+cell,+d,+material},rest}:
       R.Projected.add(R.Projected.of(X.Face{cell,d,material},basis,palette,material),project(rest,basis,palette))
-    case Con{X.Rectangle{+cell,+d,+material,w,h},rest}:
-      R.Projected.add(R.Projected.of(X.Rectangle{cell,d,material,w,h},basis,palette,material),project(rest,basis,palette))
+    case _: Nil{}
 
 
 def empty() -> Sample:
@@ -26,22 +24,22 @@ def empty() -> Sample:
 
 def select(valid: Bool, +t: F32, +material: U32, +d: X.Direction, +near: F32, palette: P.Palette, old: Sample) -> Sample:
   Sample{+depth,om,od,oc} = old
-  Bool.pick(Sample,valid && ((1.0 - near / t) < depth : F32),Sample{(1.0 - near / t : F32),material,Exterior.direction(d),P.Palette.surface(palette,material,R.Face.light(d))},Sample{depth,om,od,oc})
+  Bool.pick(Sample,valid && ((1.0 - near / t) < depth : F32),Sample{(1.0 - near / t : F32),material,M.direction(d),P.Palette.surface(palette,material,R.Face.light(d))},Sample{depth,om,od,oc})
 
 
-def intersection(+denom: F32, du: F32, dv: F32, plane: F32, u0: F32, v0: F32, width: F32, height: F32, material: U32, +d: X.Direction, +near: F32, palette: P.Palette, +epsilon: F32, old: Sample) -> Sample:
+def intersection(+denom: F32, du: F32, dv: F32, plane: F32, u0: F32, v0: F32, material: U32, +d: X.Direction, +near: F32, palette: P.Palette, +epsilon: F32, old: Sample) -> Sample:
   +t = (plane / denom : F32)
   +u = (u0 + t * du : F32)
   +v = (v0 + t * dv : F32)
-  select(F32.is_ne(denom,0.0) && ((t >= near) && (u >= F32.neg(epsilon)) && (u <= width + epsilon) && (v >= F32.neg(epsilon)) && (v <= height + epsilon) : F32),t,material,d,near,palette,old)
+  select(F32.is_ne(denom,0.0) && ((t >= near) && (u >= F32.neg(epsilon)) && (u <= 1.0 + epsilon) && (v >= F32.neg(epsilon)) && (v <= 1.0 + epsilon) : F32),t,material,d,near,palette,old)
 
-def face_axes(axis: R.Vec3, plane: F32, u: F32, v: F32, width: F32, height: F32, mat: U32, d: X.Direction, near: F32, palette: P.Palette, +epsilon: F32, old: Sample) -> Sample:
+def face_axes(axis: R.Vec3, plane: F32, u: F32, v: F32, mat: U32, d: X.Direction, near: F32, palette: P.Palette, +epsilon: F32, old: Sample) -> Sample:
   R.Vec3{a,b,c} = axis
-  intersection(a,b,c,plane,u,v,width,height,mat,d,near,palette,epsilon,old)
+  intersection(a,b,c,plane,u,v,mat,d,near,palette,epsilon,old)
 
 def face_hit(face: R.Projected, ray: R.Vec3, near: F32, palette: P.Palette, +epsilon: F32, old: Sample) -> Sample:
   R.Projected{cell,+d,plane,u,v,color,visibility,mat,bounds,w,h,outline} = face
-  face_axes(R.Face.axes(d,ray),plane,u,v,w,h,mat,d,near,palette,epsilon,old)
+  face_axes(R.Face.axes(d,ray),plane,u,v,mat,d,near,palette,epsilon,old)
 
 def hit(fs: List<&2,R.Projected>, +ray: R.Vec3, +near: F32, +palette: P.Palette, +epsilon: F32, old: Sample) -> Sample:
   match fs:
@@ -76,15 +74,15 @@ def clipped_edges(points: List<&2,R.Vec3>, basis: R.Basis, edges: List<&2,R.Segm
 def local_edges(+a: R.Vec3, +b: R.Vec3, +c: R.Vec3, +d: R.Vec3, +basis: R.Basis, +near: F32, edges: List<&2,R.Segment>) -> List<&2,R.Segment>:
   clipped_edges(R.Clip.edge(a,b,near,R.Clip.edge(b,c,near,R.Clip.edge(c,d,near,R.Clip.edge(d,a,near,Nil{})))),basis,edges)
 
-def face_edges(coordinates: R.Vec3, +d: X.Direction, +basis: R.Basis, near: F32, +width: F32, +height: F32, edges: List<&2,R.Segment>) -> List<&2,R.Segment>:
+def face_edges(coordinates: R.Vec3, +d: X.Direction, +basis: R.Basis, near: F32, edges: List<&2,R.Segment>) -> List<&2,R.Segment>:
   R.Vec3{+p,+u,+v} = coordinates
-  local_edges(R.Basis.local(basis,R.Face.point(d,p,u,v)),R.Basis.local(basis,R.Face.point(d,p,(u + width : F32),v)),R.Basis.local(basis,R.Face.point(d,p,(u + width : F32),(v + height : F32))),R.Basis.local(basis,R.Face.point(d,p,u,(v + height : F32))),basis,near,edges)
+  local_edges(R.Basis.local(basis,R.Face.point(d,p,u,v)),R.Basis.local(basis,R.Face.point(d,p,(u + 1.0 : F32),v)),R.Basis.local(basis,R.Face.point(d,p,(u + 1.0 : F32),(v + 1.0 : F32))),R.Basis.local(basis,R.Face.point(d,p,u,(v + 1.0 : F32))),basis,near,edges)
 
 def edges(fs: List<&2,X.Face>, +basis: R.Basis, +near: F32, ss: List<&2,R.Segment>) -> List<&2,R.Segment>:
   match fs:
     case Nil{}: ss
-    case Con{X.Face{cell,+d,m},rest}: edges(rest,basis,near,face_edges(R.Face.coordinates(d,cell),d,basis,near,1.0,1.0,ss))
-    case Con{X.Rectangle{cell,+d,m,w,h},rest}: edges(rest,basis,near,face_edges(R.Face.coordinates(d,cell),d,basis,near,U32.to_f32(w),U32.to_f32(h),ss))
+    case Con{X.Face{cell,+d,m},rest}: edges(rest,basis,near,face_edges(R.Face.coordinates(d,cell),d,basis,near,ss))
+    case _: ss
 
 def byte_close(+a: U32, +b: U32) -> Bool:
   ((a <= b + 1) && (b <= a + 1) : U32)
@@ -94,7 +92,7 @@ def upstream_equal(sample: Sample, hit: R.Hit, +near: F32) -> Bool:
   R.Hit{t,c,id,cell,d} = hit
   match cell:
     case None{}: U32.is_eq(mat,0)
-    case Some{cell}: U32.is_eq(mat,id) && U32.is_eq(dir,Exterior.direction(d)) && (F32.abs((depth - (1.0 - near / t) : F32)) <= 0.00002 : F32)
+    case Some{cell}: U32.is_eq(mat,id) && U32.is_eq(dir,M.direction(d)) && (F32.abs((depth - (1.0 - near / t) : F32)) <= 0.00002 : F32)
 
 def expected(sample: Sample, +mode: U32, +r: U32, +g: U32, +b: U32, +a: U32, +depth: F32) -> Bool:
   Sample{+z,+mat,+dir,+color} = sample

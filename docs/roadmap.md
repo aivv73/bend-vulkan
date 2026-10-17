@@ -5,7 +5,7 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Milestones 0 through 6 are implemented. Later milestones describe planned capabilities and proposed API names.
+Milestones 0 through 5 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
@@ -17,7 +17,7 @@ Milestones 0 through 6 are implemented. Later milestones describe planned capabi
 | 3. Indexed graphics | Implemented | SPIR-V modules, graphics pipelines, vertex/index binding, depth testing, push constants | Every-pixel RGBA8/D32 occlusion in both orders, both index widths, clipping, camera updates, and stable reuse |
 | 4. Voxel mesh consumer | Implemented | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
 | 5. Interactive presentation | Implemented | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
-| 6. Full scene and appearance | Implemented | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
+| 6. Full scene and appearance | Planned | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
 | 7. Repeated edits and throughput | Planned | Reusable upload storage, resource retirement, measured batching | Camera flight and repeated carving stay correct with stable resource use |
 | 8. Library breadth and portability | Planned | Broader generated bindings, negotiated extensions, additional platforms | Documented support verified on additional drivers and applications |
 
@@ -157,7 +157,7 @@ Before using the cuboid path for the full scene, resolve shared and overlapping 
 
 Completion evidence: formal mesh properties and native rendered output agree on the intact and carved cube's geometry and materials.
 Keep the existing renderer as a visual reference. Compare rasterization edge coverage under a stated policy rather than assuming identical floating-point pixel output.
-Milestone 4 used basic material colors. Milestone 6 adds production shadows and brush overlays.
+Basic material colors are sufficient here. Production shadows and brush overlays arrive in milestone 6.
 
 Acceptance passed with `python3 tools/verify.py --sanitize` on NVIDIA GeForce GTX 1660 with Khronos and synchronization validation enabled.
 The [consumer](../examples/voxel_offscreen.bend) exports intact and metric-demo-carved 8³ cubes at 512×512, plus reset, empty, and unchanged upstream renderer references.
@@ -184,41 +184,37 @@ Begin with one frame in flight. Add overlap after the ownership and synchronizat
 Normal frames use fences and semaphores. Queue-idle waits remain available for simple tools and explicit shutdown paths.
 
 Renderer work: preserve movement, mouse look, carving, reset, and close behavior through the new presentation boundary.
-At the historical milestone 5 checkpoint, brush preview was deferred to milestone 6.
+Brush preview can remain absent until milestone 6, but that limitation must be explicit in this checkpoint.
 
 Completion evidence: drive a real native window through camera movement, edits, recreation, and close.
 Verify frame ownership, continued input delivery, repeated recreation, and zero remaining wrapper objects after shutdown.
 
 Acceptance passed with `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` on NVIDIA GeForce GTX 1660.
 The complete old headless suite, presentation ABI, literal semaphore readback, controlled failures, and native window checks passed with Khronos and synchronization validation.
-The actual queue combinations were graphics and presentation 0/0 and 0/2. The native driver verified flight, relative look, click and demo cuts, reset, repeated landscape/portrait resize, focus-loss capture release, unmap/restore, continued input, and close while suspended.
+The actual queue combinations were graphics/present 0/0 and 0/2. The native driver verified flight, relative look, click and demo cuts, reset, repeated landscape/portrait resize, focus-loss capture release, unmap/restore, continued input, and close while suspended.
 Each native run ended with zero wrapper rows and zero tracked native metadata allocations. App-only PNGs and logs remain under `build/window-*`.
 The [presentation contract](presentation.md) defines maintenance1 fence completion, explicit acquisition leases, borrowed-image lifetimes, rollback, viewport mapping, and the Linux/X11 support boundary.
-The historical cube checkpoint remains an explicit regression mode; milestone 6 adds the production preview.
+Brush preview remains deferred to milestone 6.
 
 ## 6. Full scene and appearance
 
 Wrapper work:
 
-- [x] Add descriptor-set layouts, pools, allocation, updates, binding, uniform buffers, and sampled-image bindings.
-- [x] Add samplers and depth-image sampling needed for a shadow pass.
-- [x] Support the transitions and dependencies between shadow rendering, sampling, color rendering, and readback or presentation.
-- [x] Protect descriptor contents and referenced resources while submissions use them.
+- [ ] Add descriptor-set layouts, pools, allocation, updates, binding, uniform buffers, and sampled-image bindings.
+- [ ] Add samplers and depth-image sampling needed for a shadow pass.
+- [ ] Support the transitions and dependencies between shadow rendering, sampling, color rendering, and readback or presentation.
+- [ ] Protect descriptor contents and referenced resources while submissions use them.
 
 Renderer work:
 
-- [x] Export the full Atelier scene as a correct exterior mesh, including material boundaries and existing rectangular faces.
-- [x] Port material palette behavior, directional light, sky ambient light, ground, and grid.
-- [x] Restore sun shadows with an explicit image-comparison policy for differences from the existing cached lighting fields.
-- [x] Keep lighting calculations in linear RGB and encode display output once.
-- [x] Restore picking, exact brush selection, tint, and depth-aware brush rings. Keep cell/material identity available independently of merged triangle geometry.
+- [ ] Export the full Atelier scene as a correct exterior mesh, including material boundaries and existing rectangular faces.
+- [ ] Port material palette behavior, directional light, sky ambient light, ground, and grid.
+- [ ] Restore sun shadows with an explicit image-comparison policy for differences from the existing cached lighting fields.
+- [ ] Keep lighting calculations in linear RGB and encode display output once.
+- [ ] Restore picking, exact brush selection, tint, and depth-aware brush rings. Keep cell/material identity available independently of merged triangle geometry.
 
 Completion evidence: validate full and carved scenes, several camera poses, unsupported material diagnostics, lighting, shadows, and brush interaction.
 Compare world and surface state exactly. Record any intentional appearance differences separately from geometry correctness.
-
-The completed native default is Atelier with `Camera.atelier()`, exact 20 cm selection and depth-aware rings. `--cube` retains the older basic renderer with 64-byte push constants. Body is edit authority; CPU geometry updates before the next queued event, and acquisition-fence success atomically installs the latest geometry and matching appearance frame. Stable scene resources survive target recreation.
-
-Acceptance passed the complete `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` gate, plus the separately executed pure shadow-causality port on the same final actual captures. Khronos and synchronization validation and real ASan/UBSan device runs passed. Default Atelier windows with shared and distinct queue families exercised queue pairs 0/0 and 0/2. Logs and real images remain under `build/milestone-6-*`; the [voxel contract](voxel.md#production-appearance-and-evidence) records exact counts, selected shadow-depth witnesses, causal bounds, cached and direct visibility distinctions and proof limits. Both pinned Atelier and production shadows use effective 512-square depth. No unexplained selected shadow differences or masked identity errors are accepted.
 
 ## 7. Repeated edits and throughput
 
@@ -273,4 +269,4 @@ Finish each milestone's acceptance result before starting its dependent mileston
 
 ## Start here
 
-Milestone 6 is complete. Milestone 7 should measure and improve repeated editing and uploads. Preserve the exact geometry, production appearance and native presentation gates. Multiple frames, chunk uploads and shadow-history caching remain outside the implemented consumer.
+Milestone 5 is complete. Continue with milestone 6 appearance and preserve both the verified offscreen consumer and native presentation acceptance.

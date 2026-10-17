@@ -1,8 +1,8 @@
 # X11 presentation
 
-The interactive consumer displays the full editable Atelier scene in a native Vulkan window. `--cube` selects the earlier basic 8³ cube regression mode.
+The interactive consumer displays an editable 8³ cube in a native Vulkan window.
 Bend owns the world, controls, camera, picking, mesh, uploads, target generation, and frame loop.
-The native wrapper owns checked handles and Vulkan dispatch. Production draws materials, sun shadows, ground and grid, exact yellow selection and three depth-aware brush rings.
+The native wrapper owns checked handles and Vulkan dispatch. Brush preview remains deferred to milestone 6.
 
 ## Run and verify
 
@@ -17,11 +17,11 @@ bend examples/voxel_interactive.bend -o build/voxel-interactive
 ./build/voxel-interactive
 ```
 
-The default uses `Camera.atelier()`. Use WASD and Q/E to move the camera. Hold RMB for relative look. Left click cuts the hovered surface with a fixed 20 cm sphere. Space cuts the current hover. R reconstructs the selected original Body while preserving the camera and controls. In `--cube` mode Space retains its fixed demo cut.
+WASD and Q/E move the camera. Hold RMB for relative look. Click to carve, press Space for the demo cut, and press R to reset.
 Escape and WM close exit. Capture refusal leaves the application running with look disabled.
 Focus loss and unmap release capture and held movement controls. Window polling never draws CPU pixels.
 Add `--trace` to print per-turn `STATE` diagnostics with camera, mesh, upload, and wrapper counters.
-The window acceptance driver enables this flag, including actual graphics and presentation queue output. Normal runs are quiet.
+The window acceptance driver enables this flag. Normal runs omit these diagnostics.
 
 ```sh
 python3 tools/verify.py --sanitize --presentation
@@ -116,12 +116,8 @@ Landscape and portrait resize therefore preserve agreement between displayed fac
 
 The consumer reuses the packed mesh, upload, publication, and indexed draw helpers used by the offscreen renderer.
 Each cut and reset prepares the CPU body and picking mesh together, so queued clicks use the current surface before upload.
-World owns CPU Body and Mesh, original scene choice, camera, controls, uncaptured pointer, dirty state and CPU geometry revision. Session owns the single GPU geometry group, installed revision and upload count beside the existing frame phase and target state. Camera changes retain mesh buffers and uploads.
-After acquisition-fence SUCCESS, the loop installs the latest prepared CPU mesh, computes hover, exact selected cells, camera, viewport and the 2,336-byte frame from that revision, then uploads and records before processing another event batch. Events received while Submitted or Presenting remain dirty for the next frame. Host writes occur only after previous completion and command reset.
-
-Move and button events refresh the uncaptured pointer. Captured look and edits deliberately use the current viewport center. Ground is not pickable and does not write the voxel depth that hides rings.
-
-The stable scene group retains descriptors, uniform, sampler, fixed 512-square shadow resources, layouts and ring indices during resize. The target rebuilds world, background and ring pipelines against its actual format and render pass. Partial construction unwinds in dependency order. Both native presentation and offscreen readback call `Scene.record`; their output ownership remains separate.
+Camera changes retain mesh buffers and uploads. GPU replacement reuses the prepared mesh and runs only in the idle phase after observed completion and successful command reset.
+A target-specific ownership list unwinds partial construction in dependency order.
 
 ## Evidence boundaries
 
@@ -136,16 +132,10 @@ These injected outcomes do not claim driver or hardware failure coverage.
 
 `tools/check_window.py` requires visible image changes and model changes for camera and edits.
 Each resized edit must change pixels, and reset must restore the intact image at the same camera and extent.
-Its `--product` check builds the ordinary executable, verifies default quiet output, compares actual cut and reset pixels, and closes the unmapped window.
+Its `--product` check builds the ordinary executable, verifies default quiet output, compares actual cut/reset pixels, and closes the unmapped window.
 It checks capture loss, repeated non-square recreation, suspension, restore, continued input, Escape, and WM close.
 A native dispatch counter verifies that acquisition stops while the window is unmapped.
 The emitted test allocator bounds wrapper metadata and requires zero allocations and zero registry rows after shutdown.
 ASan driver-global leak detection is disabled. Wrapper counters remain explicit.
 Pure laws cover queue selection, formats, image counts, suspension, extent selection, and pixel-center units.
 They do not prove floating-point calculations, native effects, Vulkan drivers, or shaders.
-
-`tools/check_atelier_window.py` drives actual default Atelier runs with graphics and presentation queue families 0/0 and 0/2. It checks images after settled-hover clicks, Space and reset, revisions and upload counts, flight and relative look, resize, suspension and remapping and zero-row shutdown. `tools/check_window.py` retains explicit `--cube` regression invocations; its quiet-product check uses default Atelier and settles hover before capturing the intact image. A pointer-only image change cannot count as carving.
-
-`tests/appearance_acquisition.bend` acquires a real native image, queues edits and changes to the camera and hover during Acquiring, then checks actual device geometry and all 2,336 frame bytes against that recorded revision. It also queues pointer input during Submitted and flight during Presenting and requires dirty state to survive completion and command reset. `tests/interactive.bend` covers button coordinates without a prior Move and capture-release pointer state.
-
-The complete milestone 6 gate passed with `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display`. Actual Atelier app-only captures and traces remain under `build/milestone-6-atelier-window-*`; quiet product captures remain under `build/window-product-*`. The [appearance contract](voxel.md#production-appearance-and-evidence) states exact identity, lighting and shadow comparison limits.

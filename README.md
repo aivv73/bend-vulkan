@@ -14,7 +14,6 @@ Uniform-buffer and combined-image-sampler descriptors support sparse bindings, a
 Use Linux with glibc 2.34 or newer. Install Bend **2.0.37**, Clang, Python 3, Vulkan development headers, `libvulkan.so.1`, and a Vulkan driver.
 A hardware driver or a software ICD such as Lavapipe can provide the device.
 The examples select a graphics queue for transfer commands.
-Production verification also requires Python NumPy and Pillow. Production rendering requires sampled D32 support.
 
 Initialize the pinned dependencies:
 
@@ -99,7 +98,7 @@ The [voxel contract](docs/voxel.md) defines packing, projection, edge comparison
 Actual GPU checks cover full U32 material bytes, all six directions, edits, empty meshes, and camera frames without mesh uploads.
 The reference renderer runs on the CPU. CUDA is not a prerequisite.
 
-## Run the Atelier scene
+## Run the interactive cube
 
 Build and run the native X11 consumer:
 
@@ -108,24 +107,11 @@ bend examples/voxel_interactive.bend -o build/voxel-interactive
 ./build/voxel-interactive
 ```
 
-The default scene is the full pinned Atelier with `Camera.atelier()`, linear material lighting, sun shadows, gradient, ground and grid. A fixed 20 cm brush marks exact selected cells yellow and draws three depth-aware rings.
-Use WASD and Q/E to fly. Hold RMB to look. Left click carves the hovered surface. Space cuts the current hover. R restores the original scene while retaining the camera.
-Escape and the native window close button exit. Resize and minimize preserve world state. Ordinary runs are quiet; `--trace` enables verification diagnostics.
+Use WASD and Q/E to fly, hold RMB to look, click to carve, press Space for the demo cut, and press R to reset the cube.
+Escape and the native window close button exit. Resize and minimize preserve input and world state.
+Brush preview remains deferred to milestone 6. The [presentation contract](docs/presentation.md) describes requirements, ownership, and completion.
 
-Use `./build/voxel-interactive --cube` for the earlier basic cube mode. Its Space key retains the fixed demo cut. The [presentation contract](docs/presentation.md) describes ownership, input and completion.
-
-![Actual default Atelier application window with brush preview](docs/atelier-interactive.png)
-
-Generate the original reference records, then run production offscreen acceptance and export actual RGBA8, camera D32, shadow D32 and PNG captures:
-
-```sh
-python3 tools/check_reference_lighting.py
-python3 tools/check_production.py --sanitize
-```
-
-Direct production checks require the original reference records at `build/milestone-6-reference/receivers.jsonl`; run the reference checker first.
-
-The offscreen and native owners use the same production recorder. Captures and reports remain under `build/milestone-6-production/`. The [voxel contract](docs/voxel.md) separates exact state and identity checks from bounded appearance comparisons.
+![Vulkan cube after the Space demo cut](docs/voxel-interactive.png)
 
 ## Use the API
 
@@ -150,8 +136,6 @@ See [the API reference](docs/api.md) for supported operations and [the design](d
 See the [roadmap](docs/roadmap.md) for milestone status and remaining renderer work.
 
 ## Verify changes
-
-Verification requires Python 3 with NumPy and Pillow, `glslc`, `spirv-val`, and `vulkaninfo` from vulkan-tools, in addition to the native build dependencies above. Presentation checks also require X11 development headers/runtime, rootful Xwayland for `--isolated-display`, and ImageMagick `import`.
 
 Run the generator check, proof gate, native examples, and negative integration checks:
 
@@ -199,7 +183,6 @@ When Khronos validation is installed, it also runs the real GPU checks with sync
 A missing driver or device fails native verification. It is not a passing skip.
 Bend's pure laws live in `LAWS.bend`; their proofs live in `PROOF.bend`.
 Before committing, run `bend PROOF.bend`. For the additional proof-kernel check, run `bend PROOF.bend --verdict`.
-The normal checker accepts the retained laws. The optional independent kernel has a mismatch on the unchanged 3,072-quad index-bound law, also present on the baseline. No assertion or proof range is reduced to avoid it.
 The laws cover pure functions. They do not verify C code, Vulkan drivers, or GPU execution.
 
 `tools/bindings.json` defines the supported effects. `tools/generate.py` generates their Bend declarations, native registrations, JavaScript errors, and selected core constants from the checked-in Khronos registry extract.
@@ -212,5 +195,3 @@ Noncoherent cache paths have controlled flush-failure coverage. Their driver cov
 
 The milestone-4 consumer also passes the complete sanitize suite on that device, including whole-frame reference checks, GPU metadata diagnostics, bounded edits, and zero-row cleanup.
 Its native translation unit preprocesses and builds without CUDA support.
-
-Milestone 6 acceptance passed the complete sanitizer and isolated-display presentation gate on NVIDIA GeForce GTX 1660 with Khronos and synchronization validation. The separately executed pure shadow-causality gate uses the same actual captures. See `build/milestone-6-appearance-verification.log`, `build/milestone-6-shadow-causality-verification.log` and `build/milestone-6-production/shadow-causality/results.json`.

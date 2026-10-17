@@ -44,11 +44,6 @@ def main():
     run(sys.executable, "tools/build_shaders.py", "--check")
     run("bend", "PROOF.bend")
     BUILD.mkdir(exist_ok=True)
-    run(sys.executable, "tools/check_geometry.py")
-    run(sys.executable, "tools/check_appearance_math.py")
-    run(sys.executable, "tools/check_reference_lighting.py")
-    run(sys.executable, "tools/check_appearance_gpu.py", *(["--sanitize"] if args.sanitize else []))
-    run(sys.executable, "tools/check_production.py", *(["--sanitize"] if args.sanitize else []))
     # The interpreted backend must fail explicitly, with a well-formed Result.
     unsupported = subprocess.run(["bend", "examples/discover.bend"], cwd=ROOT,
                                  text=True, capture_output=True, timeout=60)
@@ -68,7 +63,6 @@ def main():
     run(str(BUILD / "presentation-abi"), timeout=60)
     discovery_output = ""
     for source, name, expected in (
-        ("tests/geometry_device.bend", "geometry-device", "Actual Vulkan Atelier logical-array bytes, state equality, resource rows and rendered rectangles passed"),
         ("examples/voxel_offscreen.bend", "voxel-offscreen", "Voxel complete geometry, RGBA8+D32 references"),
         ("examples/discover.bend", "discover", "Loader API version bits:"),
         ("examples/indexed_offscreen.bend", "indexed-offscreen", "Indexed RGBA8+D32 every-pixel occlusion"),
@@ -92,12 +86,12 @@ def main():
     ):
         binary = BUILD / name
         run("bend", source, "-o", str(binary))
-        completed = run(str(binary), text=True, capture_output=True, timeout=180 if name in {"voxel-offscreen", "geometry-device"} else 60)
+        completed = run(str(binary), text=True, capture_output=True, timeout=180 if name == "voxel-offscreen" else 60)
         (BUILD / f"{name}.log").write_text(completed.stdout + completed.stderr)
         print(completed.stdout, end="", flush=True)
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
-        if name in {"discover", "voxel-offscreen", "geometry-device"}:
+        if name in {"discover", "voxel-offscreen"}:
             linked = subprocess.run(["ldd", str(binary)], check=True, text=True, capture_output=True).stdout
             if "libX11" in linked or "libxcb" in linked:
                 raise SystemExit(f"Headless binary gained a display dependency: {name}\n{linked}")
@@ -113,8 +107,8 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("geometry-device", "descriptors", "semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
-            completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=180 if name in {"voxel-offscreen", "geometry-device"} else 60)
+        for name in ("descriptors", "semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
+            completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=180 if name == "voxel-offscreen" else 60)
             (BUILD / f"{name}-validation.log").write_text(completed.stdout + completed.stderr)
             diagnostics = completed.stdout + completed.stderr
             if "Validation Error" in diagnostics or "SYNC-HAZARD" in diagnostics:
@@ -147,30 +141,11 @@ def main():
         print(completed.stdout, end="", flush=True)
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
-    geometry_c = BUILD / "geometry-device.c"
-    run("bend", "tests/geometry_device.bend", "-o", str(geometry_c))
-    geometry_preprocessed = BUILD / "geometry-device-preprocessed.c"
-    run("clang", "-std=c11", "-E", "-P", str(geometry_c), "-o", str(geometry_preprocessed))
-    if re.search(r"\b(?:cuLaunchKernel|cuInit|nvrtcCreateProgram)\s*\(", geometry_preprocessed.read_text()):
-        raise SystemExit("CPU geometry device translation unit retains CUDA dispatch")
-    if (BUILD / "geometry-device.gpu").exists():
-        raise SystemExit("Unexpected geometry device GPU artifact")
-    if args.sanitize:
-        geometry_sanitized = BUILD / "geometry-device-sanitized"
-        run("clang", "-std=c11", "-O1", "-g", "-fsanitize=address,undefined",
-            "-fno-omit-frame-pointer", str(geometry_c), "-lpthread", "-lm", "-ldl", "-o", str(geometry_sanitized))
-        completed = run(str(geometry_sanitized), env=env, text=True, capture_output=True, timeout=240)
-        (BUILD / "geometry-device-sanitized.log").write_text(completed.stdout + completed.stderr)
-        print(completed.stdout, end="", flush=True)
-        if completed.stderr:
-            print(completed.stderr, end="", file=sys.stderr)
     run(sys.executable, "tools/check_native.py", *(["--sanitize"] if args.sanitize else []))
     if args.presentation:
         presentation_flags = (["--sanitize"] if args.sanitize else []) + (["--isolated-display"] if args.isolated_display else [])
-        run(sys.executable, "tools/check_acquisition.py", *presentation_flags)
         run(sys.executable, "tools/check_presentation.py", *presentation_flags)
         run(sys.executable, "tools/check_window.py", "--build", "--all", *presentation_flags)
-        run(sys.executable, "tools/check_atelier_window.py", "--binary", str(BUILD / ("voxel-interactive-sanitized" if args.sanitize else "voxel-interactive-checked")), *(["--isolated-display"] if args.isolated_display else []))
         run(sys.executable, "tools/check_window.py", "--product", *(["--isolated-display"] if args.isolated_display else []))
     print("Generation, proofs, and native Vulkan integration passed.")
 

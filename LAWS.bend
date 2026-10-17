@@ -1,13 +1,9 @@
 import Base
-import ./examples/voxel/appearance.bend as Appearance
-import ./shaders/appearance_uniforms.bend as Uniform
-import ./examples/voxel/geometry-laws.bend as GeometryLaws
 import ./src/core.bend as Core
 import ./src/constants.bend as vk
 import ./deps/bend-collections/src/math/u64.bend as W
 import ./examples/voxel/mesh.bend as Mesh
 import ./examples/voxel/geometry.bend as Geometry
-import ./examples/voxel/exterior.bend as Exterior
 import ./deps/bend-voxel/voxel.bend as Voxel
 import ./deps/bend-voxel/render.bend as Reference
 
@@ -107,36 +103,31 @@ law binding_alignment_rejects_width:
 
 law voxel_full_material_word:
   for material: U32
-  {Mesh.material_word(Mesh.quad(Voxel.Cell{0,0,0},0,0,material,1,1,0,[0 : U32^6n])) == material : U32}
+  {Mesh.material_word(Mesh.quad(Voxel.Cell{0,0,0},0,0,material,0,[0 : U32^5n])) == material : U32}
 
 law voxel_high_material_bits:
-  {Mesh.material_word(Mesh.quad(Voxel.Cell{0,0,0},5,0,4294967295,1,1,0,[0 : U32^6n])) == 4294967295 : U32}
+  {Mesh.material_word(Mesh.quad(Voxel.Cell{0,0,0},5,0,4294967295,0,[0 : U32^5n])) == 4294967295 : U32}
 
 law voxel_rgb_direction_bytes:
   {Mesh.rgbd(1193046,5) == 89535506 : U32}
 
 law voxel_all_direction_codes:
-  {[Exterior.direction(Voxel.NegX{}),Exterior.direction(Voxel.PosX{}),Exterior.direction(Voxel.NegY{}),Exterior.direction(Voxel.PosY{}),Exterior.direction(Voxel.NegZ{}),Exterior.direction(Voxel.PosZ{})] == [0,1,2,3,4,5] : List<U32>}
+  {[Mesh.direction(Voxel.NegX{}),Mesh.direction(Voxel.PosX{}),Mesh.direction(Voxel.NegY{}),Mesh.direction(Voxel.PosY{}),Mesh.direction(Voxel.NegZ{}),Mesh.direction(Voxel.PosZ{})] == [0,1,2,3,4,5] : List<U32>}
 
 law voxel_empty_face_count:
-  {Exterior.count(Nil{},0) == Done{0} : Result<&2,&2,Exterior.Error,U32>}
+  {Mesh.count(Nil{}) == 0 : U32}
 
 law voxel_face_count_step:
   for face: Voxel.Face
   for faces: List<&2,Voxel.Face>
-  for n: U32
-  {Exterior.count(face <> faces,n) == GeometryLaws.bounded_count_step(faces,n) : Result<&2,&2,Exterior.Error,U32>}
-
-law voxel_face_count_limit:
-  for face: Voxel.Face
-  {Exterior.count([face],26843545) == Fail{Exterior.GeometryTooLarge{}} : Result<&2,&2,Exterior.Error,U32>}
+  {Mesh.count(face <> faces) == U32.add(1,Mesh.count(faces)) : U32}
 
 law voxel_quad_index_pattern:
   for base: U32
   {Array.to_list(~U32,Mesh.index_quad(base,0,[0 : U32^3n])) == [base,U32.add(base,1),U32.add(base,2),U32.add(base,2),U32.add(base,3),base,0,0] : List<U32>}
 
 law voxel_intact_counts:
-  {((384 * 4 : U32),(384 * 6 : U32),(384 * 160 : U32),(384 * 24 : U32)) == (1536,2304,61440,9216) : U32 & U32 & U32 & U32}
+  {((384 * 4 : U32),(384 * 6 : U32),(384 * 80 : U32),(384 * 24 : U32)) == (1536,2304,30720,9216) : U32 & U32 & U32 & U32}
 
 law voxel_max_fixture_index:
   {Array.to_list(~U32,Mesh.index_quad(12284,0,[0 : U32^3n])) == [12284,12285,12286,12286,12287,12284,0,0] : List<U32>}
@@ -205,78 +196,3 @@ law descriptor_insert_single:
 
 law descriptor_sparse_canonical:
   {Core.descriptor_schema(~U32,~(x => x),[9,3,0]) == [0,3,9] : List<U32>}
-
-law exterior_subtract_center_four_disjoint_pieces:
-  {Exterior.subtract(Exterior.Rect2{0,7,0,9},Exterior.Rect2{2,5,3,6}) == [Exterior.Rect2{0,2,0,9},Exterior.Rect2{5,7,0,9},Exterior.Rect2{2,5,0,3},Exterior.Rect2{2,5,6,9}] : List<&2,Exterior.Rect2>}
-
-law exterior_subtract_touching_unchanged:
-  {Exterior.subtract(Exterior.Rect2{1,4,2,7},Exterior.Rect2{4,8,3,5}) == [Exterior.Rect2{1,4,2,7}] : List<&2,Exterior.Rect2>}
-
-law exterior_subtract_contains_empty:
-  {Exterior.subtract(Exterior.Rect2{1,4,2,7},Exterior.Rect2{0,5,0,8}) == Nil{} : List<&2,Exterior.Rect2>}
-
-law exterior_rectangle_preserves_full_material:
-  for normal: U32
-  for d: Voxel.Direction
-  for m: U32
-  for r: Exterior.Rect2
-  {GeometryLaws.material(Exterior.face(normal,d,m,r)) == m : U32}
-
-law exterior_rectangle_preserves_direction:
-  for normal: U32
-  for +d: Voxel.Direction
-  for m: U32
-  for r: Exterior.Rect2
-  {GeometryLaws.face_direction(Exterior.face(normal,d,m,r)) == d : Voxel.Direction}
-
-law exterior_indices_preserve_order:
-  for +base: U32
-  {Array.to_list(~U32,Mesh.index_quad(base,0,[0 : U32^3n])) == [base,(base + 1 : U32),(base + 2 : U32),(base + 2 : U32),(base + 3 : U32),base,0,0] : List<U32>}
-
-law exterior_coordinate_bound_exact:
-  {Exterior.box_bounded(Voxel.Cuboid{Voxel.Cell{1048575,0,0},Voxel.Cell{1048576,1,1},4294967295}) == True{} : Bool}
-
-law exterior_coordinate_bound_rejects_next:
-  {Exterior.box_bounded(Voxel.Cuboid{Voxel.Cell{1048576,0,0},Voxel.Cell{1048577,1,1},1}) == False{} : Bool}
-
-law exterior_count_limit_accepts_exact:
-  {Result.is_done(&2,&2,Exterior.Error,Mesh.PackedSize,Mesh.size(26843545)) == True{} : Bool}
-
-law exterior_count_limit_rejects_next:
-  {Mesh.size(26843546) == Fail{Exterior.GeometryTooLarge{}} : Result<&2,&2,Exterior.Error,Mesh.PackedSize>}
-
-law exterior_count_limit_rejects_wrapping_product:
-  {Mesh.size(4294967295) == Fail{Exterior.GeometryTooLarge{}} : Result<&2,&2,Exterior.Error,Mesh.PackedSize>}
-
-law exterior_capacity_bytes_keep_high_limb:
-  {Mesh.word_bytes(1073741824) == W.U64{0,1} : W.U64}
-
-law exterior_asymmetric_first_normals:
-  {[GeometryLaws.first(0),GeometryLaws.first(1),GeometryLaws.first(2),GeometryLaws.first(3),GeometryLaws.first(4),GeometryLaws.first(5)] == [Voxel.Cell{4294967290,0,0},Voxel.Cell{6,0,0},Voxel.Cell{0,4294967290,0},Voxel.Cell{0,6,0},Voxel.Cell{0,0,4294967290},Voxel.Cell{0,0,6}] : List<&2,Voxel.Cell>}
-
-law exterior_asymmetric_second_normals:
-  {[GeometryLaws.second(0),GeometryLaws.second(1),GeometryLaws.second(2),GeometryLaws.second(3),GeometryLaws.second(4),GeometryLaws.second(5)] == [Voxel.Cell{4294967290,0,0},Voxel.Cell{6,0,0},Voxel.Cell{0,4294967290,0},Voxel.Cell{0,6,0},Voxel.Cell{0,0,4294967290},Voxel.Cell{0,0,6}] : List<&2,Voxel.Cell>}
-
-law exterior_overlap_rejected_with_sources:
-  {Exterior.validate([Voxel.Cuboid{Voxel.Cell{0,0,0},Voxel.Cell{3,3,3},1},Voxel.Cuboid{Voxel.Cell{1,1,1},Voxel.Cell{2,2,2},2}],0) == Fail{Exterior.OverlappingBoxes{0,1}} : Result<&2,&2,Exterior.Error,Unit>}
-
-law exterior_clipping_preserves_every_material:
-  for rs: List<&2,Exterior.Rect2>
-  for +normal: U32
-  for +d: Voxel.Direction
-  for +m: U32
-  for +old: Exterior.Rect2
-  {GeometryLaws.materials(Exterior.lift(rs,Exterior.Patch{normal,d,m,old})) == GeometryLaws.repeated(rs,m) : List<U32>}
-
-
-law appearance_payload_bytes:
-  {Uniform.byte_size() == 2336 : U32}
-
-law appearance_payload_words:
-  {Uniform.word_count() == 584 : U32}
-
-law appearance_selected_offset:
-  {Uniform.offset_selected() == 336 : U32}
-
-law appearance_ring_index_count:
-  {Appearance.ring_index_count() == 576 : U32}

@@ -14,7 +14,14 @@ BUILD = ROOT / "build"
 
 def run(*args, **kwargs):
     print("+", " ".join(map(str, args)), flush=True)
-    return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
+    try:
+        return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
+    except subprocess.CalledProcessError as error:
+        for output, stream in ((error.stdout, sys.stdout), (error.stderr, sys.stderr)):
+            if output:
+                print(output.decode(errors="replace") if isinstance(output, bytes) else output,
+                      end="", file=stream, flush=True)
+        raise
 
 
 def main():
@@ -46,6 +53,10 @@ def main():
     BUILD.mkdir(exist_ok=True)
     run(sys.executable, "tools/check_geometry.py")
     run(sys.executable, "tools/check_chunks.py")
+    run(sys.executable, "tools/check_generations.py", *(["--sanitize"] if args.sanitize else []))
+    run(sys.executable, "tools/check_retirement.py", *(["--sanitize"] if args.sanitize else []))
+    run(sys.executable, "tools/check_installation.py", *(["--sanitize"] if args.sanitize else []))
+    run(sys.executable, "tools/check_uploads.py", *(["--sanitize"] if args.sanitize else []))
     run(sys.executable, "tools/check_appearance_math.py")
     run(sys.executable, "tools/check_reference_lighting.py")
     run(sys.executable, "tools/check_appearance_gpu.py", *(["--sanitize"] if args.sanitize else []))
@@ -82,6 +93,8 @@ def main():
         ("tests/discovery.bend", "discovery-tests", "Capability discovery and raw limb adapters passed"),
         ("tests/native.bend", "native-tests", "Native Vulkan checks passed"),
         ("tests/transfers.bend", "transfers", "Packed upload and GPU copy passed"),
+        ("tests/overlap.bend", "overlap", "Two submissions before either fence observation"),
+        ("tests/upload_lifetime.bend", "upload-lifetime", "Reusable staging literal source bytes and pending/completed/recorded retirement passed"),
         ("tests/image_repeated.bend", "image-repeated", "32 distinct color+D32"),
         ("tests/image_formats.bend", "image-formats", "RGBA/BGRA UNORM/SRGB raw channels"),
         ("tests/indexed_graphics.bend", "indexed-graphics", "Every RGBA8/D32 pixel passed"),
@@ -114,7 +127,7 @@ def main():
     if validation_available:
         validation_env = dict(os.environ, VK_INSTANCE_LAYERS="VK_LAYER_KHRONOS_validation",
                               VK_LAYER_ENABLES="VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
-        for name in ("geometry-device", "descriptors", "semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
+        for name in ("geometry-device", "descriptors", "semaphores", "voxel-offscreen", "buffer-roundtrip", "offscreen-roundtrip", "native-tests", "transfers", "upload-lifetime", "overlap", "repeated", "images", "offscreen", "rendering", "image-repeated", "image-formats", "graphics-resources", "indexed-offscreen", "indexed-graphics"):
             completed = run(str(BUILD / name), env=validation_env, text=True, capture_output=True, timeout=180 if name in {"voxel-offscreen", "geometry-device"} else 60)
             (BUILD / f"{name}-validation.log").write_text(completed.stdout + completed.stderr)
             diagnostics = completed.stdout + completed.stderr

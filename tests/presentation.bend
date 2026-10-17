@@ -35,24 +35,26 @@ def acquired(+context: WSI.Context, +frame: P.Frame, +target: P.Target, outcome:
   P.Frame{pool,+command,+acquire,+render,+present,+finished} = frame
   P.Target{+swapchain,images,depth,pass,layout,pipeline,width,height,format,production} = target
   match outcome:
-    case V.Acquired{+index,suboptimal}:
+    case V.Acquired{+acquisition,+index,suboptimal}:
       do V.Action<Unit>:
         T.expect_error(Unit,1610612740,V.Fence.reset(acquire))
         T.expect_error(Unit,1610612740,V.Device.destroy_fence(device,acquire))
         T.expect_error(V.AcquireOutcome,1610612740,V.Device.acquire(device,swapchain,acquire,W.zero()))
         done : U32 <- V.Fence.wait(acquire,W.U64{4294967295,4294967295})
         V.Fence.reset(acquire)
-        P.record(device,frame,target,index,R.Camera.initial(),GPU.Empty{})
+        P.record(device,frame,target,acquisition,index,R.Camera.initial(),GPU.Empty{})
         rendered : U32 <- V.Fence.wait(render,W.U64{4294967295,4294967295})
-        result : V.PresentOutcome <- V.Device.present(device,swapchain,index,finished,present)
+        result : V.PresentOutcome <- V.Device.present(device,acquisition,finished,present)
         T.expect_error(Unit,1610612740,V.Device.destroy_semaphore(device,finished))
         T.expect_error(Unit,1610612740,V.Fence.reset(present))
         status : U32 <- V.Fence.status(render)
         T.expect_error(Unit,1610612740,V.Device.destroy_semaphore(device,finished))
         shown : U32 <- V.Fence.wait(present,W.U64{4294967295,4294967295})
-        T.expect_error(V.AcquireOutcome,1610612740,V.Device.acquire(device,swapchain,acquire,W.zero()))
+        T.expect_error(Unit,1610612738,V.Device.release_acquired(device,acquisition))
+        T.expect_error(V.PresentOutcome,1610612738,V.Device.present(device,acquisition,finished,present))
         V.CommandBuffer.reset(command)
         P.destroy(device,target)
+        V.Device.destroy_command_pool(device,pool)
     case _: IO.pure(V.VkResult(Unit),Fail{(1610612739,"Acquire smoke failed")})
 
 def get_device(context: WSI.Context) -> V.Device:
@@ -69,10 +71,10 @@ def get_acquire(frame: P.Frame) -> V.Fence:
 
 def abandoned(outcome: V.AcquireOutcome, +device: V.Device, +swapchain: V.Swapchain, +fence: V.Fence) -> V.Action(Unit):
   match outcome:
-    case V.Acquired{index,suboptimal}:
+    case V.Acquired{acquisition,index,suboptimal}:
       do V.Action<Unit>:
         ready : U32 <- V.Fence.wait(fence,W.U64{4294967295,4294967295})
-        V.Device.release_acquired(device,swapchain)
+        V.Device.release_acquired(device,acquisition)
         V.Fence.reset(fence)
     case _: IO.pure(V.VkResult(Unit),Fail{(1,"Abandoned acquisition did not acquire")})
 

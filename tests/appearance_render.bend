@@ -1,4 +1,5 @@
 import Base
+import ../examples/voxel/chunks.bend as C
 import ../Vulkan.bend as V
 import ../src/core.bend as Core
 import ../shaders/spirv.bend as S
@@ -49,11 +50,11 @@ def save_readback(+name: String, full: Bool, read: P.Readback) -> IO(Unit):
         save(name ++ ".shadow",shadow)
         save(name ++ ".uniform",uniform)
 
-def built(pair: X.Body & Result<&2,&1,Exterior.Error,M.Mesh>) -> V.Action(X.Body & M.Mesh):
+def built(pair: X.Body & Result<&2,&1,Exterior.Error,C.ChunkSet>) -> V.Action(X.Body & C.ChunkSet):
   (body,result) = pair
   match result:
-    case Fail{e}: IO.pure(V.VkResult(X.Body & M.Mesh),Fail{(1,"Production fixture mesh rejected")})
-    case Done{mesh}: V.Action.pure(X.Body & M.Mesh,(body,mesh))
+    case Fail{e}: IO.pure(V.VkResult(X.Body & C.ChunkSet),Fail{(1,"Production fixture mesh rejected")})
+    case Done{mesh}: V.Action.pure(X.Body & C.ChunkSet,(body,mesh))
 
 def extent(bounds: Maybe<&2,M.Extent>) -> U32:
   match bounds:
@@ -84,11 +85,11 @@ def modes(fuel: Nat, +m: U32, +context: Context, +target: P.Target, +scene: Scen
         image(context,target,scene,A.FrameInput{basis,w,h,extent,palette,brush,output,mode(m)},name ++ "-mode" ++ U32.show(m),False{},U32.is_eq(m,2))
         modes(rest,U32.inc(m),context,target,scene,A.FrameInput{basis,w,h,extent,palette,brush,output,A.Shaded{}},name)
 
-def body_saved(+name: String, pair: X.Body & String) -> V.Action(X.Body & M.Mesh):
+def body_saved(+name: String, +revision: U32, pair: X.Body & String) -> V.Action(X.Body & C.ChunkSet):
   (body,json) = pair
-  do V.Action<X.Body & M.Mesh>:
+  do V.Action<X.Body & C.ChunkSet>:
     V.Action.lift(Unit,text("build/milestone-6-production/" ++ name ++ ".body.json",json))
-    built(M.build(body))
+    built(C.build(body,revision))
 
 def attachment_output(+format: U32) -> A.Output:
   Bool.pick(A.Output,U32.is_eq(format,43) || U32.is_eq(format,50),A.Srgb{},A.Unorm{})
@@ -128,9 +129,9 @@ def trace(+name: String, +context: Context, +target: P.Target, +scene: Scene.Gro
     trace_frames(8n,0,context,trace_target(target,metadata),scene,input,name ++ "-metadata-")
     V.Device.destroy_graphics_pipeline(device,metadata)
 
-def installed_scene(+context: Context, +target: P.Target, +name: String, +camera: R.Camera, +brush: Maybe<&2,X.MetricSphere>, body: X.Body, installed: Scene.Group & M.Mesh) -> V.Action(Scene.Group & X.Body):
+def installed_scene(+context: Context, +target: P.Target, +name: String, +camera: R.Camera, +brush: Maybe<&2,X.MetricSphere>, body: X.Body, installed: Scene.Group & C.ChunkSet) -> V.Action(Scene.Group & X.Body):
   P.Target{color,depth,pass,fb,stage,programs,+w,+h,+format} = target
-  (+scene,M.Mesh{faces,size,+bounds,vs,ix}) = installed
+  (+scene,C.ChunkSet{cs,primitives,faces,+bounds,q,sq,rebuilt,retained}) = installed
   +input : A.FrameInput = A.FrameInput{R.Camera.basis(camera),w,h,extent(bounds),Scene.palette(Scene.assets(scene)),None{},attachment_output(format),A.Shaded{}}
   +selected : A.FrameInput = A.FrameInput{R.Camera.basis(camera),w,h,extent(bounds),Scene.palette(Scene.assets(scene)),brush,attachment_output(format),A.Shaded{}}
   do V.Action<Scene.Group & X.Body>:
@@ -143,17 +144,17 @@ def installed_scene(+context: Context, +target: P.Target, +name: String, +camera
     trace(name,context,target,scene,input)
     return (scene,body)
 
-def prepared(+context: Context, +target: P.Target, +name: String, +camera: R.Camera, +revision: U32, brush: Maybe<&2,X.MetricSphere>, scene: Scene.Group, pair: X.Body & M.Mesh) -> V.Action(Scene.Group & X.Body):
-  Context{+instance,+physical,+device,commands} = context
+def prepared(+context: Context, +target: P.Target, +name: String, +camera: R.Camera, +revision: U32, brush: Maybe<&2,X.MetricSphere>, scene: Scene.Group, pair: X.Body & C.ChunkSet) -> V.Action(Scene.Group & X.Body):
+  Context{+instance,+physical,+device,P.Commands{command,fence}} = context
   P.Target{color,depth,pass,fb,stage,programs,+w,+h,+format} = target
   (body,mesh) = pair
   do V.Action<Scene.Group & X.Body>:
-    installed : Scene.Group & M.Mesh <- Scene.install(instance,physical,device,scene,revision,mesh)
+    installed : Scene.Group & C.ChunkSet <- Scene.install_chunks(instance,physical,device,command,fence,scene,revision,mesh)
     installed_scene(context,target,name,camera,brush,body,installed)
 
-def install_scene(+context: Context, target: P.Target, +name: String, camera: R.Camera, revision: U32, brush: Maybe<&2,X.MetricSphere>, scene: Scene.Group, body: X.Body) -> V.Action(Scene.Group & X.Body):
+def install_scene(+context: Context, target: P.Target, +name: String, camera: R.Camera, +revision: U32, brush: Maybe<&2,X.MetricSphere>, scene: Scene.Group, body: X.Body) -> V.Action(Scene.Group & X.Body):
   do V.Action<Scene.Group & X.Body>:
-    pair : X.Body & M.Mesh <- body_saved(name,Source.body(body))
+    pair : X.Body & C.ChunkSet <- body_saved(name,revision,Source.body(body))
     prepared(context,target,name,camera,revision,brush,scene,pair)
 
 def hover_brush() -> X.MetricSphere:

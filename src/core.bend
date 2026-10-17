@@ -231,3 +231,7 @@ def descriptor_schema(~A: Data, ~number: A -> U32, bindings: List<A>) -> List<A>
   match bindings:
     case Nil{}: []
     case Con{binding,rest}: descriptor_insert(~A,~number,descriptor_schema(~A,~number,rest),binding)
+
+
+def subrange_contains(+capacity: W.U64, +offset: W.U64, length: W.U64) -> Bool:
+  Bool.not(size_less(capacity,offset)) && Bool.not(size_less(W.add(capacity,W.neg(offset)),length))

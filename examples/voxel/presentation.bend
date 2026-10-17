@@ -21,8 +21,8 @@ type Frame is Data:
   Frame{pool: V.CommandPool, command: V.CommandBuffer, acquire: V.Fence, render: V.Fence, present: V.Fence, finished: V.Semaphore}
 type Phase is Data:
   Idle{}
-  Acquiring{index: U32, replace: Bool}
-  Submitted{index: U32, replace: Bool}
+  Acquiring{acquisition: V.Acquisition, index: U32, replace: Bool}
+  Submitted{acquisition: V.Acquisition, index: U32, replace: Bool}
   Presenting{replace: Bool, lost: Bool}
 
 def choice_extent(format: U32 & U32, extent: U32 & U32, count: U32, transform: U32, +alpha: U32) -> Choice:
@@ -182,12 +182,13 @@ def at(images: List<&2,ImageTarget>, index: U32) -> V.Action(ImageTarget):
     case Con{image,rest} 0: V.Action.pure(ImageTarget,image)
     case Con{image,rest} n: at(rest,(n - 1 : U32))
 
-def record_image(+device: V.Device, frame: Frame, target: Target, image: ImageTarget, camera: R.Camera, +geometry: GPU.Geometry) -> V.Action(Unit):
+def record_image(+device: V.Device, frame: Frame, target: Target, acquisition: V.Acquisition, image: ImageTarget, camera: R.Camera, +geometry: GPU.Geometry) -> V.Action(Unit):
   Frame{pool,+command,acquire,+render,present,+finished} = frame
   Target{swapchain,images,E.Attachment{+depth,memory,dv},pass,layout,pipeline,+width,+height,+format,+production} = target
   ImageTarget{+color,view,framebuffer} = image
   do V.Action<Unit>:
     V.CommandBuffer.begin(command)
+    V.CommandBuffer.use_acquisition(command,acquisition)
     GPU.publish(command,geometry)
     E.transition(command,color,1,0,2,1024,1024,0,256)
     E.transition(command,depth,2,0,3,768,768,0,1536)
@@ -203,11 +204,11 @@ def record_image(+device: V.Device, frame: Frame, target: Target, image: ImageTa
     V.Fence.reset(render)
     V.Device.submit_synced(device,command,render,[],[finished])
 
-def record(+device: V.Device, +frame: Frame, +target: Target, index: U32, camera: R.Camera, geometry: GPU.Geometry) -> V.Action(Unit):
+def record(+device: V.Device, +frame: Frame, +target: Target, acquisition: V.Acquisition, index: U32, camera: R.Camera, geometry: GPU.Geometry) -> V.Action(Unit):
   Target{swapchain,images,depth,pass,layout,pipeline,width,height,format,production} = target
   do V.Action<Unit>:
     image : ImageTarget <- at(images,index)
-    record_image(device,frame,target,image,camera,geometry)
+    record_image(device,frame,target,acquisition,image,camera,geometry)
 
 
 def promoted(+device: V.Device, +target: Target, result: V.VkResult(Scene.Programs)) -> V.Action(Target):
@@ -226,7 +227,7 @@ def promote(+device: V.Device, +target: Target, assets: Scene.Assets) -> V.Actio
     result : V.VkResult(Scene.Programs) <- V.Action.lift(V.VkResult(Scene.Programs),Scene.programs(device,assets,pass))
     promoted(device,target,result)
 
-def record_production_image(+device: V.Device, frame: Frame, target: Target, image: ImageTarget, group: Scene.Group) -> V.Action(Unit):
+def record_production_image(+device: V.Device, frame: Frame, target: Target, acquisition: V.Acquisition, image: ImageTarget, group: Scene.Group) -> V.Action(Unit):
   Frame{pool,+command,acquire,+render,present,+finished} = frame
   match target:
     case Target{sc,images,depth,pass,layout,pipeline,w,h,format,None{}}:
@@ -235,6 +236,7 @@ def record_production_image(+device: V.Device, frame: Frame, target: Target, ima
       ImageTarget{+color,view,framebuffer} = image
       do V.Action<Unit>:
         V.CommandBuffer.begin(command)
+        V.CommandBuffer.use_acquisition(command,acquisition)
         E.transition(command,color,1,0,2,1024,1024,0,256)
         V.CommandBuffer.pipeline_barrier(command,768,768,[V.MemoryBarrier{1536,1536}],[],[])
         E.transition(command,depth,2,0,3,768,768,0,1536)
@@ -244,8 +246,8 @@ def record_production_image(+device: V.Device, frame: Frame, target: Target, ima
         V.Fence.reset(render)
         V.Device.submit_synced(device,command,render,[],[finished])
 
-def record_production(+device: V.Device, +frame: Frame, +target: Target, index: U32, group: Scene.Group) -> V.Action(Unit):
+def record_production(+device: V.Device, +frame: Frame, +target: Target, acquisition: V.Acquisition, index: U32, group: Scene.Group) -> V.Action(Unit):
   Target{sc,images,depth,pass,layout,pipeline,w,h,format,production} = target
   do V.Action<Unit>:
     image : ImageTarget <- at(images,index)
-    record_production_image(device,frame,target,image,group)
+    record_production_image(device,frame,target,acquisition,image,group)

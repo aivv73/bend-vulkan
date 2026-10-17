@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <limits.h>
 #include <math.h>
+#include <time.h>
 
 #if !defined(__linux__) || UINTPTR_MAX != UINT64_MAX
 #error "bend-vulkan currently requires 64-bit Linux"
@@ -20,8 +21,9 @@
 
 typedef enum { BV_ENTRY, BV_INSTANCE, BV_PHYSICAL, BV_DEVICE, BV_BUFFER,
   BV_MEMORY, BV_POOL, BV_COMMAND, BV_FENCE, BV_IMAGE, BV_IMAGE_VIEW, BV_RENDER_PASS, BV_FRAMEBUFFER, BV_SHADER, BV_LAYOUT, BV_PIPELINE,
-  BV_WINDOW, BV_SURFACE, BV_SWAPCHAIN, BV_SEMAPHORE, BV_DESCRIPTOR_LAYOUT, BV_DESCRIPTOR_POOL, BV_DESCRIPTOR_SET, BV_SAMPLER, BV_KIND_COUNT } BvKind;
+  BV_WINDOW, BV_SURFACE, BV_SWAPCHAIN, BV_SEMAPHORE, BV_DESCRIPTOR_LAYOUT, BV_DESCRIPTOR_POOL, BV_DESCRIPTOR_SET, BV_SAMPLER, BV_QUERY_POOL, BV_KIND_COUNT } BvKind;
 typedef struct BvRow BvRow;
+typedef struct BvLease BvLease;
 typedef struct { void (*destroy)(BvRow*); } BvWindowContext;
 typedef enum { BV_INITIAL, BV_RECORDING, BV_EXECUTABLE, BV_PENDING, BV_UNCERTAIN, BV_COMPLETED, BV_COMMAND_INVALID } BvCommandPhase;
 typedef enum { BV_OUTSIDE, BV_INSIDE } BvRenderTag;
@@ -36,13 +38,15 @@ typedef struct {
 #define BV_MAX_DESCRIPTOR_SETS 64u
 #define BV_MAX_DESCRIPTOR_SLOTS 4096u
 typedef struct {
+  BvLease* lease;
+  uint64_t lease_serial,generation;
   BvRow* sets[BV_MAX_DESCRIPTOR_SETS];
   BvCommandPhase phase;
   union { BvRecording recording; struct { BvRow* fence; } pending; struct { BvRow* fence; } uncertain; } submission;
 } BvCommand;
 typedef enum { BV_CALLER, BV_CONVENIENCE_PRIVATE } BvFenceLifetime;
 typedef enum { BV_FENCE_FREE, BV_FENCE_ACQUIRE, BV_FENCE_PRESENT } BvFenceUse;
-typedef struct { BvFenceLifetime lifetime; BvFenceUse use; BvRow* swapchain; } BvFence;
+typedef struct { BvFenceLifetime lifetime; BvFenceUse use; BvLease* lease; uint64_t serial; } BvFence;
 typedef enum { BV_HEALTHY, BV_LOST } BvHealth;
 typedef enum { BV_DEP_RECORDED, BV_DEP_BINDING, BV_DEP_VIEW_IMAGE,
   BV_DEP_FRAMEBUFFER_PASS, BV_DEP_FRAMEBUFFER_VIEW, BV_DEP_PIPELINE_LAYOUT, BV_DEP_PIPELINE_PASS,
@@ -60,8 +64,8 @@ typedef struct { VkFormat format; VkExtent2D extent; uint32_t mips,layers; VkIma
 typedef enum { BV_SEM_UNUSED, BV_SEM_SIGNAL_PENDING, BV_SEM_SIGNALED, BV_SEM_SUBMIT_WAIT, BV_SEM_PRESENT_WAIT, BV_SEM_UNCERTAIN, BV_SEM_QUARANTINED } BvSemaphorePhase;
 typedef struct { BvSemaphorePhase phase; BvRow* producer; uint64_t producer_serial; } BvSemaphore;
 typedef enum { BV_LEASE_NONE, BV_LEASE_ACQUIRING, BV_LEASE_ACQUIRED, BV_LEASE_RENDERING, BV_LEASE_RENDERED, BV_LEASE_PRESENTING, BV_LEASE_ACQUIRE_UNCERTAIN, BV_LEASE_RENDER_UNCERTAIN, BV_LEASE_PRESENT_UNCERTAIN, BV_LEASE_ABANDONED } BvLeasePhase;
-typedef struct { BvLeasePhase phase; BvRow *swapchain,*fence,*semaphore; uint32_t index; uint64_t serial; } BvLease;
-typedef struct { uint32_t count; BvRow** images; VkFormat format; VkExtent2D extent; VkImageUsageFlags usage; } BvSwapchain;
+struct BvLease { BvLeasePhase phase; BvRow *swapchain,*fence,*semaphore; uint32_t index; uint64_t serial; };
+typedef struct { uint32_t count,lease_count; BvRow** images; BvLease* leases; VkFormat format; VkExtent2D extent; VkImageUsageFlags usage; } BvSwapchain;
 typedef struct { VkImageViewType type; VkImageSubresourceRange range; } BvImageView;
 typedef struct { uint32_t colors,count; VkAttachmentDescription* attachments; } BvRenderPass;
 typedef struct { VkExtent2D extent; uint32_t count; BvDep** attachments; } BvFramebuffer;
@@ -79,6 +83,8 @@ typedef struct { BvDescriptorSlot* slots; } BvDescriptorSet;
 typedef struct { VkFilter min,mag; VkSamplerMipmapMode mip; } BvSampler;
 typedef struct { uint32_t binding,stride,rate,alignment,first_end; } BvVertexRequirement;
 typedef struct { uint32_t count; BvVertexRequirement* required; } BvPipeline;
+typedef struct { uint32_t command; uint64_t generation; bool written,ready; } BvQuerySlot;
+typedef struct { uint32_t count; BvQuerySlot* slots; } BvQueries;
 struct BvRow {
   uint32_t id;
   BvKind kind;
@@ -86,7 +92,8 @@ struct BvRow {
   uint64_t handle, size;
   VkMemoryRequirements requirements;
   uint32_t flags, memory_type;
-  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; BvPipelineLayout layout; BvPipeline pipeline; BvDescriptorSchema schema; BvDescriptorPool descriptor_pool; BvDescriptorSet set; BvSampler sampler; } object;
+  bool retired;
+  union { BvImage image; BvImageView view; BvRenderPass pass; BvFramebuffer framebuffer; BvPipelineLayout layout; BvPipeline pipeline; BvDescriptorSchema schema; BvDescriptorPool descriptor_pool; BvDescriptorSet set; BvSampler sampler; BvQueries queries; } object;
   BvCommand command;
   BvFence fence;
   BvSemaphore semaphore;
@@ -147,6 +154,7 @@ typedef struct {
   X(BeginCommandBuffer) X(EndCommandBuffer) X(CmdFillBuffer) \
   X(CmdClearColorImage) X(CmdClearDepthStencilImage) X(CmdCopyBufferToImage) X(CmdCopyImageToBuffer) \
   X(CmdCopyBuffer) X(CmdPipelineBarrier) X(QueueSubmit) \
+  X(CreateQueryPool) X(DestroyQueryPool) X(GetQueryPoolResults) X(CmdResetQueryPool) X(CmdWriteTimestamp) \
   X(CreateFence) X(DestroyFence) X(GetFenceStatus) X(WaitForFences) X(ResetFences) X(ResetCommandBuffer)
 typedef struct {
   VkDevice handle;
@@ -156,7 +164,6 @@ typedef struct {
   VkQueue queue;
   VkQueue present_queue;
   uint32_t present_family;
-  BvLease lease;
   uint64_t lease_serial;
   bool presentation;
   PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
@@ -224,6 +231,7 @@ static void bv_remove(BvRow* row) {
   if (row->kind==BV_LAYOUT) free(row->object.layout.sets);
   if (row->kind==BV_DESCRIPTOR_LAYOUT) free(row->object.schema.bindings);
   if (row->kind==BV_DESCRIPTOR_SET) free(row->object.set.slots);
+  if (row->kind==BV_QUERY_POOL) free(row->object.queries.slots);
   free(row);
 }
 static BvRow* bv_child(uint32_t id, BvKind kind, BvRow* owner) {
@@ -247,6 +255,36 @@ static BvRow* bv_active(BvRow* owner,BvRow* fence) {
         (!fence || bv_command_fence(row)==fence)) return row;
   return NULL;
 }
+static int bv_uncertain(BvRow* owner) {
+  for (BvRow* row=bv_rows;row;row=row->next) {
+    if (row->kind==BV_COMMAND && bv_command_device(row)==owner && row->command.phase==BV_UNCERTAIN) return 1;
+    if (row->kind!=BV_SWAPCHAIN || row->parent!=owner) continue;
+    BvSwapchain* target=row->context;
+    for (uint32_t j=0;j<target->lease_count;j++) {
+      BvLeasePhase phase=target->leases[j].phase;
+      if (phase==BV_LEASE_ACQUIRE_UNCERTAIN || phase==BV_LEASE_RENDER_UNCERTAIN || phase==BV_LEASE_PRESENT_UNCERTAIN || phase==BV_LEASE_ABANDONED) return 1;
+    }
+  }
+  return 0;
+}
+static BvLease* bv_image_lease(BvRow* image) {
+  if (image->object.image.storage!=BV_BORROWED_IMAGE) return NULL;
+  BvSwapchain* target=image->object.image.swapchain->context;
+  for (uint32_t j=0;j<target->lease_count;j++)
+    if (target->leases[j].phase!=BV_LEASE_NONE && target->leases[j].phase!=BV_LEASE_PRESENTING && target->leases[j].index==image->object.image.index) return &target->leases[j];
+  return NULL;
+}
+static void bv_finish_wsi_fence(BvRow* fence) {
+  BvLease* lease=fence->fence.lease;
+  if (lease && lease->serial==fence->fence.serial) {
+    if (fence->fence.use==BV_FENCE_ACQUIRE) lease->phase=lease->phase==BV_LEASE_ACQUIRING ? BV_LEASE_ACQUIRED : BV_LEASE_ABANDONED;
+    else {
+      if (lease->semaphore) lease->semaphore->semaphore.phase=BV_SEM_UNUSED;
+      *lease=(BvLease){0};
+    }
+  }
+  fence->fence.use=BV_FENCE_FREE;fence->fence.lease=NULL;fence->fence.serial=0;
+}
 static void bv_complete(BvRow* command) {
   BvDep** link=&command->deps;
   while (*link) {
@@ -256,9 +294,17 @@ static void bv_complete(BvRow* command) {
       *link=dep->next;free(dep);
     } else link=&dep->next;
   }
-  BvDevice* device=command->parent->parent->context;
-  if (device->lease.phase==BV_LEASE_RENDERING) device->lease.phase=BV_LEASE_RENDERED;
-  if (device->lease.phase==BV_LEASE_RENDER_UNCERTAIN) device->lease.phase=BV_LEASE_ABANDONED;
+  BvLease* lease=command->command.lease;
+  if (lease && lease->serial==command->command.lease_serial) {
+    if (lease->phase==BV_LEASE_RENDERING) lease->phase=BV_LEASE_RENDERED;
+    if (lease->phase==BV_LEASE_RENDER_UNCERTAIN) lease->phase=BV_LEASE_ABANDONED;
+  }
+  for (BvRow* pool=bv_rows;pool;pool=pool->next) if (pool->kind==BV_QUERY_POOL && pool->parent==bv_command_device(command)) {
+    for (uint32_t j=0;j<pool->object.queries.count;j++) {
+      BvQuerySlot* slot=&pool->object.queries.slots[j];
+      if (slot->command==command->id && slot->generation==command->command.generation) slot->ready=command->command.phase==BV_PENDING;
+    }
+  }
   command->command.phase=command->command.phase==BV_PENDING ? BV_COMPLETED : BV_COMMAND_INVALID;
   memset(&command->command.submission,0,sizeof(command->command.submission));
 }
@@ -284,8 +330,8 @@ static VkResult bv_idle(BvRow* owner) {
   BvDevice* device=owner->context;
   VkResult result=bv_device_result(owner,device->DeviceWaitIdle(device->handle));
   if (result==VK_SUCCESS) {
-    BvRow* command=bv_active(owner,NULL);
-    if (command) bv_complete(command);
+    BvRow* command;
+    while ((command=bv_active(owner,NULL))) bv_complete(command);
   }
   return result;
 }
@@ -299,9 +345,8 @@ static BvRow* bv_bound_memory(const BvRow* row) {
 }
 static int bv_image_available(BvRow* image) {
   if (image->object.image.storage==BV_ALLOCATED_IMAGE) return bv_bound_memory(image)!=NULL;
-  BvDevice* device=image->parent->context;
-  return device->lease.swapchain==image->object.image.swapchain && device->lease.index==image->object.image.index &&
-    device->lease.phase==BV_LEASE_ACQUIRED;
+  BvLease* lease=bv_image_lease(image);
+  return lease && lease->phase==BV_LEASE_ACQUIRED;
 }
 static uint64_t bv_bound_offset(const BvRow* row) {
   return bv_dependency(row,BV_DEP_BINDING)->data.binding.offset;
@@ -314,8 +359,9 @@ static int bv_may_reach_depth(const BvRow* row,const BvRow* target,unsigned rema
   return 0;
 }
 static int bv_memory_busy(BvRow* memory) {
-  BvRow* command=bv_active(memory->parent,NULL);
-  return command && bv_may_reach_depth(command,memory,BV_KIND_COUNT);
+  for (BvRow* command=bv_rows;command;command=command->next)
+    if (command->kind==BV_COMMAND && bv_command_device(command)==memory->parent && bv_command_fence(command) && bv_may_reach_depth(command,memory,BV_KIND_COUNT)) return 1;
+  return 0;
 }
 static BvRow* bv_public_fence(uint32_t id) {
   BvRow* fence=bv_get(id,BV_FENCE);
@@ -330,21 +376,41 @@ static int bv_referenced(BvRow* buffer) {
 static void bv_free_refs(BvDep* uses) {
   while (uses) { BvDep* next=uses->next; free(uses); uses=next; }
 }
-static int bv_prepare_refs(BvRow* command, uint32_t count, BvRow** resources) {
+static int bv_sealed(const BvRow* row,unsigned remaining) {
+  if (row->retired) return 1;
+  if (!remaining) return row->deps!=NULL;
+  for (BvDep* dep=row->deps;dep;dep=dep->next)
+    if (bv_sealed(dep->target,remaining-1)) return 1;
+  return 0;
+}
+static uint32_t bv_prepare_refs(BvRow* command, uint32_t count, BvRow** resources) {
   BvDep* staged=NULL;
+  BvLease* lease=command->command.lease;uint64_t serial=command->command.lease_serial;
+  BvRow* owner=bv_command_device(command);
+  for (BvRow* image=bv_rows;image;image=image->next) {
+    if (image->kind!=BV_IMAGE || image->parent!=owner || image->object.image.storage!=BV_BORROWED_IMAGE) continue;
+    bool used=false;
+    for (uint32_t j=0;j<count;j++) used |= bv_may_reach_depth(resources[j],image,BV_KIND_COUNT);
+    if (!used) continue;
+    BvLease* found=bv_image_lease(image);
+    if (!lease || !found || found->phase!=BV_LEASE_ACQUIRED || lease!=found || serial!=found->serial) return BV_LIFETIME;
+    lease=found;serial=found->serial;
+  }
   for (uint32_t j=0;j<count;j++) {
+    if (bv_sealed(resources[j],BV_KIND_COUNT)) {bv_free_refs(staged);return BV_LIFETIME;}
     int found=0;
     for (BvDep* u=command->deps;u;u=u->next) found |= u->target==resources[j];
     for (BvDep* u=staged;u;u=u->next) found |= u->target==resources[j];
     if (found) continue;
     BvDep* use=malloc(sizeof(*use));
-    if (!use) { bv_free_refs(staged); return 0; }
+    if (!use) { bv_free_refs(staged); return BV_LIMIT; }
     *use=(BvDep){.target=resources[j],.role=BV_DEP_RECORDED,.next=staged};staged=use;
   }
+  command->command.lease=lease;command->command.lease_serial=serial;
   while (staged) {
     BvDep* next=staged->next; staged->next=command->deps; command->deps=staged; staged=next;
   }
-  return 1;
+  return 0;
 }
 
 static uint32_t bv_baseline_stages(BvDevice* device, uint32_t mask) {
@@ -418,12 +484,13 @@ static void bv_destroy_device(BvRow* row) {
     }
   }
   device->convenience=NULL;
-  const BvKind order[]={BV_PIPELINE,BV_LAYOUT,BV_DESCRIPTOR_SET,BV_DESCRIPTOR_POOL,BV_DESCRIPTOR_LAYOUT,BV_SAMPLER,BV_SHADER,BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
+  const BvKind order[]={BV_QUERY_POOL,BV_PIPELINE,BV_LAYOUT,BV_DESCRIPTOR_SET,BV_DESCRIPTOR_POOL,BV_DESCRIPTOR_LAYOUT,BV_SAMPLER,BV_SHADER,BV_FRAMEBUFFER,BV_IMAGE_VIEW,BV_RENDER_PASS,BV_IMAGE,BV_BUFFER};
   for (unsigned j=0;j<sizeof(order)/sizeof(*order);j++)
     for (BvRow* child=bv_rows,*next;child;child=next) {
       next=child->next;
       if (child->parent!=row || child->kind!=order[j]) continue;
-      if (child->kind==BV_PIPELINE) device->DestroyPipeline(device->handle,(VkPipeline)(uintptr_t)child->handle,NULL);
+      if (child->kind==BV_QUERY_POOL) device->DestroyQueryPool(device->handle,(VkQueryPool)(uintptr_t)child->handle,NULL);
+      else if (child->kind==BV_PIPELINE) device->DestroyPipeline(device->handle,(VkPipeline)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_LAYOUT) device->DestroyPipelineLayout(device->handle,(VkPipelineLayout)(uintptr_t)child->handle,NULL);
       else if (child->kind==BV_DESCRIPTOR_SET) {bv_remove(child);continue;}
       else if (child->kind==BV_DESCRIPTOR_POOL) device->DestroyDescriptorPool(device->handle,(VkDescriptorPool)(uintptr_t)child->handle,NULL);
@@ -1016,10 +1083,69 @@ static Term bv_destroy_buffer(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
   BvRow* buffer=bv_child(bv_key(e,f[1]),BV_BUFFER,owner);
   if (!owner || !buffer) return io_fail(e,BV_INVALID,"invalid buffer or device");
-  if (bv_referenced(buffer)) return io_fail(e,BV_LIFETIME,"command pool still references buffer");
+  if (buffer->retired || bv_referenced(buffer)) return io_fail(e,BV_LIFETIME,"command pool still references buffer");
   BvDevice* device=owner->context;
   device->DestroyBuffer(device->handle,(VkBuffer)(uintptr_t)buffer->handle,NULL);
   bv_remove(buffer);return bv_ok(e);
+}
+#endif
+typedef struct { BvRow* buffer; BvRow* memory; } BvRetirement;
+static uint32_t bv_validate_retirement(BvRow* owner,BvRetirement item) {
+  BvRow* buffer=item.buffer,*memory=item.memory;
+  if (!buffer || !memory || buffer->parent!=owner || memory->parent!=owner) return BV_INVALID;
+  if (bv_bound_memory(buffer)!=memory || bv_bound_offset(buffer)!=0) return BV_ARGUMENT;
+  for (BvRow* row=bv_rows;row;row=row->next)
+    if (row->kind==BV_COMMAND && bv_command_device(row)==owner && row->command.phase==BV_RECORDING &&
+        bv_may_reach_depth(row,buffer,BV_KIND_COUNT)) return BV_LIFETIME;
+  for (BvRow* row=bv_rows;row;row=row->next)
+    for (BvDep* dep=row->deps;dep;dep=dep->next)
+      if (dep->target==memory && row!=buffer) return BV_LIFETIME;
+  return 0;
+}
+#ifdef CID(Device.retire_buffers)
+static Term bv_retire_buffers(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
+  uint32_t code=!owner ? BV_INVALID : bv_lost(owner) ? (uint32_t)VK_ERROR_DEVICE_LOST : 0;
+  BvRetirement local[8],*items=local;size_t count=0,capacity=8;
+  Term list=f[1];
+  while (term_aux(list)==CID(Con)) {
+    Term node[2],pair[2];bv_unpack(e,list,2,node);list=node[1];bv_unpack(e,node[0],2,pair);
+    uint32_t buffer=bv_key(e,pair[0]),memory=bv_key(e,pair[1]);
+    if (code) continue;
+    if (count==capacity) {
+      if (capacity>SIZE_MAX/2/sizeof(*items)) {code=BV_LIMIT;continue;}
+      size_t next=capacity*2;
+      BvRetirement* grown=items==local ? malloc(next*sizeof(*items)) : realloc(items,next*sizeof(*items));
+      if (!grown) {code=BV_LIMIT;continue;}
+      if (items==local) memcpy(grown,local,count*sizeof(*items));
+      items=grown;capacity=next;
+    }
+    items[count++]=(BvRetirement){bv_child(buffer,BV_BUFFER,owner),bv_child(memory,BV_MEMORY,owner)};
+  }
+  if (!code && term_aux(list)!=CID(Nil)) code=BV_ARGUMENT;
+  for (size_t j=0;!code && j<count;j++) code=bv_validate_retirement(owner,items[j]);
+  if (!code) for (size_t j=0;j<count;j++) {items[j].buffer->retired=true;items[j].memory->retired=true;}
+  if (items!=local) free(items);
+  return code ? io_fail(e,code,"retire_buffers rejected complete allocation set before sealing") : bv_ok(e);
+}
+#endif
+#ifdef CID(Device.collect_retired)
+static Term bv_collect_retired(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
+  if (!owner) return io_fail(e,BV_INVALID,"collect_retired device");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"collect_retired");
+  BvDevice* device=owner->context;
+  for (BvRow* row=bv_rows,*next;row;row=next) {
+    next=row->next;
+    if (row->parent!=owner || row->kind!=BV_BUFFER || !row->retired || bv_referenced(row)) continue;
+    BvRow* memory=bv_bound_memory(row);
+    device->DestroyBuffer(device->handle,(VkBuffer)(uintptr_t)row->handle,NULL);
+    bv_remove(row);
+    if (next==memory) next=memory->next;
+    device->FreeMemory(device->handle,(VkDeviceMemory)(uintptr_t)memory->handle,NULL);
+    bv_remove(memory);
+  }
+  return bv_ok(e);
 }
 #endif
 #ifdef CID(Device.buffer_requirements_raw)
@@ -1056,13 +1182,14 @@ static Term bv_free_memory(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
   BvRow* memory=bv_child(bv_key(e,f[1]),BV_MEMORY,owner);
   if (!owner || !memory) return io_fail(e,BV_INVALID,"invalid memory or device");
-  if (bv_referenced(memory)) return io_fail(e,BV_LIFETIME,"destroy bound resources before freeing memory");
+  if (memory->retired || bv_referenced(memory)) return io_fail(e,BV_LIFETIME,"destroy bound resources before freeing memory");
   BvDevice* device=owner->context;
   device->FreeMemory(device->handle,(VkDeviceMemory)(uintptr_t)memory->handle,NULL);
   bv_remove(memory);return bv_ok(e);
 }
 #endif
 static uint32_t bv_binding_check(BvRow* resource,BvRow* memory,uint64_t offset) {
+  if (resource->retired || memory->retired) return BV_LIFETIME;
   if ((resource->kind==BV_IMAGE && resource->object.image.storage==BV_BORROWED_IMAGE) || bv_bound_memory(resource)) return BV_LIFETIME;
   VkMemoryRequirements r=resource->requirements;
   if (!r.size || !r.alignment || offset>memory->size || r.size>memory->size-offset || offset%r.alignment ||
@@ -1419,7 +1546,7 @@ static Term bv_cmd_begin_render_pass(Env e,Term* f,IoWork* w) {
   if (!code && n!=count) code=BV_ARGUMENT;
   if (owner && bv_lost(owner)) {free(clears);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"begin render pass");}
   if (!code)for(uint32_t j=0;j<framebuffer->object.framebuffer.count;j++)if(!bv_image_available(bv_dependency(framebuffer->object.framebuffer.attachments[j]->target,BV_DEP_VIEW_IMAGE)->target))code=BV_LIFETIME;
-  if (!code && !bv_prepare_refs(command,1,&framebuffer)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,1,&framebuffer);
   if (!code) {
     VkRenderPassBeginInfo begin={.sType=VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,.renderPass=(VkRenderPass)(uintptr_t)pass->handle,
       .framebuffer=(VkFramebuffer)(uintptr_t)framebuffer->handle,.renderArea={{area[0],area[1]},{area[2],area[3]}},.clearValueCount=count,.pClearValues=clears};
@@ -1683,7 +1810,7 @@ static Term bv_update_descriptor_set(Env e,Term* f,IoWork* w) {
       if(uniform) {
         BvRow* buffer=bv_child(v[0],BV_BUFFER,owner);uint64_t offset=((uint64_t)(uint32_t)v[2]<<32)|(uint32_t)v[1],range=((uint64_t)(uint32_t)v[4]<<32)|(uint32_t)v[3];BvDevice* d=owner->context;
         if(!buffer)code=BV_INVALID;
-        else if(!bv_bound_memory(buffer))code=BV_LIFETIME;
+        else if(buffer->retired || bv_sealed(buffer,BV_KIND_COUNT) || !bv_bound_memory(buffer))code=BV_LIFETIME;
         else if(!(buffer->flags&VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) || !range || range>d->limits.maxUniformBufferRange || offset>buffer->size || range>buffer->size-offset || (d->limits.minUniformBufferOffsetAlignment && offset%d->limits.minUniformBufferOffsetAlignment))code=BV_ARGUMENT;
         else {slots[at]=(BvDescriptorSlot){.tag=BV_UNIFORM_SLOT,.data.uniform={buffer,offset,range}};buffers[count]=(VkDescriptorBufferInfo){(VkBuffer)(uintptr_t)buffer->handle,offset,range};writes[count].pBufferInfo=&buffers[count];}
       } else {
@@ -1869,7 +1996,7 @@ static Term bv_cmd_bind_graphics_pipeline(Env e,Term* f,IoWork* w) {
   BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
   BvRow* pipeline=bv_child(bv_key(e,f[1]),BV_PIPELINE,owner);uint32_t code=bv_graphics_recording(command);
   if (!code && !pipeline) code=BV_INVALID;
-  if (!code && !bv_prepare_refs(command,1,&pipeline)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,1,&pipeline);
   if (code) return io_fail(e,code,"bind pipeline owner, recording or reference allocation");
   BvDevice* d=owner->context;d->CmdBindPipeline((VkCommandBuffer)(uintptr_t)command->handle,VK_PIPELINE_BIND_POINT_GRAPHICS,(VkPipeline)(uintptr_t)pipeline->handle);
   BvRecording* r=&command->command.submission.recording;r->pipeline=pipeline;r->vertices_ready=0;
@@ -1897,7 +2024,7 @@ static Term bv_cmd_bind_descriptor_sets(Env e,Term* f,IoWork* w) {
     sets[count]=set;handles[count++]=(VkDescriptorSet)(uintptr_t)set->handle;
   }
   if(!code && !count)code=BV_ARGUMENT;
-  if(!code && !bv_prepare_refs(command,count,sets))code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,count,sets);
   if(code)return io_fail(e,code,"descriptor bind recording, complete compatible schemas, feedback or metadata");
   BvDevice* d=owner->context;d->CmdBindDescriptorSets((VkCommandBuffer)(uintptr_t)command->handle,VK_PIPELINE_BIND_POINT_GRAPHICS,(VkPipelineLayout)(uintptr_t)layout->handle,first,count,handles,0,NULL);
   for(uint32_t j=0;j<count;j++)command->command.sets[first+j]=sets[j];return bv_ok(e);
@@ -1943,7 +2070,7 @@ static Term bv_cmd_bind_vertex_buffer(Env e,Term* f,IoWork* w) {
       if (!(buffer->flags&VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) || offset>=buffer->size || (bv_bound_offset(buffer)%req->alignment+offset%req->alignment)%req->alignment || req->first_end>buffer->size-offset) code=BV_ARGUMENT;
     }
   }
-  if (!code && !bv_prepare_refs(command,1,&buffer)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,1,&buffer);
   if (code) return io_fail(e,code,"vertex binding owner, pipeline, memory, usage, alignment, first record or allocation");
   BvDevice* d=owner->context;VkBuffer handle=(VkBuffer)(uintptr_t)buffer->handle;
   d->CmdBindVertexBuffers((VkCommandBuffer)(uintptr_t)command->handle,binding,1,&handle,&offset);
@@ -1958,7 +2085,7 @@ static Term bv_cmd_bind_index_buffer(Env e,Term* f,IoWork* w) {
   if (!code && !bv_bound_memory(buffer)) code=BV_LIFETIME;
   uint32_t width=type==VK_INDEX_TYPE_UINT16 ? 2 : 4;
   if (!code && (type>VK_INDEX_TYPE_UINT32 || !(buffer->flags&VK_BUFFER_USAGE_INDEX_BUFFER_BIT) || offset>=buffer->size || (bv_bound_offset(buffer)%width+offset%width)%width)) code=BV_ARGUMENT;
-  if (!code && !bv_prepare_refs(command,1,&buffer)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,1,&buffer);
   if (code) return io_fail(e,code,"index binding owner, memory, type, usage, alignment, range or allocation");
   BvDevice* d=owner->context;d->CmdBindIndexBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,offset,type);
   BvRecording* r=&command->command.submission.recording;r->index_ready=true;r->index_remaining=buffer->size-offset;r->index_width=width;return bv_ok(e);
@@ -2030,7 +2157,7 @@ static Term bv_write_memory(Env e, Term* f, IoWork* w) {
   }
   if (!owner || !memory || !valid) {free(bytes);return io_fail(e,valid ? BV_INVALID : BV_ARGUMENT,"invalid memory, byte value, or copy length");}
   if (bv_lost(owner)) {free(bytes);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"write_memory");}
-  if (bv_memory_busy(memory)) {free(bytes);return io_fail(e,BV_LIFETIME,"write_memory: allocation is in use");}
+  if (memory->retired || bv_memory_busy(memory)) {free(bytes);return io_fail(e,BV_LIFETIME,"write_memory: allocation is in use");}
   if (!bv_map_range(memory,offset,count)) {free(bytes);return io_fail(e,BV_ARGUMENT,"write needs host-visible memory and an in-bounds range");}
   if (!count) {free(bytes);return offset<=memory->size ? bv_ok(e) : io_fail(e,BV_ARGUMENT,"copy offset out of range");}
   void* mapped=NULL;VkResult result=bv_map(owner,memory,&mapped);BvDevice* device=owner->context;
@@ -2050,14 +2177,14 @@ static Term bv_write_memory(Env e, Term* f, IoWork* w) {
 static Term bv_write_memory_words(Env e, Term* f, IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
   BvRow* memory=bv_child(bv_key(e,f[1]),BV_MEMORY,owner);
-  uint64_t offset=bv_u64(e,f[2]), count=bv_u64(e,f[3]); Term words=f[4], result;
+  uint64_t offset=bv_u64(e,f[2]), source=bv_u64(e,f[3]), count=bv_u64(e,f[4]); Term words=f[5], result;
   if (!owner || !memory) result=io_fail(e,BV_INVALID,"write_memory_words: invalid device or memory");
   else if (bv_lost(owner)) result=bv_vk_error(e,VK_ERROR_DEVICE_LOST,"write_memory_words");
-  else if (bv_memory_busy(memory)) result=io_fail(e,BV_LIFETIME,"write_memory_words: allocation is in use");
+  else if (memory->retired || bv_memory_busy(memory)) result=io_fail(e,BV_LIFETIME,"write_memory_words: allocation is in use");
   else if (term_tag(words)!=TAG_BUF && term_tag(words)!=TAG_ARR)
     result=io_fail(e,BV_ARGUMENT,"write_memory_words: expected U32 array");
   else if (count>BV_MAX_COPY || count>SIZE_MAX) result=io_fail(e,BV_LIMIT,"write_memory_words: 16 MiB chunk limit");
-  else if (count>(UINT64_C(1)<<blk_cls(words))*4 || !bv_map_range(memory,offset,(uint32_t)count))
+  else if (source>(UINT64_C(1)<<blk_cls(words))*4 || count>(UINT64_C(1)<<blk_cls(words))*4-source || !bv_map_range(memory,offset,(uint32_t)count))
     result=io_fail(e,BV_ARGUMENT,"write_memory_words: array capacity or mapped range");
   else if (!count) result=bv_ok(e);
   else {
@@ -2065,8 +2192,8 @@ static Term bv_write_memory_words(Env e, Term* f, IoWork* w) {
     if (status==VK_SUCCESS) {
       uint64_t location=blk_loc(e.mem,words); bool terms=term_tag(words)==TAG_ARR;
       for (uint32_t j=0;j<(uint32_t)count;j++) {
-        uint32_t value=(uint32_t)blk_read(e.mem,terms,location,j/4);
-        ((uint8_t*)mapped)[(size_t)offset+j]=(uint8_t)(value>>(8*(j%4)));
+        uint32_t value=(uint32_t)blk_read(e.mem,terms,location,(source+j)/4);
+        ((uint8_t*)mapped)[(size_t)offset+j]=(uint8_t)(value>>(8*((source+j)%4)));
       }
       if (!(memory->flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
         VkMappedMemoryRange range={.sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
@@ -2086,7 +2213,7 @@ static Term bv_read_memory(Env e, Term* f, IoWork* w) {
   BvRow* memory=bv_child(bv_key(e,f[1]),BV_MEMORY,owner);uint64_t offset=bv_u64(e,f[2]);uint32_t count=(uint32_t)f[3];
   if (!owner || !memory) return io_fail(e,BV_INVALID,"invalid memory or device");
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"read_memory");
-  if (bv_memory_busy(memory)) return io_fail(e,BV_LIFETIME,"read_memory: allocation is in use");
+  if (memory->retired || bv_memory_busy(memory)) return io_fail(e,BV_LIFETIME,"read_memory: allocation is in use");
   if (count>BV_MAX_COPY) return io_fail(e,BV_LIMIT,"read exceeds 16 MiB chunk limit");
   if (!bv_map_range(memory,offset,count)) return io_fail(e,BV_ARGUMENT,"read needs host-visible memory and an in-bounds range");
   if (!count) return offset<=memory->size ? io_done(e,term_pak(CID(Nil),0)) : io_fail(e,BV_ARGUMENT,"copy offset out of range");
@@ -2152,11 +2279,13 @@ static Term bv_begin_command_buffer(Env e, Term* f, IoWork* w) {
   if (!command) return io_fail(e,BV_INVALID,"invalid command buffer");
   if (bv_lost(bv_command_device(command))) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"bv_begin_command_buffer");
   if (command->command.phase!=BV_INITIAL) return io_fail(e,BV_LIFETIME,"begin requires Initial; reset before re-recording");
+  if (command->command.generation==UINT64_MAX) return io_fail(e,BV_LIMIT,"command recording sequence exhausted");
   BvDevice* device=bv_command_device(command)->context;
   VkCommandBufferBeginInfo info={.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
   VkResult result=device->BeginCommandBuffer((VkCommandBuffer)(uintptr_t)command->handle,&info);
   if (result!=VK_SUCCESS) {command->command.phase=BV_COMMAND_INVALID;memset(&command->command.submission,0,sizeof(command->command.submission));return bv_device_error(e,bv_command_device(command),result,"vkBeginCommandBuffer");}
   memset(&command->command.submission,0,sizeof(command->command.submission));
+  command->command.generation++;
   command->command.phase=BV_RECORDING;command->command.submission.recording.scope=(BvRenderScope){.tag=BV_OUTSIDE};return bv_ok(e);
 }
 #endif
@@ -2171,7 +2300,8 @@ static Term bv_cmd_fill_buffer(Env e, Term* f, IoWork* w) {
   if (size==VK_WHOLE_SIZE && offset<buffer->size) size=(buffer->size-offset)&~UINT64_C(3);
   if (!size || offset>buffer->size || size>buffer->size-offset || ((offset|size)&3) || !(buffer->flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT))
     return io_fail(e,BV_ARGUMENT,"invalid fill offset, size, alignment, or usage");
-  if (!bv_prepare_refs(command,1,&buffer)) return io_fail(e,BV_LIMIT,"command reference allocation failed");
+  uint32_t refs=bv_prepare_refs(command,1,&buffer);
+  if (refs) return io_fail(e,refs,"command reference allocation or retired resource");
   BvDevice* device=owner->context;
   device->CmdFillBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,offset,size,(uint32_t)f[4]);
   return bv_ok(e);
@@ -2211,7 +2341,7 @@ static Term bv_cmd_copy_buffer(Env e, Term* f, IoWork* w) {
   }
   BvRow* resources[]={src,dst};
   if (owner && bv_lost(owner)) {free(regions);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"copy_buffer");}
-  if (!code && !bv_prepare_refs(command,2,resources)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,2,resources);
   if (!code) {
     BvDevice* device=owner->context;
     device->CmdCopyBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)src->handle,
@@ -2286,7 +2416,7 @@ static Term bv_cmd_pipeline_barrier(Env e, Term* f, IoWork* w) {
       .image=(VkImage)(uintptr_t)image->handle,.subresourceRange=range};
   }
   if (owner && bv_lost(owner)) {free(memory);free(buffers);free(images);free(resources);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"pipeline_barrier");}
-  if (!code && !bv_prepare_refs(command,nb+ni,resources)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,nb+ni,resources);
   if (!code) device->CmdPipelineBarrier((VkCommandBuffer)(uintptr_t)command->handle,
     (uint32_t)f[1],(uint32_t)f[2],0,nm,memory,nb,buffers,ni,images);
   free(memory);free(buffers);free(images);free(resources);
@@ -2347,7 +2477,7 @@ static Term bv_clear_image(Env e,Term* f,int depth) {
   }
   if (!code && !count) code=BV_ARGUMENT;
   if (owner && bv_lost(owner)) {free(ranges);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"clear image");}
-  if (!code && !bv_prepare_refs(command,1,&image)) code=BV_LIMIT;
+  if (!code) code=bv_prepare_refs(command,1,&image);
   if (!code) {
     if (depth) device->CmdClearDepthStencilImage((VkCommandBuffer)(uintptr_t)command->handle,(VkImage)(uintptr_t)image->handle,layout,&value,count,ranges);
     else device->CmdClearColorImage((VkCommandBuffer)(uintptr_t)command->handle,(VkImage)(uintptr_t)image->handle,layout,&color,count,ranges);
@@ -2409,7 +2539,7 @@ static Term bv_copy_image_buffer(Env e,Term* f,int upload) {
   }
   if (!code && !count) code=BV_ARGUMENT;
   if (owner && bv_lost(owner)) {free(regions);return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"copy image buffer");}
-  BvRow* roots[]={buffer,image};if (!code && !bv_prepare_refs(command,2,roots)) code=BV_LIMIT;
+  BvRow* roots[]={buffer,image};if (!code) code=bv_prepare_refs(command,2,roots);
   if (!code) {
     if (upload) device->CmdCopyBufferToImage((VkCommandBuffer)(uintptr_t)command->handle,(VkBuffer)(uintptr_t)buffer->handle,(VkImage)(uintptr_t)image->handle,layout,count,regions);
     else device->CmdCopyImageToBuffer((VkCommandBuffer)(uintptr_t)command->handle,(VkImage)(uintptr_t)image->handle,layout,(VkBuffer)(uintptr_t)buffer->handle,count,regions);
@@ -2448,12 +2578,15 @@ static uint32_t bv_new_fence(BvRow* owner,int signaled,BvFenceLifetime lifetime,
 static Term bv_submit_core_impl(Env e,BvRow* owner,BvRow* command,BvRow* fence,const VkSubmitInfo* synced) {
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"submit");
   if (fence->fence.use!=BV_FENCE_FREE) return io_fail(e,BV_LIFETIME,"submit fence has WSI association");
-  if (command->command.phase!=BV_EXECUTABLE || bv_active(owner,NULL)) return io_fail(e,BV_LIFETIME,"submit needs executable command and idle queue");
+  if (bv_sealed(command,BV_KIND_COUNT)) return io_fail(e,BV_LIFETIME,"submit references retired resources");
+  if (command->command.phase!=BV_EXECUTABLE || bv_active(owner,fence) || bv_uncertain(owner)) return io_fail(e,BV_LIFETIME,"submit needs executable command, free fence and certain device");
   BvDevice* device=owner->context;
   for(BvDep* dep=command->deps;dep;dep=dep->next)
     if(dep->target->kind==BV_DESCRIPTOR_SET && bv_set_pool(dep->target)->object.descriptor_pool.phase!=BV_POOL_READY)
       return io_fail(e,BV_LIFETIME,"submit descriptor pool quarantined");
-  for(BvRow* image=bv_rows;image;image=image->next)if(image->kind==BV_IMAGE && image->parent==owner && image->object.image.storage==BV_BORROWED_IMAGE && bv_may_reach_depth(command,image,BV_KIND_COUNT) && !bv_image_available(image))return io_fail(e,BV_LIFETIME,"submit borrowed image does not match completed acquisition");
+  BvLease* lease=command->command.lease;
+  if (lease && (lease->serial!=command->command.lease_serial || lease->phase!=BV_LEASE_ACQUIRED)) return io_fail(e,BV_LIFETIME,"submit acquisition generation is stale or incomplete");
+  for(BvRow* image=bv_rows;image;image=image->next)if(image->kind==BV_IMAGE && image->parent==owner && image->object.image.storage==BV_BORROWED_IMAGE && bv_may_reach_depth(command,image,BV_KIND_COUNT) && (!bv_image_available(image) || bv_image_lease(image)!=lease))return io_fail(e,BV_LIFETIME,"submit borrowed image does not match completed acquisition");
   VkResult result=bv_device_result(owner,device->GetFenceStatus(device->handle,(VkFence)(uintptr_t)fence->handle));
   if (result==VK_SUCCESS) return io_fail(e,BV_LIFETIME,"submit fence must be unsignaled");
   if (result!=VK_NOT_READY) return bv_vk_error(e,result,"submit / vkGetFenceStatus");
@@ -2463,11 +2596,11 @@ static Term bv_submit_core_impl(Env e,BvRow* owner,BvRow* command,BvRow* fence,c
   if (result==VK_SUCCESS) {
     memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_PENDING;command->command.submission.pending.fence=fence;
-    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_may_reach_depth(command,device->lease.swapchain,BV_KIND_COUNT)) device->lease.phase=BV_LEASE_RENDERING;
+    if (lease) lease->phase=BV_LEASE_RENDERING;
   } else if (result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST) {
     memset(&command->command.submission,0,sizeof(command->command.submission));
     command->command.phase=BV_UNCERTAIN;command->command.submission.uncertain.fence=fence;
-    if (device->lease.phase==BV_LEASE_ACQUIRED && bv_may_reach_depth(command,device->lease.swapchain,BV_KIND_COUNT))device->lease.phase=BV_LEASE_RENDER_UNCERTAIN;
+    if (lease) lease->phase=BV_LEASE_RENDER_UNCERTAIN;
   }
   return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkQueueSubmit");
 }
@@ -2504,9 +2637,9 @@ static Term bv_submit_synced(Env e,Term* f,IoWork* w) {
     while(staged) {
       BvDep* next=staged->next;staged->target->semaphore.phase=command->command.phase==BV_UNCERTAIN ? BV_SEM_UNCERTAIN : staged->role==BV_DEP_SUBMIT_WAIT ? BV_SEM_SUBMIT_WAIT : BV_SEM_SIGNAL_PENDING;
       if(staged->role==BV_DEP_SUBMIT_SIGNAL) {
-        bool rendered=device->lease.phase==BV_LEASE_RENDERING || device->lease.phase==BV_LEASE_RENDER_UNCERTAIN;
-        staged->target->semaphore.producer=rendered ? device->lease.swapchain : NULL;
-        staged->target->semaphore.producer_serial=rendered ? device->lease.serial : 0;
+        BvLease* lease=command->command.lease;
+        staged->target->semaphore.producer=lease ? lease->swapchain : NULL;
+        staged->target->semaphore.producer_serial=lease ? command->command.lease_serial : 0;
       }
       staged->next=command->deps;command->deps=staged;staged=next;
     }
@@ -2523,11 +2656,7 @@ static Term bv_fence_observe(Env e,BvRow* fence,int wait,uint64_t timeout) {
   VkFence handle=(VkFence)(uintptr_t)fence->handle;
   VkResult result=bv_device_result(owner,wait ? device->WaitForFences(device->handle,1,&handle,VK_TRUE,timeout) : device->GetFenceStatus(device->handle,handle));
   if (result==VK_SUCCESS && command) bv_complete(command);
-  if (result==VK_SUCCESS && fence->fence.use!=BV_FENCE_FREE) {
-    if (fence->fence.use==BV_FENCE_ACQUIRE) device->lease.phase=device->lease.phase==BV_LEASE_ACQUIRING ? BV_LEASE_ACQUIRED : BV_LEASE_ABANDONED;
-    else {device->lease.semaphore->semaphore.phase=BV_SEM_UNUSED;device->lease=(BvLease){0};}
-    fence->fence.use=BV_FENCE_FREE;fence->fence.swapchain=NULL;
-  }
+  if (result==VK_SUCCESS && fence->fence.use!=BV_FENCE_FREE) bv_finish_wsi_fence(fence);
   if (result==VK_SUCCESS || result==(wait ? VK_TIMEOUT : VK_NOT_READY)) return io_done(e,(uint32_t)result);
   return bv_vk_error(e,result,wait ? "vkWaitForFences" : "vkGetFenceStatus");
 }
@@ -2596,7 +2725,7 @@ static Term bv_reset_command_buffer(Env e,Term* f,IoWork* w) {
   command->command.phase=result==VK_SUCCESS ? BV_INITIAL : BV_COMMAND_INVALID;
   memset(&command->command.submission,0,sizeof(command->command.submission));
   if (result!=VK_SUCCESS) return bv_vk_error(e,result,"vkResetCommandBuffer");
-  bv_free_refs(command->deps);command->deps=NULL;memset(command->command.sets,0,sizeof(command->command.sets));return bv_ok(e);
+  bv_free_refs(command->deps);command->deps=NULL;memset(command->command.sets,0,sizeof(command->command.sets));command->command.lease=NULL;command->command.lease_serial=0;return bv_ok(e);
 }
 #endif
 #ifdef CID(Device.submit_and_wait)
@@ -2604,7 +2733,8 @@ static Term bv_submit_and_wait(Env e,Term* f,IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);BvRow* command=bv_get(bv_key(e,f[1]),BV_COMMAND);
   if (!owner || bv_command_device(command)!=owner) return io_fail(e,BV_INVALID,"invalid command buffer or device");
   if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"submit_and_wait");
-  if (command->command.phase!=BV_EXECUTABLE || bv_active(owner,NULL)) return io_fail(e,BV_LIFETIME,"submit needs executable command and idle queue");
+  if (bv_sealed(command,BV_KIND_COUNT)) return io_fail(e,BV_LIFETIME,"submit references retired resources");
+  if (command->command.phase!=BV_EXECUTABLE || bv_uncertain(owner)) return io_fail(e,BV_LIFETIME,"submit needs executable command and certain device");
   BvDevice* device=owner->context;Term result;
   if (!device->convenience) {
     VkResult status=VK_SUCCESS;uint32_t code=bv_new_fence(owner,0,BV_CONVENIENCE_PRIVATE,&device->convenience,&status);
@@ -2637,26 +2767,29 @@ static Term bv_u64_roundtrip(Env e, Term* f, IoWork* w) {
 #endif
 
 static VkResult bv_drain_presentation(BvRow* owner) {
-  BvDevice* device=owner->context;BvLease* lease=&device->lease;
-  if(bv_lost(owner)) {device->lease=(BvLease){0};return VK_ERROR_DEVICE_LOST;}
-  if(lease->phase==BV_LEASE_ACQUIRING || lease->phase==BV_LEASE_PRESENTING || (lease->phase==BV_LEASE_ACQUIRE_UNCERTAIN || lease->phase==BV_LEASE_PRESENT_UNCERTAIN)) {
-    if(!lease->fence)return VK_NOT_READY;
-    VkFence handle=(VkFence)(uintptr_t)lease->fence->handle;
-    VkResult result=bv_device_result(owner,device->WaitForFences(device->handle,1,&handle,VK_TRUE,UINT64_C(1000000000)));
-    if(result!=VK_SUCCESS)return result;
-    BvFenceUse use=lease->fence->fence.use;lease->fence->fence.use=BV_FENCE_FREE;lease->fence->fence.swapchain=NULL;
-    if(use==BV_FENCE_ACQUIRE)lease->phase=lease->phase==BV_LEASE_ACQUIRING ? BV_LEASE_ACQUIRED : BV_LEASE_ABANDONED;
-    else {if(lease->semaphore)lease->semaphore->semaphore.phase=BV_SEM_UNUSED;*lease=(BvLease){0};}
+  BvDevice* device=owner->context;
+  if (bv_lost(owner)) return VK_ERROR_DEVICE_LOST;
+  for (BvRow* row=bv_rows;row;row=row->next) {
+    if (row->kind!=BV_SWAPCHAIN || row->parent!=owner) continue;
+    BvSwapchain* target=row->context;
+    for (uint32_t j=0;j<target->lease_count;j++) {
+      BvLease* lease=&target->leases[j];
+      if (lease->phase!=BV_LEASE_ACQUIRING && lease->phase!=BV_LEASE_PRESENTING && lease->phase!=BV_LEASE_ACQUIRE_UNCERTAIN && lease->phase!=BV_LEASE_PRESENT_UNCERTAIN) continue;
+      if (!lease->fence || lease->fence->fence.lease!=lease || lease->fence->fence.serial!=lease->serial) return VK_NOT_READY;
+      VkFence handle=(VkFence)(uintptr_t)lease->fence->handle;
+      VkResult result=bv_device_result(owner,device->WaitForFences(device->handle,1,&handle,VK_TRUE,UINT64_C(1000000000)));
+      if (result!=VK_SUCCESS) return result;
+      bv_finish_wsi_fence(lease->fence);
+    }
   }
   return VK_SUCCESS;
 }
 static void bv_swapchain_remove(BvRow* row) {
   BvDevice* device=row->parent->context;BvSwapchain* target=row->context;
   for(uint32_t j=0;j<target->count;j++)if(target->images[j])bv_remove(target->images[j]);
-  if(device->lease.swapchain==row)device->lease=(BvLease){0};
   for(BvRow* semaphore=bv_rows;semaphore;semaphore=semaphore->next)if(semaphore->kind==BV_SEMAPHORE && semaphore->semaphore.producer==row)semaphore->semaphore.producer=NULL;
   device->DestroySwapchainKHR(device->handle,(VkSwapchainKHR)(uintptr_t)row->handle,NULL);
-  free(target->images);free(target);bv_remove(row);
+  free(target->images);free(target->leases);free(target);bv_remove(row);
 }
 #ifdef CID(Device.create_swapchain)
 static Term bv_create_swapchain(Env e,Term* f,IoWork* w) {
@@ -2707,7 +2840,7 @@ static Term bv_create_swapchain(Env e,Term* f,IoWork* w) {
     result=device->GetSwapchainImagesKHR(device->handle,handle,&n,images);
   }
   if(result==VK_SUCCESS) {
-    target->images=calloc(n,sizeof(*target->images));if(!target->images)result=VK_ERROR_OUT_OF_HOST_MEMORY;
+    target->lease_count=2*n;target->images=calloc(n,sizeof(*target->images));target->leases=calloc(target->lease_count,sizeof(*target->leases));if(!target->images || !target->leases)result=VK_ERROR_OUT_OF_HOST_MEMORY;
     else {
       target->count=n;
       for(uint32_t j=0;j<n;j++) {
@@ -2737,8 +2870,9 @@ static Term bv_destroy_swapchain(Env e,Term* f,IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner);
   if(!owner || !row)return io_fail(e,BV_INVALID,"swapchain destroy ownership");
   BvDevice* device=owner->context;BvSwapchain* target=row->context;
-  if(device->lease.swapchain==row && device->lease.phase!=BV_LEASE_ACQUIRED && device->lease.phase!=BV_LEASE_RENDERED && device->lease.phase!=BV_LEASE_ABANDONED && !bv_lost(owner))return io_fail(e,BV_LIFETIME,"swapchain has incomplete acquisition, rendering or presentation");
+  for(uint32_t j=0;j<target->lease_count;j++)if(target->leases[j].phase!=BV_LEASE_NONE && target->leases[j].phase!=BV_LEASE_ACQUIRED && target->leases[j].phase!=BV_LEASE_RENDERED && target->leases[j].phase!=BV_LEASE_ABANDONED && !bv_lost(owner))return io_fail(e,BV_LIFETIME,"swapchain has incomplete acquisition, rendering or presentation");
   for(uint32_t j=0;j<target->count;j++)if(bv_referenced(target->images[j]))return io_fail(e,BV_LIFETIME,"swapchain image still referenced");
+  for(BvRow* command=bv_rows;command;command=command->next)if(command->kind==BV_COMMAND && bv_command_device(command)==owner && bv_may_reach_depth(command,row,BV_KIND_COUNT))return io_fail(e,BV_LIFETIME,"swapchain acquisition still recorded");
   bv_swapchain_remove(row);return bv_ok(e);
 }
 #endif
@@ -2747,33 +2881,58 @@ static Term bv_acquire(Env e,Term* f,IoWork* w) {
   BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner),*fence=bv_public_fence(bv_key(e,f[2]));uint64_t timeout=bv_u64(e,f[3]);
   if(!owner || !row || !fence || fence->parent!=owner)return io_fail(e,BV_INVALID,"acquire ownership");
   BvDevice* device=owner->context;if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"acquire");
-  if(device->lease.phase!=BV_LEASE_NONE || bv_active(owner,NULL) || fence->fence.use!=BV_FENCE_FREE)return io_fail(e,BV_LIFETIME,"acquire requires idle lease and free fence");
-  for(BvRow* command=bv_rows;command;command=command->next)if(command->kind==BV_COMMAND && bv_command_device(command)==owner && bv_may_reach_depth(command,row,BV_KIND_COUNT))return io_fail(e,BV_LIFETIME,"reset previous borrowed-image recording before acquire");
+  if (bv_uncertain(owner) || bv_active(owner,fence) || fence->fence.use!=BV_FENCE_FREE) return io_fail(e,BV_LIFETIME,"acquire requires free fence and certain device");
+  BvSwapchain* target=row->context;BvLease* lease=NULL;
+  for (uint32_t j=0;j<target->lease_count;j++) if (target->leases[j].phase==BV_LEASE_NONE) {lease=&target->leases[j];break;}
+  if (!lease) return io_fail(e,BV_LIFETIME,"all acquisition owners are occupied");
   VkResult result=device->GetFenceStatus(device->handle,(VkFence)(uintptr_t)fence->handle);
   if(result!=VK_NOT_READY)return result==VK_SUCCESS ? io_fail(e,BV_LIFETIME,"acquire fence must be unsignaled") : bv_device_error(e,owner,result,"acquire fence status");
   if(device->lease_serial==UINT64_MAX)return io_fail(e,BV_LIMIT,"acquisition sequence exhausted");
   uint64_t serial=++device->lease_serial;
   uint32_t index=0;result=bv_device_result(owner,device->AcquireNextImageKHR(device->handle,(VkSwapchainKHR)(uintptr_t)row->handle,timeout,VK_NULL_HANDLE,(VkFence)(uintptr_t)fence->handle,&index));
   if(result==VK_SUCCESS || result==VK_SUBOPTIMAL_KHR) {
-    device->lease=(BvLease){BV_LEASE_ACQUIRING,row,fence,NULL,index,serial};fence->fence.use=BV_FENCE_ACQUIRE;fence->fence.swapchain=row;
-    if(index>=((BvSwapchain*)row->context)->count) {device->lease.phase=BV_LEASE_ACQUIRE_UNCERTAIN;return io_fail(e,BV_INVALID,"acquire returned invalid image index");}
-    return io_done(e,io_node(e,CID(Acquired),index,result==VK_SUBOPTIMAL_KHR ? 1 : 0));
+    *lease=(BvLease){BV_LEASE_ACQUIRING,row,fence,NULL,index,serial};fence->fence.use=BV_FENCE_ACQUIRE;fence->fence.lease=lease;fence->fence.serial=serial;
+    bool valid=index<target->count;
+    for (uint32_t j=0;j<target->lease_count;j++) if (&target->leases[j]!=lease && target->leases[j].phase!=BV_LEASE_NONE && target->leases[j].phase!=BV_LEASE_PRESENTING && target->leases[j].index==index) valid=false;
+    if (!valid) {lease->phase=BV_LEASE_ACQUIRE_UNCERTAIN;return io_fail(e,BV_INVALID,"acquire returned invalid or already-owned image index");}
+    Term fields[]={row->id,(uint32_t)serial,(uint32_t)(serial>>32),index,result==VK_SUBOPTIMAL_KHR ? 1 : 0};
+    return io_done(e,bv_node(e,CID(Acquired),5,fields));
   }
   if(result==VK_ERROR_OUT_OF_DATE_KHR)return io_done(e,term_pak(CID(AcquireOutOfDate),0));
   if(result==VK_ERROR_SURFACE_LOST_KHR)return io_done(e,term_pak(CID(AcquireSurfaceLost),0));
   if(result==VK_TIMEOUT)return io_done(e,term_pak(CID(AcquireTimeout),0));
   if(result==VK_NOT_READY)return io_done(e,term_pak(CID(AcquireNotReady),0));
-  if(result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST){device->lease=(BvLease){BV_LEASE_ACQUIRE_UNCERTAIN,row,fence,NULL,0,serial};fence->fence.use=BV_FENCE_ACQUIRE;fence->fence.swapchain=row;}
+  if(result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST){*lease=(BvLease){BV_LEASE_ACQUIRE_UNCERTAIN,row,fence,NULL,UINT32_MAX,serial};fence->fence.use=BV_FENCE_ACQUIRE;fence->fence.lease=lease;fence->fence.serial=serial;}
   return bv_vk_error(e,result,"vkAcquireNextImageKHR");
+}
+#endif
+static BvLease* bv_acquisition(Env e,Term value,BvRow* owner) {
+  Term fields[3];bv_unpack(e,value,3,fields);
+  BvRow* row=bv_child((uint32_t)fields[0],BV_SWAPCHAIN,owner);
+  if (!row) return NULL;
+  uint64_t serial=((uint64_t)(uint32_t)fields[2]<<32)|(uint32_t)fields[1];
+  BvSwapchain* target=row->context;
+  for (uint32_t j=0;j<target->lease_count;j++) if (serial && target->leases[j].serial==serial && target->leases[j].phase!=BV_LEASE_NONE) return &target->leases[j];
+  return NULL;
+}
+#ifdef CID(CommandBuffer.use_acquisition)
+static Term bv_use_acquisition(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);BvLease* lease=bv_acquisition(e,f[1],owner);
+  if (!command || !lease) return io_fail(e,BV_INVALID,"command acquisition ownership or stale generation");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"command acquisition");
+  if (!bv_outside(command) || lease->phase!=BV_LEASE_ACQUIRED || (command->command.lease && (command->command.lease!=lease || command->command.lease_serial!=lease->serial))) return io_fail(e,BV_LIFETIME,"command acquisition must be completed and unique to this recording");
+  uint32_t code=bv_prepare_refs(command,1,&lease->swapchain);if (code) return io_fail(e,code,"command acquisition references");
+  command->command.lease=lease;command->command.lease_serial=lease->serial;return bv_ok(e);
 }
 #endif
 #ifdef CID(Device.release_acquired)
 static Term bv_release_acquired(Env e,Term* f,IoWork* w) {
-  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner);
-  if(!owner || !row)return io_fail(e,BV_INVALID,"release acquisition ownership");
-  BvDevice* device=owner->context;BvLease* lease=&device->lease;
-  if(lease->swapchain!=row || (lease->phase!=BV_LEASE_ACQUIRED && lease->phase!=BV_LEASE_RENDERED))return io_fail(e,BV_LIFETIME,"release requires completed acquisition and rendering");
-  VkReleaseSwapchainImagesInfoEXT release={.sType=VK_STRUCTURE_TYPE_RELEASE_SWAPCHAIN_IMAGES_INFO_EXT,.swapchain=(VkSwapchainKHR)(uintptr_t)row->handle,.imageIndexCount=1,.pImageIndices=&lease->index};
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);BvLease* lease=bv_acquisition(e,f[1],owner);
+  if(!owner || !lease)return io_fail(e,BV_INVALID,"release acquisition ownership or stale generation");
+  BvDevice* device=owner->context;
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"release acquisition");
+  if(lease->phase!=BV_LEASE_ACQUIRED && lease->phase!=BV_LEASE_RENDERED)return io_fail(e,BV_LIFETIME,"release requires completed acquisition and rendering");
+  VkReleaseSwapchainImagesInfoEXT release={.sType=VK_STRUCTURE_TYPE_RELEASE_SWAPCHAIN_IMAGES_INFO_EXT,.swapchain=(VkSwapchainKHR)(uintptr_t)lease->swapchain->handle,.imageIndexCount=1,.pImageIndices=&lease->index};
   VkResult result=bv_device_result(owner,device->ReleaseSwapchainImagesEXT(device->handle,&release));
   if(result==VK_SUCCESS)*lease=(BvLease){0};
   return result==VK_SUCCESS ? bv_ok(e) : bv_vk_error(e,result,"vkReleaseSwapchainImagesEXT");
@@ -2800,11 +2959,12 @@ static Term bv_destroy_semaphore(Env e,Term* f,IoWork* w) {
 #endif
 #ifdef CID(Device.present)
 static Term bv_present(Env e,Term* f,IoWork* w) {
-  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*row=bv_child(bv_key(e,f[1]),BV_SWAPCHAIN,owner),*semaphore=bv_child(bv_key(e,f[3]),BV_SEMAPHORE,owner),*fence=bv_public_fence(bv_key(e,f[4]));
-  if(!owner || !row || !semaphore || !fence || fence->parent!=owner)return io_fail(e,BV_INVALID,"present ownership");
-  BvDevice* device=owner->context;BvLease* lease=&device->lease;
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);BvLease* lease=bv_acquisition(e,f[1],owner);
+  BvRow* semaphore=bv_child(bv_key(e,f[2]),BV_SEMAPHORE,owner),*fence=bv_public_fence(bv_key(e,f[3]));
+  if(!owner || !lease || !semaphore || !fence || fence->parent!=owner)return io_fail(e,BV_INVALID,"present ownership or stale acquisition generation");
+  BvRow* row=lease->swapchain;BvDevice* device=owner->context;
   if(bv_lost(owner))return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"present");
-  if(lease->swapchain!=row || lease->index!=(uint32_t)f[2] || lease->phase!=BV_LEASE_RENDERED || semaphore->semaphore.phase!=BV_SEM_SIGNALED || semaphore->semaphore.producer!=row || semaphore->semaphore.producer_serial!=lease->serial || fence->fence.use!=BV_FENCE_FREE || bv_active(owner,fence))return io_fail(e,BV_LIFETIME,"present requires matching rendered lease, signal and free fence");
+  if(bv_uncertain(owner) || lease->phase!=BV_LEASE_RENDERED || semaphore->semaphore.phase!=BV_SEM_SIGNALED || semaphore->semaphore.producer!=row || semaphore->semaphore.producer_serial!=lease->serial || fence->fence.use!=BV_FENCE_FREE || bv_active(owner,fence))return io_fail(e,BV_LIFETIME,"present requires matching rendered lease, signal and free fence");
   VkFence signal=(VkFence)(uintptr_t)fence->handle;VkResult result=device->GetFenceStatus(device->handle,signal);
   if(result!=VK_NOT_READY)return result==VK_SUCCESS ? io_fail(e,BV_LIFETIME,"present fence must be unsignaled") : bv_device_error(e,owner,result,"present fence status");
   VkSwapchainKHR handle=(VkSwapchainKHR)(uintptr_t)row->handle;VkSemaphore wait=(VkSemaphore)(uintptr_t)semaphore->handle;
@@ -2813,7 +2973,7 @@ static Term bv_present(Env e,Term* f,IoWork* w) {
   result=bv_device_result(owner,device->QueuePresentKHR(device->present_queue,&present));
   if(result==VK_ERROR_OUT_OF_HOST_MEMORY || result==VK_ERROR_OUT_OF_DEVICE_MEMORY)return bv_vk_error(e,result,"vkQueuePresentKHR (retry preserves lease)");
   if(result==VK_ERROR_DEVICE_LOST)return bv_vk_error(e,result,"vkQueuePresentKHR");
-  lease->phase=BV_LEASE_PRESENTING;lease->fence=fence;lease->semaphore=semaphore;fence->fence.use=BV_FENCE_PRESENT;fence->fence.swapchain=row;semaphore->semaphore.phase=BV_SEM_PRESENT_WAIT;
+  lease->phase=BV_LEASE_PRESENTING;lease->fence=fence;lease->semaphore=semaphore;fence->fence.use=BV_FENCE_PRESENT;fence->fence.lease=lease;fence->fence.serial=lease->serial;semaphore->semaphore.phase=BV_SEM_PRESENT_WAIT;
   if(result==VK_SUCCESS)return io_done(e,term_pak(CID(Presented),0));
   if(result==VK_SUBOPTIMAL_KHR)return io_done(e,term_pak(CID(PresentSuboptimal),0));
   if(result==VK_ERROR_OUT_OF_DATE_KHR)return io_done(e,term_pak(CID(PresentOutOfDate),0));
@@ -2823,6 +2983,110 @@ static Term bv_present(Env e,Term* f,IoWork* w) {
 }
 #endif
 
+
+#ifdef CID(Device.timestamp_properties)
+static Term bv_timestamp_properties(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);
+  if (!owner) return io_fail(e,BV_INVALID,"timestamp properties device");
+  BvDevice* device=owner->context;uint32_t period;memcpy(&period,&device->limits.timestampPeriod,4);
+  Term fields[]={device->queue_properties.timestampValidBits,period};
+  return io_done(e,bv_node(e,CID(TimestampProperties),2,fields));
+}
+#endif
+#ifdef CID(Device.create_timestamp_pool)
+static Term bv_create_timestamp_pool(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);uint32_t count=f[1];
+  if (!owner) return io_fail(e,BV_INVALID,"timestamp pool device");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"create timestamp pool");
+  BvDevice* device=owner->context;
+  if (!count || count>4096 || !device->queue_properties.timestampValidBits) return io_fail(e,BV_ARGUMENT,"timestamp count or queue support");
+  BvRow* pool=bv_add(BV_QUERY_POOL,owner);if (!pool) return io_fail(e,BV_LIMIT,"timestamp pool metadata");
+  pool->object.queries=(BvQueries){count,calloc(count,sizeof(BvQuerySlot))};
+  if (!pool->object.queries.slots) {bv_remove(pool);return io_fail(e,BV_LIMIT,"timestamp query metadata");}
+  VkQueryPoolCreateInfo create={.sType=VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,.queryType=VK_QUERY_TYPE_TIMESTAMP,.queryCount=count};
+  VkQueryPool handle;VkResult result=bv_device_result(owner,device->CreateQueryPool(device->handle,&create,NULL,&handle));
+  if (result!=VK_SUCCESS) {bv_remove(pool);return bv_vk_error(e,result,"vkCreateQueryPool");}
+  pool->handle=(uintptr_t)handle;return io_done(e,term_pak(CID(QueryPool),pool->id));
+}
+#endif
+#ifdef CID(Device.destroy_query_pool)
+static Term bv_destroy_query_pool(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*pool=bv_child(bv_key(e,f[1]),BV_QUERY_POOL,owner);
+  if (!owner || !pool) return io_fail(e,BV_INVALID,"timestamp pool ownership");
+  if (bv_referenced(pool)) return io_fail(e,BV_LIFETIME,"timestamp pool has recorded references");
+  BvDevice* device=owner->context;device->DestroyQueryPool(device->handle,(VkQueryPool)(uintptr_t)pool->handle,NULL);bv_remove(pool);return bv_ok(e);
+}
+#endif
+static int bv_query_range(BvRow* pool,uint32_t first,uint32_t count) {
+  return count && first<pool->object.queries.count && count<=pool->object.queries.count-first;
+}
+#ifdef CID(CommandBuffer.reset_timestamp_queries)
+static Term bv_reset_timestamp_queries(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* pool=bv_child(bv_key(e,f[1]),BV_QUERY_POOL,owner);uint32_t first=f[2],count=f[3];
+  if (!command || !pool) return io_fail(e,BV_INVALID,"reset timestamp ownership");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"reset timestamp queries");
+  if (!bv_outside(command) || !bv_query_range(pool,first,count)) return io_fail(e,BV_ARGUMENT,"reset timestamp range or render scope");
+  for (BvRow* row=bv_rows;row;row=row->next)
+    if (row->kind==BV_COMMAND && row!=command && bv_may_reach_depth(row,pool,BV_KIND_COUNT)) return io_fail(e,BV_LIFETIME,"timestamp pool belongs to another recording");
+  uint32_t code=bv_prepare_refs(command,1,&pool);if (code) return io_fail(e,code,"reset timestamp references");
+  BvDevice* device=owner->context;device->CmdResetQueryPool((VkCommandBuffer)(uintptr_t)command->handle,(VkQueryPool)(uintptr_t)pool->handle,first,count);
+  for (uint32_t j=first;j<first+count;j++) pool->object.queries.slots[j]=(BvQuerySlot){command->id,command->command.generation,false,false};
+  return bv_ok(e);
+}
+#endif
+#ifdef CID(CommandBuffer.write_timestamp)
+static Term bv_write_timestamp(Env e,Term* f,IoWork* w) {
+  BvRow* command=bv_get(bv_key(e,f[0]),BV_COMMAND),*owner=bv_command_device(command);
+  BvRow* pool=bv_child(bv_key(e,f[1]),BV_QUERY_POOL,owner);uint32_t query=f[2],stage=f[3];
+  if (!command || !pool) return io_fail(e,BV_INVALID,"write timestamp ownership");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"write timestamp");
+  BvDevice* device=owner->context;
+  if (!bv_outside(command) || !bv_query_range(pool,query,1) || !stage || (stage&(stage-1)) || (stage&VK_PIPELINE_STAGE_HOST_BIT) || !bv_baseline_stages(device,stage) || !device->queue_properties.timestampValidBits) return io_fail(e,BV_ARGUMENT,"timestamp query, stage or render scope");
+  BvQuerySlot* slot=&pool->object.queries.slots[query];
+  if (slot->command!=command->id || slot->generation!=command->command.generation || slot->written) return io_fail(e,BV_LIFETIME,"timestamp must be reset by this recording before its single write");
+  uint32_t code=bv_prepare_refs(command,1,&pool);if (code) return io_fail(e,code,"timestamp references");
+  device->CmdWriteTimestamp((VkCommandBuffer)(uintptr_t)command->handle,(VkPipelineStageFlagBits)stage,(VkQueryPool)(uintptr_t)pool->handle,query);slot->written=true;return bv_ok(e);
+}
+#endif
+#ifdef CID(Device.timestamp_results)
+static Term bv_timestamp_results(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE),*pool=bv_child(bv_key(e,f[1]),BV_QUERY_POOL,owner);uint32_t first=f[2],count=f[3];
+  if (!owner || !pool) return io_fail(e,BV_INVALID,"timestamp results ownership");
+  if (bv_lost(owner)) return bv_vk_error(e,VK_ERROR_DEVICE_LOST,"timestamp results");
+  if (!bv_query_range(pool,first,count)) return io_fail(e,BV_ARGUMENT,"timestamp result range");
+  for (uint32_t j=first;j<first+count;j++) if (!pool->object.queries.slots[j].command) return io_fail(e,BV_LIFETIME,"timestamp query was never reset");
+  BvDevice* device=owner->context;Term list=term_pak(CID(Nil),0);
+  for (uint32_t j=first+count;j>first;j--) {
+    BvQuerySlot* slot=&pool->object.queries.slots[j-1];uint64_t pair[2]={0,0};
+    if (slot->ready && slot->written) {
+      VkResult result=bv_device_result(owner,device->GetQueryPoolResults(device->handle,(VkQueryPool)(uintptr_t)pool->handle,j-1,1,sizeof(pair),pair,sizeof(pair),VK_QUERY_RESULT_64_BIT|VK_QUERY_RESULT_WITH_AVAILABILITY_BIT));
+      if (result!=VK_SUCCESS && result!=VK_NOT_READY) {term_sink(e,list);return bv_vk_error(e,result,"vkGetQueryPoolResults");}
+    }
+    if (!pair[1]) pair[0]=0;
+    Term fields[]={(uint32_t)pair[0],(uint32_t)(pair[0]>>32),pair[1] ? 1 : 0};
+    list=io_node(e,CID(Con),bv_node(e,CID(Timestamp),3,fields),list);
+  }
+  return io_done(e,list);
+}
+#endif
+#ifdef CID(Device.timestamp_duration)
+static Term bv_timestamp_duration(Env e,Term* f,IoWork* w) {
+  BvRow* owner=bv_get(bv_key(e,f[0]),BV_DEVICE);uint64_t start=bv_u64(e,f[1]),end=bv_u64(e,f[2]),bound=bv_u64(e,f[3]);
+  if (!owner) return io_fail(e,BV_INVALID,"timestamp duration device");
+  BvDevice* device=owner->context;unsigned bits=device->queue_properties.timestampValidBits;double period=device->limits.timestampPeriod;
+  if (!bits || bits>64 || !isfinite(period) || period<=0 || !bound || (double)bound>=ldexp(period,bits-1)) return io_fail(e,BV_ARGUMENT,"timestamp interval exceeds the unambiguous half-wrap limit");
+  uint64_t mask=bits==64 ? UINT64_MAX : (UINT64_C(1)<<bits)-1,delta=(end-start)&mask;double ns=(double)delta*period;
+  if (ns>(double)bound) return io_fail(e,BV_ARGUMENT,"timestamp interval exceeds its CPU monotonic bound");
+  float result=(float)ns;uint32_t value;memcpy(&value,&result,4);return io_done(e,value);
+}
+#endif
+#ifdef CID(monotonic_ns)
+static Term bv_monotonic_ns(Env e,Term* f,IoWork* w) {
+  struct timespec now;if (clock_gettime(CLOCK_MONOTONIC,&now)) return io_fail(e,BV_INVALID,"monotonic clock unavailable");
+  return io_done(e,bv_words(e,(uint64_t)now.tv_sec*UINT64_C(1000000000)+(uint64_t)now.tv_nsec));
+}
+#endif
 
 static void __attribute__((constructor)) bv_register(void) {
 // BEGIN GENERATED REGISTRATIONS
@@ -2867,6 +3131,12 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(Device.destroy_buffer)
   io_eff(CID(Device.destroy_buffer), bv_destroy_buffer);
+#endif
+#ifdef CID(Device.retire_buffers)
+  io_eff(CID(Device.retire_buffers), bv_retire_buffers);
+#endif
+#ifdef CID(Device.collect_retired)
+  io_eff(CID(Device.collect_retired), bv_collect_retired);
 #endif
 #ifdef CID(Device.buffer_requirements_raw)
   io_eff(CID(Device.buffer_requirements_raw), bv_buffer_requirements);
@@ -3131,6 +3401,33 @@ static void __attribute__((constructor)) bv_register(void) {
 #endif
 #ifdef CID(CommandBuffer.bind_descriptor_sets)
   io_eff(CID(CommandBuffer.bind_descriptor_sets), bv_cmd_bind_descriptor_sets);
+#endif
+#ifdef CID(CommandBuffer.use_acquisition)
+  io_eff(CID(CommandBuffer.use_acquisition), bv_use_acquisition);
+#endif
+#ifdef CID(Device.timestamp_properties)
+  io_eff(CID(Device.timestamp_properties), bv_timestamp_properties);
+#endif
+#ifdef CID(Device.create_timestamp_pool)
+  io_eff(CID(Device.create_timestamp_pool), bv_create_timestamp_pool);
+#endif
+#ifdef CID(Device.destroy_query_pool)
+  io_eff(CID(Device.destroy_query_pool), bv_destroy_query_pool);
+#endif
+#ifdef CID(CommandBuffer.reset_timestamp_queries)
+  io_eff(CID(CommandBuffer.reset_timestamp_queries), bv_reset_timestamp_queries);
+#endif
+#ifdef CID(CommandBuffer.write_timestamp)
+  io_eff(CID(CommandBuffer.write_timestamp), bv_write_timestamp);
+#endif
+#ifdef CID(Device.timestamp_results)
+  io_eff(CID(Device.timestamp_results), bv_timestamp_results);
+#endif
+#ifdef CID(Device.timestamp_duration)
+  io_eff(CID(Device.timestamp_duration), bv_timestamp_duration);
+#endif
+#ifdef CID(monotonic_ns)
+  io_eff(CID(monotonic_ns), bv_monotonic_ns);
 #endif
 // END GENERATED REGISTRATIONS
 }

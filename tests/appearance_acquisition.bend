@@ -22,6 +22,7 @@ type RecordedState is Data:
 def geometry_bytes(+device: V.Device, geometry: GPU.Geometry) -> V.Action(List<U32>):
   match geometry:
     case GPU.Empty{}: V.Action.pure(List<U32>,[])
+    case GPU.Chunked{chunks,runs}: IO.pure(V.VkResult(List<U32>),Fail{(1,"Legacy acquisition fixture received chunk geometry")})
     case GPU.Geometry{E.BoundBuffer{vb,vm},E.BoundBuffer{ib,im},+count}:
       do V.Action<List<U32>>:
         vertices : List<U32> <- V.Device.read_memory(device,vm,W.zero(),(count / 6 * 160 : U32))
@@ -72,26 +73,26 @@ def finish(fuel: Nat, +context: WSI.Context, +frame: P.Frame, app: I.Session, +r
 
 def submitted(+context: WSI.Context, +frame: P.Frame, app: I.Session) -> V.Action(Unit):
   match app:
-    case I.Session{I.World{body,mesh,+camera,+controls,revision,original,+point,dirty},target,P.Submitted{index,replace},+width,+height,+mapped,recreate,+frames,+generations,+scene}:
+    case I.Session{I.World{body,mesh,+camera,+controls,revision,original,+point,dirty},target,P.Submitted{acquisition,index,replace},+width,+height,+mapped,recreate,+frames,+generations,+scene}:
       do V.Action<Unit>:
         moved : I.World <- I.diagnostics(True{},scene,I.pointer(I.World{body,mesh,camera,controls,revision,original,point,dirty},290,208),width,height,mapped,False{},frames,generations)
-        finish(100n,context,frame,I.Session{moved,target,P.Submitted{index,replace},width,height,mapped,recreate,frames,generations,scene},RecordedState{camera,controls,point},False{})
+        finish(100n,context,frame,I.Session{moved,target,P.Submitted{acquisition,index,replace},width,height,mapped,recreate,frames,generations,scene},RecordedState{camera,controls,point},False{})
     case _: D.require(False{},"Acquisition fixture must submit before queued pointer/camera events")
 
-def modified(+context: WSI.Context, +frame: P.Frame, +target: P.Target, +scene: Scene.Group, edited: Maybe<I.World>, +index: U32) -> V.Action(Unit):
+def modified(+context: WSI.Context, +frame: P.Frame, +target: P.Target, +scene: Scene.Group, edited: Maybe<I.World>, +acquisition: V.Acquisition, +index: U32) -> V.Action(Unit):
   match edited:
     case None{}: D.require(False{},"Acquisition fixture unexpectedly closed")
     case Some{world}:
       do V.Action<Unit>:
-        next : I.Session <- I.advance(frame,I.Session{I.fly(I.key(world,119,True{}),16n),Some{target},P.Acquiring{index,False{}},640,480,True{},False{},0,1,scene},context)
+        next : I.Session <- I.advance(frame,I.Session{I.fly(I.key(world,119,True{}),16n),Some{target},P.Acquiring{acquisition,index,False{}},640,480,True{},False{},0,1,scene},context)
         submitted(context,frame,next)
 
 def acquired(+context: WSI.Context, +frame: P.Frame, +target: P.Target, +scene: Scene.Group, world: I.World, outcome: V.AcquireOutcome) -> V.Action(Unit):
   match outcome:
-    case V.Acquired{+index,suboptimal}:
+    case V.Acquired{acquisition,+index,suboptimal}:
       do V.Action<Unit>:
         edited : Maybe<I.World> <- I.events([Move{292,210},Mouse{292,210,0,True{}},Move{291,209}],world,View.Mapping{640,480,640,480})
-        modified(context,frame,target,scene,edited,index)
+        modified(context,frame,target,scene,edited,acquisition,index)
     case _: D.require(False{},"Controlled native acquisition did not return an image")
 
 def installed(+context: WSI.Context, +frame: P.Frame, +target: P.Target, body: X.Body, camera: R.Camera, controls: Controls.Controls, original: I.Original, point: I.Pointer, pair: Scene.Group & M.Mesh) -> V.Action(Unit):

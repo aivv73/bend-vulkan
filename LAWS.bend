@@ -1,4 +1,6 @@
 import Base
+import ./examples/voxel/chunks.bend as Chunks
+import ./examples/voxel/greedy.bend as Greedy
 import ./examples/voxel/appearance.bend as Appearance
 import ./shaders/appearance_uniforms.bend as Uniform
 import ./examples/voxel/geometry-laws.bend as GeometryLaws
@@ -280,3 +282,37 @@ law appearance_selected_offset:
 
 law appearance_ring_index_count:
   {Appearance.ring_index_count() == 576 : U32}
+
+law chunk_region_boundary:
+  {[Chunks.region(32,Voxel.Cell{31,32,63}),Chunks.region(32,Voxel.Cell{32,31,64})] == [Chunks.ChunkKey{0,32,32,32},Chunks.ChunkKey{32,0,64,32}] : List<&2,Chunks.ChunkKey>}
+
+law chunk_huge_source_stays_analytic:
+  {Chunks.source_key(Voxel.Cuboid{Voxel.Cell{0,0,0},Voxel.Cell{1048576,1048576,1048576},1}) == Chunks.ChunkKey{0,0,0,1048576} : Chunks.ChunkKey}
+
+law chunk_dirty_neighbor_boundary:
+  {Chunks.dependency_region(Chunks.ChunkKey{32,0,0,32},64) == Voxel.Cuboid{Voxel.Cell{31,0,0},Voxel.Cell{64,33,33},1} : Voxel.Cuboid}
+
+law chunk_low_boundary_clamped:
+  {Chunks.dependency_region(Chunks.ChunkKey{0,0,0,32},64) == Voxel.Cuboid{Voxel.Cell{0,0,0},Voxel.Cell{33,33,33},1} : Voxel.Cuboid}
+
+law chunk_full_source_tuple_required:
+  {Chunks.box_equal(Voxel.Cuboid{Voxel.Cell{0,0,0},Voxel.Cell{4,4,4},1},Voxel.Cuboid{Voxel.Cell{0,0,0},Voxel.Cell{4,4,4},4294967295}) == False{} : Bool}
+
+law greedy_exact_shared_edge:
+  {Greedy.join(Exterior.Patch{7,Voxel.PosZ{},4294967295,Exterior.Rect2{0,3,2,6}},Exterior.Patch{7,Voxel.PosZ{},4294967295,Exterior.Rect2{3,8,2,6}},Greedy.Horizontal{}) == Some{Exterior.Patch{7,Voxel.PosZ{},4294967295,Exterior.Rect2{0,8,2,6}}} : Maybe<&2,Exterior.Patch>}
+
+law greedy_material_boundary:
+  {Greedy.join(Exterior.Patch{7,Voxel.PosZ{},1,Exterior.Rect2{0,3,2,6}},Exterior.Patch{7,Voxel.PosZ{},4294967295,Exterior.Rect2{3,8,2,6}},Greedy.Horizontal{}) == None{} : Maybe<&2,Exterior.Patch>}
+
+law greedy_plane_boundary:
+  {Greedy.join(Exterior.Patch{7,Voxel.PosZ{},1,Exterior.Rect2{0,3,2,6}},Exterior.Patch{8,Voxel.PosZ{},1,Exterior.Rect2{3,8,2,6}},Greedy.Horizontal{}) == None{} : Maybe<&2,Exterior.Patch>}
+
+law greedy_gap_rejected:
+  {Greedy.join(Exterior.Patch{7,Voxel.PosZ{},1,Exterior.Rect2{0,3,2,6}},Exterior.Patch{7,Voxel.PosZ{},1,Exterior.Rect2{4,8,2,6}},Greedy.Horizontal{}) == None{} : Maybe<&2,Exterior.Patch>}
+
+law greedy_four_tiles_one_rectangle:
+  {Greedy.merge_faces([Voxel.Rectangle{Voxel.Cell{0,0,7},Voxel.PosZ{},1,2,3},Voxel.Rectangle{Voxel.Cell{2,0,7},Voxel.PosZ{},1,2,3},Voxel.Rectangle{Voxel.Cell{0,3,7},Voxel.PosZ{},1,2,3},Voxel.Rectangle{Voxel.Cell{2,3,7},Voxel.PosZ{},1,2,3}]) == [Voxel.Rectangle{Voxel.Cell{0,0,7},Voxel.PosZ{},1,4,6}] : List<&2,Voxel.Face>}
+
+
+law chunk_runs_merge_only_adjacent_local_ranges:
+  {Chunks.runs([Chunks.Primitive{Chunks.ChunkKey{0,0,0,32},0,Voxel.Face{Voxel.Cell{0,0,0},Voxel.NegX{},1}},Chunks.Primitive{Chunks.ChunkKey{0,0,0,32},1,Voxel.Face{Voxel.Cell{0,0,0},Voxel.PosX{},1}},Chunks.Primitive{Chunks.ChunkKey{0,0,0,32},3,Voxel.Face{Voxel.Cell{0,0,0},Voxel.NegY{},1}}]) == [Chunks.Run{Chunks.ChunkKey{0,0,0,32},0,2},Chunks.Run{Chunks.ChunkKey{0,0,0,32},3,1}] : List<&2,Chunks.Run>}

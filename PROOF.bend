@@ -243,3 +243,36 @@ def Laws.appearance_selected_offset():
 
 def Laws.appearance_ring_index_count():
   {==}
+
+def Laws.chunk_region_boundary():
+  {==}
+
+def Laws.chunk_huge_source_stays_analytic():
+  {==}
+
+def Laws.chunk_dirty_neighbor_boundary():
+  {==}
+
+def Laws.chunk_low_boundary_clamped():
+  {==}
+
+def Laws.chunk_full_source_tuple_required():
+  {==}
+
+def Laws.greedy_exact_shared_edge():
+  {==}
+
+def Laws.greedy_material_boundary():
+  {==}
+
+def Laws.greedy_plane_boundary():
+  {==}
+
+def Laws.greedy_gap_rejected():
+  {==}
+
+def Laws.greedy_four_tiles_one_rectangle():
+  {==}
+
+def Laws.chunk_runs_merge_only_adjacent_local_ranges():
+  {==}

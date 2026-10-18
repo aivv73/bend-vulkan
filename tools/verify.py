@@ -45,6 +45,7 @@ def main():
     run("bend", "PROOF.bend")
     BUILD.mkdir(exist_ok=True)
     run(sys.executable, "tools/check_geometry.py")
+    run(sys.executable, "tools/check_chunks.py")
     run(sys.executable, "tools/check_appearance_math.py")
     run(sys.executable, "tools/check_reference_lighting.py")
     run(sys.executable, "tools/check_appearance_gpu.py", *(["--sanitize"] if args.sanitize else []))

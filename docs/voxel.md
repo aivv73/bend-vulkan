@@ -27,11 +27,11 @@ The executable writes 512 by 512 PPM images to `build/voxel-intact.ppm`, `build/
 
 Dense bodies retain pinned extraction semantics. Their side must be a positive power of two at most 1,024, with a balanced side-cubed array. Cuboids have positive half-open extents and endpoints at most 2^20. Nonair boxes must be disjoint. Overlap errors identify both source indices. Material zero contributes no occupancy and does not erase other boxes. Exterior extraction subtracts outside-adjacent nonair coverage from each source face. Its six pure face partitions run independently and retain source and direction order.
 
-The checked source and quad limit is 26,843,545. Each padded array has at most 2^30 words. Counts are checked before products, allocation, or narrowing. The Bend runtime still owns allocation failure behavior. Before releasing old geometry or allocating buffers, the renderer checks both logical U64 byte lengths against the existing 16 MiB single-write limit. Padding is never uploaded. No chunked upload path is provided.
+The checked source and quad limit is 26,843,545. Each padded array has at most 2^30 words. Counts are checked before products, allocation, or narrowing. The Bend runtime still owns allocation failure behavior. The historical whole-mesh uploader checks both logical U64 byte lengths against the 16 MiB single-write limit before allocating or retiring buffers. Padding is never uploaded. Production uses the chunk upload path described below.
 
-The basic offscreen regression uses `Renderer.replace_mesh`, which releases the previous geometry and uploads the exact logical lengths of both new arrays. An empty mesh owns no vertex or index buffers. Calls occur after the previous synchronous frame has observed its fence and reset its command buffer. `Renderer.frame` accepts a camera and diagnostic mode. It records, submits, waits, reads RGBA8 and D32 staging bytes, and resets the command and fence. It neither meshes nor uploads geometry.
+The basic offscreen regression uses `Renderer.replace_mesh`, which prepares replacement buffers and uploads the exact logical lengths of both arrays before retiring the previous geometry. An empty mesh owns no vertex or index buffers. Calls occur after the previous synchronous frame has observed its fence and reset its command buffer. `Renderer.frame` accepts a camera and diagnostic mode. It records, submits, waits, reads RGBA8 and D32 staging bytes, and resets the command and fence. It neither meshes nor uploads geometry.
 
-Mesh buffers use host-visible memory. A HOST_WRITE to VERTEX_INPUT barrier publishes their vertex and index contents. Images use explicit color/depth attachment and transfer-source transitions. The staging transfer is made visible to the host after fence completion. Scope cleanup uses the existing Vulkan resource graph. Replacements explicitly destroy buffers before freeing their allocations.
+The historical uploader uses host-visible mesh buffers. A HOST_WRITE to VERTEX_INPUT barrier publishes their vertex and index contents. Images use explicit color/depth attachment and transfer-source transitions. The staging transfer is made visible to the host after fence completion. Scope cleanup uses the existing Vulkan resource graph. Replacements atomically retire the complete set of obsolete dedicated buffers and allocations. The offscreen acceptance caller selects the returned Renderer before explicitly collecting retired resources. Collection releases them after command references disappear.
 
 ## Packed data
 
@@ -125,4 +125,80 @@ The verifier checks the dependency pin, generation freshness, normal proofs, all
 
 The shadow-causality evidence runner currently requires one enumerated capture device so saved subpixel precision is unambiguous. Its fixed-light original-cuboid model covers the pinned Atelier fixtures.
 
-The renderer remains single-flight with one GPU geometry owner, whole-mesh replacement and existing 16 MiB per-write limits. It supplies no chunk framework, shadow-history cache or multiple frames in flight. Coordinate, overlap and upload limits above remain enforced. Native presentation retains the Linux/X11 maintenance1 boundary documented in the [presentation contract](presentation.md).
+The historical mesh consumer retains its whole-mesh reference path and strict count/packing checks. Production rendering uses sparse chunk generations and independent frame slots. Each native write still observes the 16 MiB limit; reusable staging splits larger valid logical streams into checked writes. Coordinate and overlap limits above remain enforced. Native presentation retains the Linux/X11 maintenance1 boundary documented in the [presentation contract](presentation.md).
+
+## Sparse chunks and frame generations
+
+The optimized renderer derives a sparse `ChunkSet` from the authoritative `Body`.
+Dense chunks cover at most 32 cells per axis and read an immutable one-cell halo.
+Cuboid chunks group exact source tuples in adaptive analytic regions. A valid
+cuboid with a 2^20-cell edge remains analytic. Cut invalidation includes adjacent
+exterior owners and source domains changed by cuboid splitting.
+
+Canonical primitives retain the original face anchors, extents, materials and
+source order. Draw runs select contiguous index ranges in immutable chunk
+buffers. A separate greedy rectangle stream feeds the production shadow pass.
+`tools/check_chunks.py` checks exact canonical order, signed rectangle coverage,
+dirty neighbors, unchanged generations and byte-identical output with one and
+six CPU threads. It compares returned Body state with an independent original
+input or pinned cut, and builds the reference mesh from that independent state.
+A matching material-mutated Body and mesh fail its negative control. The original
+geometry checker retains its strict face/count and packing checks.
+
+The dense cube fixture reduces 384 canonical quads to six shadow rectangles.
+The analytic merge fixture reduces ten to six. Atelier has 49 chunks, 771
+canonical draw runs, 10,304 canonical quads and 9,043 shadow rectangles. These
+counts establish real greedy reductions, without establishing a timing benefit.
+
+`generation.bend` prepares changed chunks through reusable staging and GPU buffer
+copies. Every prepare result returns the CPU chunk arrays and staging owner.
+Allocation or upload failure disposes only new buffers. Publication atomically
+retires every obsolete color and shadow allocation in one validated set. Unchanged
+residents and reusable frame staging are excluded. Recorded command references
+retain retired allocations until successful reset or command-pool destruction. Abort requires
+removing any recorded references first. The shared `Scene.record` publication
+barrier covers host and transfer writes before vertex and index reads.
+
+The offscreen production recorder uses this chunk path. Its unchanged appearance
+and original-Body shadow-causality gates include five corrupt-depth negative
+controls. `tools/check_generations.py` exercises actual device bytes, no-op
+reuse, empty-after-edit, reset, injected failures and resource cleanup. The
+offscreen installer reuses its caller-owned command buffer and fence. It checks
+them before preparing replacements. On a handled recording or submission error,
+it attempts command reset, retires candidate allocations and releases staging.
+Pending or uncertain recordings keep their sealed resources until recovery and
+successful reset. `tools/check_installation.py` retries controlled begin and
+mid-copy failures while checking the original device bytes and resource rows.
+
+
+Native frames use the same chunk preparation and `Scene.record` as offscreen
+production. Body and the derived CPU chunk set advance before another queued
+edit. Acquisition completion selects the latest coherent geometry, camera,
+brush and encoded 2,336-byte appearance input. Each slot owns its uniform,
+descriptors, shadow image, depth image, image framebuffers, command resources,
+staging and optional diagnostic queries. Immutable programs and chunk buffers
+are shared. After submission, a small receipt retains the exact acquisition,
+revision, submission sequence, CPU start time and query view. The recorded command
+retains geometry. Slot resources retain frozen appearance until observation of
+the matching presentation-resource fence and successful command reset. That fence
+may signal before the full present operation completes. Physical scanout is not
+measured.
+
+Greedy shadow rasterization does not imply bit-identical shaded output. The
+archived milestone 6 comparison contains 195 RGBA captures. Of these, 171 are
+exact and 24 shaded captures differ by at most four channel units. Intact,
+carved and reset each differ at five pixels; portrait differs at 92 pixels.
+Canonical metadata and identity outputs are exact. The unchanged production
+appearance policy and actual D32 shadow-causality gate remain required. Native
+measurement pairs have an additional exact static-image gate; failing that gate
+makes the pair ineligible for comparative timing, even when appearance acceptance
+passes.
+
+The five-pair old/new native run completed all 20 processes with exit zero and
+all 160 cut/reset actions. Every one of its 90 static capture comparisons differs
+at four RGB pixels, with a maximum channel delta of four. Geometry and view
+fields match. These mismatches exclude all five flight pairs and all five edit
+pairs. They establish no implementation speedup or regression. Pixel counts do
+not establish the cause of the differences. The [milestone 7 evidence](../.audit/m7-results.md)
+retains the comparison, static-image rows and build provenance. Raw local captures
+remain under the paths recorded in those reports.

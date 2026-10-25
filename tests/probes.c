@@ -59,7 +59,7 @@ static Term bv_test_regions(Env e,uint64_t a,uint64_t b,uint64_t n) {
 static void bv_test_upload_result(Env e,BvRow* owner,BvRow* memory,bool terms,uint32_t expected) {
   Term values[]={16909060,134678021,202050057,269422093};
   Term array=term_keep(e,blk_new(e,terms,0,2,4,values),1);
-  Term args[]={term_pak(CID(Device),owner->id),term_pak(CID(DeviceMemory),memory->id),bv_words(e,0),bv_words(e,7),array};
+  Term args[]={term_pak(CID(Device),owner->id),term_pak(CID(DeviceMemory),memory->id),bv_words(e,0),bv_words(e,3),bv_words(e,7),array};
   Term returned=bv_write_memory_words(e,args,NULL),pair[2];bv_unpack(e,returned,2,pair);
   assert(pair[0]==array);
   for (uint32_t j=0;j<4;j++) assert(blk_read(e.mem,terms,blk_loc(e.mem,pair[0]),j)==values[j]);
@@ -103,7 +103,8 @@ static void bv_test_unit2(Env e,BvRow* command,BvRow* src,BvRow* dst) {
   bv_test_upload_result(e,owner,bv_bound_memory(src),false,(uint32_t)VK_ERROR_OUT_OF_HOST_MEMORY);
   bv_bound_memory(src)->flags=flags;device->FlushMappedMemoryRanges=flush;
   bv_test_upload_result(e,owner,bv_bound_memory(src),true,0);
-  assert(bv_map(owner,bv_bound_memory(src),&mapped)==VK_SUCCESS);memcpy(mapped,saved,sizeof(saved));
+  assert(bv_map(owner,bv_bound_memory(src),&mapped)==VK_SUCCESS);
+  assert(memcmp(mapped,(uint8_t[]){1,5,6,7,8,9,10},7)==0);memcpy(mapped,saved,sizeof(saved));
   if (!(flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
     VkMappedMemoryRange range={.sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,.memory=(VkDeviceMemory)(uintptr_t)bv_bound_memory(src)->handle,.size=VK_WHOLE_SIZE};
     assert(flush(device->handle,1,&range)==VK_SUCCESS);

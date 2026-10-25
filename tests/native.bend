@@ -108,7 +108,7 @@ def run_checks(+entry: V.Entry) -> V.Action(Unit):
     +foreign_buffer : V.Buffer <- V.Device.create_buffer(other, V.BufferCreateInfo{W.of_u32(16), 2})
     expect_error(V.MemoryRequirements, 1610612738, V.Device.get_buffer_memory_requirements(device, foreign_buffer))
     +foreign_memory : V.DeviceMemory <- V.Device.allocate_memory(other, W.of_u32(64), 0)
-    words : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit), V.Device.write_memory_words(device, foreign_memory, W.zero(), W.of_u32(1), A.words()))
+    words : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit), V.Device.write_memory_words(device, foreign_memory, W.zero(),W.zero(), W.of_u32(1), A.words()))
     A.check_owned(words, 1610612738)
     V.Device.free_memory(other, foreign_memory)
     +foreign_fence : V.Fence <- V.Device.create_fence(other, False{})

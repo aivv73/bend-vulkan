@@ -7,8 +7,12 @@ import ../indexed_offscreen.bend as E
 import ../offscreen_roundtrip.bend as Memory
 import ../buffer_roundtrip.bend as D
 import ./renderer.bend as GPU
+import ./chunks.bend as C
+import ./generation.bend as G
+import ../../src/upload.bend as Upload
 import ./mesh.bend as M
 import ./appearance.bend as A
+import ./timing.bend as Timing
 
 type Assets is Data:
   Assets{uniform: E.BoundBuffer, schema: V.DescriptorSetLayout, sampled_schema: V.DescriptorSetLayout, pool: V.DescriptorPool, frame: V.DescriptorSet, sampled: V.DescriptorSet, sampler: V.Sampler, shadow: E.Attachment, shadow_pass: V.RenderPass, shadow_framebuffer: V.Framebuffer, shadow_pipeline: V.GraphicsPipeline, frame_layout: V.PipelineLayout, main_layout: V.PipelineLayout, indices: E.BoundBuffer, palette: A.Palette}
@@ -136,27 +140,73 @@ def destroy_programs(+device: V.Device, p: Programs) -> V.Action(Unit):
     V.Device.destroy_graphics_pipeline(device,background)
     V.Device.destroy_graphics_pipeline(device,world)
 
-def upload_increment(geometry: GPU.Geometry) -> U32:
-  match geometry:
-    case GPU.Empty{}: 0
-    case _: 2
+def failed_install(+device: V.Device, command: V.CommandBuffer, plan: G.Plan, staging: Upload.Staging, primary: V.VkResult(Unit)) -> V.Action(Unit):
+  do IO<V.VkResult(Unit)>:
+    reset : V.VkResult(Unit) <- V.CommandBuffer.reset(command)
+    retired : V.VkResult(Unit) <- G.retire_plan(device,plan)
+    released : V.VkResult(Unit) <- Upload.release(device,staging)
+    return V.Entry.finish(Unit,primary,V.Entry.finish(Unit,reset,V.Entry.finish(Unit,retired,released)))
 
-def installed(result: GPU.Geometry & M.Mesh, a: Assets, +revision: U32, uploads: U32) -> Group & M.Mesh:
-  (+geometry,mesh) = result
-  +increment = upload_increment(geometry)
-  (Group{a,geometry,revision,(uploads + increment : U32)},mesh)
+def install_rejected(device: V.Device, plan: G.Plan, error: U32 & String) -> V.Action(Group & C.ChunkSet):
+  do IO<V.VkResult(Group & C.ChunkSet)>:
+    cleanup : V.VkResult(Unit) <- G.abort(device,plan)
+    return V.Entry.finish(Group & C.ChunkSet,Fail{error},cleanup)
 
-def install_needed(needed: Bool, +instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, group: Group, revision: U32, mesh: M.Mesh) -> V.Action(Group & M.Mesh):
-  match needed group:
-    case False{} _: V.Action.pure(Group & M.Mesh,(group,mesh))
-    case True{} Group{a,geometry,previous,uploads}:
-      do V.Action<Group & M.Mesh>:
-        result : GPU.Geometry & M.Mesh <- GPU.upload_mesh(instance,physical,device,geometry,mesh)
-        return installed(result,a,revision,uploads)
+def install_selected(device: V.Device, a: Assets, revision: U32, uploads: U32, set: C.ChunkSet, plan: G.Plan, retired: V.VkResult(Unit)) -> V.Action(Group & C.ChunkSet):
+  G.Plan{geometry,copies,created,bytes} = plan
+  match retired:
+    case Fail{error}: install_rejected(device,plan,error)
+    case Done{unit}: V.Action.pure(Group & C.ChunkSet,(Group{a,geometry,revision,(uploads + U32.from_nat(List.length(&2,G.Copy,copies)) : U32)},set))
 
-def install(instance: V.Instance, physical: V.PhysicalDevice, device: V.Device, +group: Group, +revision: U32, mesh: M.Mesh) -> V.Action(Group & M.Mesh):
-  Group{a,g,+previous,u} = group
-  install_needed(U32.is_ne(previous,revision),instance,physical,device,group,revision,mesh)
+def install_committed(+device: V.Device, a: Assets, old: GPU.Geometry, revision: U32, uploads: U32, set: C.ChunkSet, plan: G.Plan, released: V.VkResult(Unit)) -> V.Action(Group & C.ChunkSet):
+  G.Plan{+geometry,+copies,created,bytes} = plan
+  match released:
+    case Fail{error}: install_rejected(device,plan,error)
+    case Done{unit}:
+      do V.Action<Group & C.ChunkSet>:
+        retired : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),G.commit(device,old,geometry))
+        install_selected(device,a,revision,uploads,set,plan,retired)
+
+def install_recorded(+device: V.Device, command: V.CommandBuffer, a: Assets, old: GPU.Geometry, +revision: U32, +uploads: U32, set: C.ChunkSet, +staging: Upload.Staging, +plan: G.Plan, result: V.VkResult(Unit)) -> V.Action(Group & C.ChunkSet):
+  match result:
+    case Fail{(+code,+message)}:
+      do V.Action<Group & C.ChunkSet>:
+        failed_install(device,command,plan,staging,Fail{(code,message)})
+        IO.pure(V.VkResult(Group & C.ChunkSet),Fail{(code,message)})
+    case Done{unit}:
+      do V.Action<Group & C.ChunkSet>:
+        released : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),Upload.release(device,staging))
+        install_committed(device,a,old,revision,uploads,set,plan,released)
+
+def record_install(+device: V.Device, +command: V.CommandBuffer, +fence: V.Fence, plan: G.Plan) -> V.Action(Unit):
+  do V.Action<Unit>:
+    V.CommandBuffer.begin(command)
+    G.record(command,plan)
+    E.complete(device,command,fence)
+    E.reset(device,command,fence)
+
+def chunk_installed(+device: V.Device, +command: V.CommandBuffer, fence: V.Fence, a: Assets, old: GPU.Geometry, revision: U32, uploads: U32, pair: (C.ChunkSet & Upload.Staging) & V.VkResult(G.Plan)) -> V.Action(Group & C.ChunkSet):
+  (owner,result) = pair
+  (set,storage) = owner
+  match result:
+    case Fail{error}:
+      do IO<V.VkResult(Group & C.ChunkSet)>:
+        cleanup : V.VkResult(Unit) <- Upload.release(device,storage)
+        return V.Entry.finish(Group & C.ChunkSet,Fail{error},cleanup)
+    case Done{+plan}:
+      +staging : Upload.Staging = storage
+      do V.Action<Group & C.ChunkSet>:
+        result : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),record_install(device,command,fence,plan))
+        install_recorded(device,command,a,old,revision,uploads,set,staging,plan,result)
+
+def install_chunks(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, +command: V.CommandBuffer, +fence: V.Fence, group: Group, +revision: U32, set: C.ChunkSet) -> V.Action(Group & C.ChunkSet):
+  Group{a,+geometry,previous,uploads} = group
+  do V.Action<Group & C.ChunkSet>:
+    V.CommandBuffer.reset(command)
+    V.Fence.reset(fence)
+    V.Device.collect_retired(device)
+    pair : (C.ChunkSet & Upload.Staging) & V.VkResult(G.Plan) <- V.Action.lift((C.ChunkSet & Upload.Staging) & V.VkResult(G.Plan),G.prepare(instance,physical,device,geometry,Upload.Empty{},set))
+    chunk_installed(device,command,fence,a,geometry,revision,uploads,pair)
 
 def upload(+device: V.Device, a: Assets, words: Maybe<Array<U32>>) -> V.Action(Unit):
   Assets{uniform,s,ss,p,f,sd,sampler,sh,sp,sf,ps,fl,ml,ix,palette} = a
@@ -182,10 +232,11 @@ def record_rings(enabled: Bool, +command: V.CommandBuffer, rings: V.GraphicsPipe
         V.CommandBuffer.bind_index_buffer(command,indices,W.zero(),1)
         V.CommandBuffer.draw_indexed(command,V.IndexedDraw{576,1,0,V.BaseVertex{0},0})
 
-def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuffer: V.Framebuffer, +width: U32, +height: U32, show_rings: Bool) -> V.Action(Unit):
+def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuffer: V.Framebuffer, +width: U32, +height: U32, show_rings: Bool, +queries: Maybe<&2,V.QueryPool>) -> V.Action(Unit):
   Group{Assets{uniform,s,ss,p,+frame,+sampled,sampler,E.Attachment{+shadow,sm,sv},sp,sf,shadow_pipeline,fl,ml,E.BoundBuffer{+indices,im},palette},+geometry,revision,uploads} = group
   Programs{world,background,rings} = programs
   do V.Action<Unit>:
+    Timing.write(command,queries,2)
     GPU.publish(command,geometry)
     V.CommandBuffer.pipeline_barrier(command,16384,140,[V.MemoryBarrier{16384,14}],[],[])
     V.CommandBuffer.pipeline_barrier(command,4992,768,[V.MemoryBarrier{3616,1536}],[],[])
@@ -194,9 +245,11 @@ def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuf
     V.CommandBuffer.bind_graphics_pipeline(command,shadow_pipeline)
     V.CommandBuffer.bind_descriptor_sets(command,0,[frame])
     viewport(command,512,512)
-    GPU.draw(command,geometry)
+    GPU.draw_shadow(command,geometry)
     V.CommandBuffer.end_render_pass(command)
     E.transition(command,shadow,2,3,4,768,128,1024,32)
+    Timing.write(command,queries,3)
+    Timing.write(command,queries,4)
     V.CommandBuffer.begin_render_pass(command,framebuffer,V.RenderArea{V.Offset2D{0,0},V.Extent2D{width,height}},[V.ColorClear{V.ClearColor{0.0,0.0,0.0,1.0}},V.DepthClear{1.0}])
     viewport(command,width,height)
     V.CommandBuffer.bind_graphics_pipeline(command,background)
@@ -208,3 +261,20 @@ def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuf
     GPU.draw(command,geometry)
     record_rings(show_rings,command,rings,frame,indices)
     V.CommandBuffer.end_render_pass(command)
+    Timing.write(command,queries,5)
+
+
+def slot_assets(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, shared: Assets) -> V.Action(Assets):
+  Assets{u,+schema,+sampled_schema,p,f,sd,+sampler,sh,+shadow_pass,sf,+shadow_pipeline,+frame_layout,+main_layout,+indices,+palette} = shared
+  do V.Action<Assets>:
+    +uniform : E.BoundBuffer <- E.buffer(instance,physical,device,U.byte_size(),16)
+    +pool : V.DescriptorPool <- V.Device.create_descriptor_pool(device,V.DescriptorPoolCreateInfo{2,[V.DescriptorPoolSize{V.UniformDescriptor{},1},V.DescriptorPoolSize{V.SampledDescriptor{},1}]})
+    +frame : V.DescriptorSet <- V.Device.allocate_descriptor_set(device,pool,schema)
+    +sampled : V.DescriptorSet <- V.Device.allocate_descriptor_set(device,pool,sampled_schema)
+    +shadow : E.Attachment <- attachment(instance,physical,device,126,2,37,V.Extent2D{512,512})
+    +sv : V.ImageView = attachment_view(shadow)
+    ub : V.Buffer = buffer_handle(uniform)
+    V.Device.update_descriptor_set(device,frame,[V.UniformWrite{0,0,[V.DescriptorBuffer{ub,W.zero(),W.of_u32(U.byte_size())}]}])
+    V.Device.update_descriptor_set(device,sampled,[V.SampledWrite{0,0,[V.DescriptorImage{sv,sampler,4}]}])
+    framebuffer : V.Framebuffer <- V.Device.create_framebuffer(device,V.FramebufferCreateInfo{shadow_pass,[sv],V.Extent2D{512,512}})
+    return Assets{uniform,schema,sampled_schema,pool,frame,sampled,sampler,shadow,shadow_pass,framebuffer,shadow_pipeline,frame_layout,main_layout,indices,palette}

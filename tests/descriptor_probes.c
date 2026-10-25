@@ -88,7 +88,7 @@ static void descriptor_add_cleanup_graph(Env e,BvRow* owner,BvRow* command) {
   bv_test_result(e,bv_update_descriptor_set(e,(Term[]){bv_test_handle(owner),bv_test_handle(sampled),descriptor_sample_write(e,view,sampler,5)},NULL),0);
   Term layouts=io_node(e,CID(Con),bv_test_handle(schema),descriptor_list(e,bv_test_handle(sampled_schema)));
   BvRow* layout=bv_get(bv_key(e,bv_test_value(e,bv_create_pipeline_layout(e,(Term[]){bv_test_handle(owner),bv_node(e,CID(PipelineLayoutCreateInfo),4,(Term[]){layouts,0,0,0})},NULL))),BV_LAYOUT);
-  BvRow* resources[]={uniform,sampled,layout};assert(bv_prepare_refs(command,3,resources));
+  BvRow* resources[]={uniform,sampled,layout};assert(bv_prepare_refs(command,3,resources)==0);
   assert(bv_may_reach_depth(command,memory,BV_KIND_COUNT) && bv_referenced(sampler));
 }
 static void descriptor_probes(Env e,BvRow* owner) {
@@ -254,7 +254,7 @@ static void descriptor_probes(Env e,BvRow* owner) {
   bv_test_one(e,bv_reset_command_buffer,command,0);descriptor_update_uniform(e,owner,set,b,a,3,0,0,16,BV_LIFETIME);
   bv_test_one(e,bv_reset_command_buffer,other,0);descriptor_update_uniform(e,owner,set,b,a,3,0,0,16,0);
   assert(set->object.set.slots[0].data.uniform.buffer==b && set->object.set.slots[1].data.uniform.buffer==a);
-  bv_test_one(e,bv_begin_command_buffer,command,0);assert(bv_prepare_refs(command,1,&sampled));command->command.phase=BV_PENDING;command->command.submission.pending.fence=fence;
+  bv_test_one(e,bv_begin_command_buffer,command,0);assert(bv_prepare_refs(command,1,&sampled)==0);command->command.phase=BV_PENDING;command->command.submission.pending.fence=fence;
   assert(bv_memory_busy(bv_bound_memory(image)) && !bv_memory_busy(unrelated));
   bv_test_result(e,bv_read_memory(e,(Term[]){bv_test_handle(owner),bv_test_handle(bv_bound_memory(image)),bv_words(e,0),1},NULL),BV_LIFETIME);
   command->command.phase=BV_UNCERTAIN;command->command.submission.uncertain.fence=fence;assert(bv_memory_busy(bv_bound_memory(image)));
@@ -271,7 +271,7 @@ static void descriptor_probes(Env e,BvRow* owner) {
   descriptor_update_uniform(e,owner,set,a,a,3,0,0,16,0);assert(bv_referenced(a) && !bv_referenced(b));
   descriptor_update_uniform(e,owner,set,b,b,3,0,0,16,0);assert(!bv_referenced(a) && bv_referenced(b));
   BvRow* quarantine_commands=bv_test_pool(e,owner),*quarantine_command=bv_test_command(e,owner,quarantine_commands),*quarantine_fence=bv_test_fence(e,owner);
-  bv_test_one(e,bv_begin_command_buffer,quarantine_command,0);assert(bv_prepare_refs(quarantine_command,1,&sampled));bv_test_one(e,bv_end_command_buffer,quarantine_command,0);
+  bv_test_one(e,bv_begin_command_buffer,quarantine_command,0);assert(bv_prepare_refs(quarantine_command,1,&sampled)==0);bv_test_one(e,bv_end_command_buffer,quarantine_command,0);
   descriptor_native_result=VK_ERROR_UNKNOWN;before=bv_test_live_allocations;uint32_t old_sets=pool->object.descriptor_pool.sets;
   bv_test_result(e,descriptor_two(e,bv_free_descriptor_set,owner,set),(uint32_t)VK_ERROR_UNKNOWN);
   assert(pool->object.descriptor_pool.phase==BV_POOL_QUARANTINED && pool->object.descriptor_pool.sets==old_sets && bv_test_live_allocations==before && bv_referenced(b));

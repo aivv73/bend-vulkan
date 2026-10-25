@@ -1,0 +1,21 @@
+# Native overlap review
+
+The first snapshot is `835cbb1` against `e080779`. Comment inspection found no deletions or MUST KILL flags. Independent correctness review requested a change for one P1. Commit `2fc2b41` fixes it, and a fresh review found no additional concrete blocker.
+
+The duplicate-image check treats a retained `PRESENTING` lease as a current acquisition. After successful present, Vulkan may return the same image in a new acquire before the application observes the earlier present fence. The wrapper rejects that valid successful acquire, marks it uncertain and quarantines the device. `bv_image_lease` also selects the first nonempty lease, so removing the duplicate check alone would leave the older presentation owner selected.
+
+Current acquisition and retained presentation resources need separate ownership. The old present fence, semaphore and serial must remain associated while the new serial owns image use. Completion of the older presentation must leave the newer acquisition intact. The existing reuse probe explicitly releases the earlier acquisition and does not cover this sequence.
+
+Root confirmed the source path and the [Vulkan WSI contract](https://docs.vulkan.org/spec/latest/chapters/VK_KHR_surface/wsi.html). The specification releases acquisition through the present operation and makes image acquisition order implementation-dependent. Host observation of an earlier presentation fence is not required before another acquire can return that image.
+
+The reviewer found no further concrete blocker in all-owner host exclusion, matching fence completion, idle completion, fence reuse guards, stale recording rejection, semaphore provenance, query generation/ranges/stages/wrap, unknown-outcome quarantine or device-loss cleanup. Structural comparison confirmed generated ABI effects, registrations, window bundle composition and migrated callers.
+
+Root read `build/m7-overlap.log`, `build/m7-native-queries-gate.log`, `build/m7-native-queries-sanitize-gate.log`, `build/m7-token-presentation-sanitize-gate.log` and `build/m7-native-query-proof.log`. They pass the focused checks they contain. The initial ordinary presentation run predates the independent acquisition probe. An initial sanitizer compilation failed because a helper effect was absent from the emitted test; the Bend fixture now explicitly uses command-pool destruction and the corrected sanitizer run passes. None of those earlier checks proves the newly identified reacquisition case.
+
+The correction excludes retained `PRESENTING` records from current-image lookup and duplicate-acquisition checks. It preallocates twice the image count in stable lease records. All seven lease scans use the new capacity; image scans retain the image count. Allocation failure releases both arrays. Capacity exhaustion fails before native acquire dispatch. The enumeration cap bounds the lease array at 8192 records.
+
+The new controlled probe passes in `build/m7-reacquire-sanitize.log`. It submits a same-index acquisition before observing the older presentation owner, then verifies that old completion preserves the new render owner and rejects stale tokens. This probe fabricates the retained presentation metadata and submits an empty command. Reverse completion order, multiple retained presentations of one image, capacity exhaustion and cleanup of the upper half are supported by source inspection rather than dedicated execution. The full interactive checks remain necessary.
+
+Fresh comment inspection found no changes needed in the correction. The follow-up correctness review traced both completion orders, serial matching, recorded swapchain retention, semaphore provenance, allocation rollback and every capacity scan. It found the accepted P1 closed and no additional concrete defect. Stable records distinguished by phase suffice; separate allocation objects or unbounded storage are unnecessary.
+
+The reviews are T3 tasks `m7-native-correctness-review-r1` and `m7-native-correctness-review-r2`, configured as `gpt-6.1-sol` by the user's model overrides. Both made no changes or device workloads. The corrected native checkpoint is VERIFIED for the focused contract and recorded limits. The complete final sanitizer and presentation gate remains required.

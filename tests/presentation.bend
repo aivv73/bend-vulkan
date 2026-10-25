@@ -19,10 +19,10 @@ def borrowed_images(xs: List<V.ImageHandle>, +device: V.Device, memory: V.Device
         T.expect_error(Unit,1610612740,V.Device.bind_image_memory(device,image,memory,W.zero()))
         T.expect_error(Unit,1610612738,V.Device.destroy_image(V.Device{4294967295},image))
 
-def boundaries(context: WSI.Context, frame: P.Frame, target: P.Target) -> V.Action(Unit):
+def boundaries(context: WSI.Context, frame: P.Frame, target: P.SlotTarget) -> V.Action(Unit):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
   P.Frame{pool,command,acquire,render,present,finished} = frame
-  P.Target{+swapchain,images,E.Attachment{di,memory,dv},pass,layout,pipeline,width,height,format,production} = target
+  P.SlotTarget{P.Target{+swapchain,shared,pass,layout,pipeline,width,height,format,production},images,E.Attachment{di,memory,dv}} = target
   do V.Action<Unit>:
     borrowed : List<V.ImageHandle> <- V.Device.swapchain_images(device,swapchain)
     borrowed_images(borrowed,device,memory)
@@ -30,37 +30,41 @@ def boundaries(context: WSI.Context, frame: P.Frame, target: P.Target) -> V.Acti
     T.expect_error(Unit,1610612740,V.Instance.destroy_surface(instance,surface))
     T.expect_error(Unit,1610612740,V.Device.destroy_swapchain(device,swapchain))
 
-def acquired(+context: WSI.Context, +frame: P.Frame, +target: P.Target, outcome: V.AcquireOutcome) -> V.Action(Unit):
+def acquired(+context: WSI.Context, +frame: P.Frame, +target: P.SlotTarget, outcome: V.AcquireOutcome) -> V.Action(Unit):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
   P.Frame{pool,+command,+acquire,+render,+present,+finished} = frame
-  P.Target{+swapchain,images,depth,pass,layout,pipeline,width,height,format,production} = target
+  P.SlotTarget{+shared,images,depth} = target
+  P.Target{+swapchain,borrowed,pass,layout,pipeline,width,height,format,production} = shared
   match outcome:
-    case V.Acquired{+index,suboptimal}:
+    case V.Acquired{+acquisition,+index,suboptimal}:
       do V.Action<Unit>:
         T.expect_error(Unit,1610612740,V.Fence.reset(acquire))
         T.expect_error(Unit,1610612740,V.Device.destroy_fence(device,acquire))
         T.expect_error(V.AcquireOutcome,1610612740,V.Device.acquire(device,swapchain,acquire,W.zero()))
         done : U32 <- V.Fence.wait(acquire,W.U64{4294967295,4294967295})
         V.Fence.reset(acquire)
-        P.record(device,frame,target,index,R.Camera.initial(),GPU.Empty{})
+        P.record(device,frame,target,acquisition,index,R.Camera.initial(),GPU.Empty{})
         rendered : U32 <- V.Fence.wait(render,W.U64{4294967295,4294967295})
-        result : V.PresentOutcome <- V.Device.present(device,swapchain,index,finished,present)
+        result : V.PresentOutcome <- V.Device.present(device,acquisition,finished,present)
         T.expect_error(Unit,1610612740,V.Device.destroy_semaphore(device,finished))
         T.expect_error(Unit,1610612740,V.Fence.reset(present))
         status : U32 <- V.Fence.status(render)
         T.expect_error(Unit,1610612740,V.Device.destroy_semaphore(device,finished))
         shown : U32 <- V.Fence.wait(present,W.U64{4294967295,4294967295})
-        T.expect_error(V.AcquireOutcome,1610612740,V.Device.acquire(device,swapchain,acquire,W.zero()))
+        T.expect_error(Unit,1610612738,V.Device.release_acquired(device,acquisition))
+        T.expect_error(V.PresentOutcome,1610612738,V.Device.present(device,acquisition,finished,present))
         V.CommandBuffer.reset(command)
-        P.destroy(device,target)
+        P.slot_destroy(device,target)
+        P.destroy(device,shared)
+        V.Device.destroy_command_pool(device,pool)
     case _: IO.pure(V.VkResult(Unit),Fail{(1610612739,"Acquire smoke failed")})
 
 def get_device(context: WSI.Context) -> V.Device:
   WSI.Context{window,instance,physical,surface,device,g,p} = context
   device
 
-def get_swapchain(target: P.Target) -> V.Swapchain:
-  P.Target{swapchain,images,depth,pass,layout,pipeline,width,height,format,production} = target
+def get_swapchain(target: P.SlotTarget) -> V.Swapchain:
+  P.SlotTarget{P.Target{swapchain,borrowed,pass,layout,pipeline,width,height,format,production},images,depth} = target
   swapchain
 
 def get_acquire(frame: P.Frame) -> V.Fence:
@@ -69,10 +73,10 @@ def get_acquire(frame: P.Frame) -> V.Fence:
 
 def abandoned(outcome: V.AcquireOutcome, +device: V.Device, +swapchain: V.Swapchain, +fence: V.Fence) -> V.Action(Unit):
   match outcome:
-    case V.Acquired{index,suboptimal}:
+    case V.Acquired{acquisition,index,suboptimal}:
       do V.Action<Unit>:
         ready : U32 <- V.Fence.wait(fence,W.U64{4294967295,4294967295})
-        V.Device.release_acquired(device,swapchain)
+        V.Device.release_acquired(device,acquisition)
         V.Fence.reset(fence)
     case _: IO.pure(V.VkResult(Unit),Fail{(1,"Abandoned acquisition did not acquire")})
 
@@ -80,7 +84,8 @@ def run(+entry: V.Entry) -> V.Action(Unit):
   do V.Action<Unit>:
     +context : WSI.Context <- WSI.open(entry,"Bend WSI smoke",False{})
     +frame : P.Frame <- P.frame(get_device(context))
-    +target : P.Target <- P.build(context,640,480)
+    shared : P.Target <- P.build(context,640,480)
+    +target : P.SlotTarget <- P.slot_target(context,shared)
     boundaries(context,frame,target)
     abandoned_outcome : V.AcquireOutcome <- V.Device.acquire(get_device(context),get_swapchain(target),get_acquire(frame),W.of_u32(1000000000))
     abandoned(abandoned_outcome,get_device(context),get_swapchain(target),get_acquire(frame))

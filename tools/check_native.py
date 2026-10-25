@@ -25,6 +25,8 @@ def build(sanitize=False):
     probes += "\n" + (ROOT / "tests/graphics_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/semaphore_probes.c").read_text()
     probes += "\n" + (ROOT / "tests/descriptor_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/retirement_probes.c").read_text()
+    probes += "\n" + (ROOT / "tests/query_probes.c").read_text()
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
@@ -79,6 +81,12 @@ def build(sanitize=False):
     emitted, descriptor_roundtrips = re.subn(r"(io_eff\(CID_\w+, )bv_u64_roundtrip(\);)", r"\1test_descriptor_roundtrip\2", emitted)
     if descriptor_updates != 1 or descriptor_roundtrips != 1:
         raise ValueError("Descriptor GPU failure registration moved")
+    emitted, retirements = re.subn(r"(io_eff\(CID_\w+, )bv_retire_buffers(\);)", r"\1test_retire_buffers\2", emitted)
+    if retirements != 1:
+        raise ValueError("Retirement registration moved")
+    emitted, queries = re.subn(r"(io_eff\(CID_\w+, )bv_timestamp_results(\);)", r"\1test_query_results\2", emitted)
+    if queries != 1:
+        raise ValueError("Timestamp result registration moved")
     source.write_text(emitted)
     flags = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if sanitize else []
     subprocess.run(["clang", "-std=c11", "-O1", "-g", *flags, str(source),
@@ -90,7 +98,7 @@ def build(sanitize=False):
     if completed.stderr:
         print(completed.stderr, end="", file=sys.stderr)
     completed.check_returncode()
-    for marker in ("Injected metadata/map/flush", "Injected layer/extension dispatch",
+    for marker in ("Atomic retirement late bad pair/real alias", "Timestamp allocation/dispatch OOM, finite wrap bounds", "Two pending submissions and timestamp generation GPU checks", "Injected metadata/map/flush", "Retirement retained pending and failed-reset references", "Injected layer/extension dispatch",
                    "Injected submit OOM/uncertainty", "Controlled image query/create/bind/view rollback",
                    "Controlled image command F32",
                    "Controlled pass/framebuffer allocation rollback",

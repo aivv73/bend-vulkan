@@ -1,0 +1,194 @@
+{
+  "recorded_utc": "2026-10-17T13:38:16.257426+00:00",
+  "source_commit": "ab3f2a1102db132ab60ec26afd69a7784b1e1c67",
+  "command": [
+    "env",
+    "-u",
+    "DISPLAY",
+    "python3",
+    "tools/verify.py",
+    "--sanitize",
+    "--presentation",
+    "--isolated-display"
+  ],
+  "status": "PASS",
+  "exit_code": 0,
+  "exit_code_evidence": "Implementation owner observed completion with0 at T3 owner message1814. Root checked final marker, full gate progression and current component artifacts.",
+  "executable_sources_equal_source_commit": true,
+  "verification_log": {
+    "path": "m7-verification.log",
+    "sha256": "0d9615981d7aea543fbd780c218526b9d26b2893e6e328ee53ad9b75ea0595c7",
+    "bytes": 48547
+  },
+  "native_capture": {
+    "path": "m7-native-atelier.png",
+    "sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+  },
+  "production": {
+    "statuses": {
+      "normal": "pass",
+      "validation": "pass",
+      "sanitized": "pass"
+    },
+    "source_manifest": "m7-production-source-manifest.json",
+    "shadow_pass": true,
+    "corrupt_depth_controls": {
+      "clear_missing_pass": {
+        "status": 1,
+        "pass_gate": false,
+        "unexplained_depth_counts": {
+          "intact": 1679,
+          "carved": 1680
+        }
+      },
+      "zero_depth": {
+        "status": 1,
+        "pass_gate": false,
+        "unexplained_depth_counts": {
+          "intact": 1746,
+          "carved": 1747
+        }
+      },
+      "shifted_one_texel": {
+        "status": 1,
+        "pass_gate": false,
+        "unexplained_depth_counts": {
+          "intact": 828,
+          "carved": 832
+        }
+      },
+      "stable_depth_spike": {
+        "status": 1,
+        "pass_gate": false,
+        "unexplained_depth_counts": {
+          "intact": 1,
+          "carved": 1
+        }
+      },
+      "edge_depth_spike": {
+        "status": 1,
+        "pass_gate": false,
+        "unexplained_depth_counts": {
+          "intact": 1,
+          "carved": 1
+        }
+      }
+    },
+    "unexplained_depth": {
+      "intact": 0,
+      "carved": 0
+    },
+    "original_source_manifest": "build/milestone-6-production/source-artifact-sha256.json",
+    "source_manifest_sha256": "a517b7636938a3f9379b8c84c69cd21b74f90fdde33766565c464fe356740477",
+    "immutable_component_archive": "build/m7-production-pass-ab3f2a1/manifest.json"
+  },
+  "acquisition": [
+    {
+      "command": [
+        "bend",
+        "tests/appearance_acquisition.bend",
+        "-o",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-6-acquisition.c"
+      ],
+      "status": 0,
+      "log": "bend-c"
+    },
+    {
+      "command": [
+        "clang",
+        "-std=c11",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-6-acquisition.c",
+        "-lpthread",
+        "-lm",
+        "-ldl",
+        "-o",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-6-acquisition"
+      ],
+      "status": 0,
+      "log": "compile"
+    },
+    {
+      "command": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-6-acquisition"
+      ],
+      "status": 0,
+      "log": "run"
+    }
+  ],
+  "windows": [
+    {
+      "path": "build/window-shared.log",
+      "sha256": "1ceabdc58d94fea10494e49444ab17d87d6d3c022dcf9f92c522f7f591761a1d",
+      "bytes": 812857,
+      "zero_row_shutdown": true
+    },
+    {
+      "path": "build/window-split.log",
+      "sha256": "d973aad05bf3370c7a8a88621fe4948d51c3fb376b1e17a3cdfb998c38f23772",
+      "bytes": 824988,
+      "zero_row_shutdown": true
+    },
+    {
+      "path": "build/window-shared-suspended-close.log",
+      "sha256": "3b0a73ccee494a0fdf20ad918d479def4dfc5265e0ce023617678e98d1dd4ab4",
+      "bytes": 757124,
+      "zero_row_shutdown": true
+    },
+    {
+      "path": "build/milestone-6-atelier-window-shared.log",
+      "sha256": "0add7415cd9411aa707cbcd90f2cc7e1c26c3e503c9f6a6fb0cdd92692b23235",
+      "bytes": 69651,
+      "zero_row_shutdown": true
+    },
+    {
+      "path": "build/milestone-6-atelier-window-split.log",
+      "sha256": "99fe55ceeb9df3a48d5368b6aa6342ac0d2b2b70cabbdce992b008cb31916ed9",
+      "bytes": 69238,
+      "zero_row_shutdown": true
+    },
+    {
+      "path": "build/window-product.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "zero_row_shutdown": false
+    }
+  ],
+  "appearance_comparison": {
+    "source_commit": "ab3f2a1102db132ab60ec26afd69a7784b1e1c67",
+    "captures": 195,
+    "exact": 171,
+    "different": 24,
+    "maximum_channel_delta": 4,
+    "comparison_archive": "m7-appearance-diff.json"
+  },
+  "performance": {
+    "verdict": "INCONCLUSIVE for general production or implementation speedup.",
+    "results": "m7-results.md",
+    "builds": "m7-builds.json",
+    "profile": "m7-profile.json",
+    "comparisons": {
+      "old_new": "m7-old-new.json",
+      "cpu_1_6": "m7-cpu-1-6.json",
+      "slots_1_2": "m7-slots-1-2.json"
+    },
+    "native_processes": 60,
+    "native_nonzero_exits": 0,
+    "edit_actions_attempted": 480,
+    "edit_actions_completed": 480,
+    "old_new_output_excluded_runs": 20,
+    "old_new_eligible_timing_pairs": 0,
+    "cpu_eligible_pairs_per_workload": 5,
+    "slot_eligible_pairs_per_workload": 5,
+    "cpu_verdict": "Mixed traced-configuration tradeoff. Flight ranges overlap; one worker has lower cut latency and six have lower reset latency.",
+    "slot_verdict": "Two slots have a higher observed traced flight handoff rate. Cut/reset ranges overlap. Dynamic poses and unmeasured instrumentation prevent a general production or display-FPS claim.",
+    "resource_scope": "Observed reset-row checks and zero-row traced shutdown pass. No full heap, driver-allocation or GPU-byte bound.",
+    "post_measurement_default_change": false,
+    "recorded_utc": "2026-10-17T14:27:47.764151+00:00",
+    "scope": "Later completed measurements. The top-level recorded_utc identifies the earlier correctness acceptance record."
+  },
+  "scope": "Linux/X11 on the local GTX1660. Row counts describe wrapper resources. Shaded output is not universally byte-identical to M6; static timing pairs retain exact-image eligibility."
+}

@@ -1,5 +1,7 @@
 import Base
+import ./overlap.bend as Overlap
 import ../Vulkan.bend as V
+import ./upload_lifetime.bend as UploadLifetime
 import ./native.bend as Native
 import ./semaphores.bend as Semaphores
 import ./descriptors.bend as Descriptors
@@ -24,6 +26,11 @@ def main() -> IO(Unit):
     V.or_exit(Unit,base)
     transfer : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Transfer.run(entry))
     V.or_exit(Unit,transfer)
+    uploads : V.VkResult(Unit) <- V.Entry.with(Unit,entry => UploadLifetime.run(entry))
+    V.or_exit(Unit,uploads)
+    overlap : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Overlap.run(entry))
+    V.or_exit(Unit,overlap)
+    IO.print("Two pending submissions and timestamp generation GPU checks passed")
     repeated : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Repeated.run(entry))
     V.or_exit(Unit,repeated)
     images : V.VkResult(Unit) <- V.Entry.with(Unit,entry => Images.run(entry))

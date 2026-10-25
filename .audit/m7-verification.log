@@ -1,0 +1,769 @@
++ /usr/bin/python3 tools/generate.py --check
++ /usr/bin/python3 tools/check_measurement.py
+.........................
+----------------------------------------------------------------------
+Ran 25 tests in 0.585s
+
+OK
++ /usr/bin/python3 tools/check_timing.py --sanitize
+Actual query reset recorded-ref allocation failed with old completed data retained
+TIMING unavailable=gpu_query_reset
+TIMING unavailable=gpu_frame_queries_disabled
+Completed old queries plus reset-ref OOM disabled frame diagnostics and recovered on retry
++ /usr/bin/python3 tools/build_shaders.py --check
++ bend PROOF.bend
+ALL PROOFS CHECK
+Use --verdict for mathematical validity.
++ /usr/bin/python3 tools/check_geometry.py
++ bend tests/geometry_dump.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-dump
++ bend tests/geometry_clips.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-clips
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-clips --threads 6 --gpu off
++ /usr/bin/python3 tools/geometry_clips.py
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-dump --threads 6 --gpu off
++ /usr/bin/python3 tools/geometry_oracle.py
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-dump --threads 1 --gpu off
+PASS exhaustive 10000 rectangle differences, positive fragments, exact coverage and disjointness
+PASS original-Body exterior oracle and byte-identical production output with 1 and 6 CPU threads
++ /usr/bin/python3 tools/check_chunks.py
+PASS 15 exact canonical streams, signed rectangle coverage, dense/cuboid greedy reductions, analytic huge source, dirty neighbors and retained generations
+PASS 15 exact canonical streams, signed rectangle coverage, dense/cuboid greedy reductions, analytic huge source, dirty neighbors and retained generations
+PASS material-mutated Body with matching mesh/reference rejected by independent original Body
+PASS deterministic chunk builds with 1 and 6 threads and no display/GPU dependency
++ /usr/bin/python3 tools/check_generations.py --sanitize
+Immutable chunk generation CPU/staging/device bytes, no-op reuse, empty-after-edit, reset and cleanup passed
++ /usr/bin/python3 tools/check_retirement.py --sanitize
+Index-only Recording publication rejection preserved all old bytes/handles/counters/rows and held command submitted before retry
+Mixed reused/changed/removed generation retained exact resident handles after atomic rejection and retry
+Legacy complete upload and empty replacement retirement rejection preserved old bytes and cleaned both candidates before successful retry
++ /usr/bin/python3 tools/check_installation.py --sanitize
+Handled post-prepare begin and mid-copy failures preserved installed bytes and rows across retries
+Post-prepare reset failure and device loss terminated installation with exact scope cleanup
++ /usr/bin/python3 tools/check_uploads.py --sanitize
+Six real-device geometry allocation/upload failures preserved installed bytes and rows
++ /usr/bin/python3 tools/check_appearance_math.py
+PASS five vertex/fragment interface links
+PASS nine new stages with canonical glslc -O flags and SPIR-V validation
+PASS all 584 sentinel words, 440 padding words, literal std140 offsets and SPIR-V reflection
+PASS actual Bend frame matrices, flags, palette slots, exact selected slots and 576 indices
+PASS five pinned Oklch palettes, 300 daylight cases, transfer literals and once-encode controls
+PASS exact rational F32 sphere membership, inclusive and adjacent-F32 thresholds, coordinate bounds
+PASS 144 literal and pixel-center identities, full material bits, internal/outer boundaries and normalized-expansion counterexample
+PASS four actual sun matrices, 32 scene corners, 144 independent world-plane depth comparisons and PCF literals
+PASS pinned near clipping in both orders, hidden arcs, 0.75px threshold, reciprocal depth and portrait/landscape ribbons
+PASS height450 and portrait450x900 pixel-center rows/bands, all 512 authored rows, transfer and ground/grid
+PASS pure frame, identity, selection, lighting and ring numeric equations. GPU acceptance is separate.
++ /usr/bin/python3 tools/check_reference_lighting.py
+Original Body/Surface cached512/direct512, explicit128 experiment, 2226 receivers and exact 16-cell cut/repeat/reset passed
++ /usr/bin/python3 tools/check_appearance_gpu.py --sanitize
+{
+  "normal": {
+    "status": "pass",
+    "cases": 99,
+    "abi_payload_words": 584,
+    "abi_zero_tail_words": 440,
+    "host_abi_words": 1024,
+    "gpu_abi_words": 1024,
+    "diagnostic_and_tint_pixels": 786,
+    "modes": {
+      "0": 93,
+      "1": 99,
+      "2": 99,
+      "3": 99,
+      "4": 99,
+      "5": 99,
+      "6": 99,
+      "7": 99
+    },
+    "production_rectangles": 6,
+    "rejected_winding_pixels": 6,
+    "sampled_depth_checks": 2,
+    "submitted_frames": 795,
+    "uniform_uploads": 787,
+    "descriptor_rewrites_after_reset": 786,
+    "live_rows": 0
+  },
+  "validation": {
+    "status": "pass",
+    "cases": 99,
+    "abi_payload_words": 584,
+    "abi_zero_tail_words": 440,
+    "host_abi_words": 1024,
+    "gpu_abi_words": 1024,
+    "diagnostic_and_tint_pixels": 786,
+    "modes": {
+      "0": 93,
+      "1": 99,
+      "2": 99,
+      "3": 99,
+      "4": 99,
+      "5": 99,
+      "6": 99,
+      "7": 99
+    },
+    "production_rectangles": 6,
+    "rejected_winding_pixels": 6,
+    "sampled_depth_checks": 2,
+    "submitted_frames": 795,
+    "uniform_uploads": 787,
+    "descriptor_rewrites_after_reset": 786,
+    "live_rows": 0
+  },
+  "sanitized": {
+    "status": "pass",
+    "cases": 99,
+    "abi_payload_words": 584,
+    "abi_zero_tail_words": 440,
+    "host_abi_words": 1024,
+    "gpu_abi_words": 1024,
+    "diagnostic_and_tint_pixels": 786,
+    "modes": {
+      "0": 93,
+      "1": 99,
+      "2": 99,
+      "3": 99,
+      "4": 99,
+      "5": 99,
+      "6": 99,
+      "7": 99
+    },
+    "production_rectangles": 6,
+    "rejected_winding_pixels": 6,
+    "sampled_depth_checks": 2,
+    "submitted_frames": 795,
+    "uniform_uploads": 787,
+    "descriptor_rewrites_after_reset": 786,
+    "live_rows": 0
+  }
+}
++ /usr/bin/python3 tools/check_production.py --sanitize
+Original-Body actual512 D32 caster/visibility causality and five corrupt-depth negative controls passed
+Shadow evidence: /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-6-production/shadow-causality/results.json
+Production exact raw/shaded coverage, original identity, actual512 D32 PCF, palette, transfer, rings and repeated frame acceptance passed
+{
+  "normal": "pass",
+  "validation": "pass",
+  "sanitized": "pass"
+}
++ bend tests/array_rejection.bend
++ bend tests/image_abi.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-abi
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-abi
+Installed Bend F32, nested records, variants, Some/None and U64 ABI passed
++ bend tests/graphics_abi.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/graphics-abi
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/graphics-abi
+Emitted graphics ABI: 14 pipeline lanes, 4 layout lanes, F32, signed bits, U64 and word lists passed
++ bend tests/descriptor_abi.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/descriptor-abi
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/descriptor-abi
+Emitted descriptor ABI schemas, typed writes, arrays, U64, F32 and ordered layouts passed
++ bend tests/presentation_abi.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/presentation-abi
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/presentation-abi
+Presentation ABI records, Boolean lanes, events, lifecycle variants and U64 passed
++ bend tests/geometry_device.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device
+Device geometry quads=10304 vertex_bytes=1648640 index_bytes=247296
+Device geometry quads=10359 vertex_bytes=1657440 index_bytes=248616
+Device geometry quads=10359 vertex_bytes=1657440 index_bytes=248616
+Device geometry quads=10304 vertex_bytes=1648640 index_bytes=247296
+Device geometry quads=0 vertex_bytes=0 index_bytes=0
+Complete packed geometry verified, faces 34
+Pixels 262144, excluded 6154, mismatches 0, invalid edges 0, upstream 0, covered 21405, materials 255, directions 42
+Pixels 262144, excluded 6095, mismatches 0, invalid edges 0, upstream 0, covered 20891, materials 255, directions 58
+Pixels 262144, excluded 9942, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 128, directions 2
+Pixels 262144, excluded 9942, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 128, directions 2
+Pixels 262144, excluded 10248, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 1, directions 1
+Pixels 262144, excluded 10248, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 1, directions 1
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 8
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 8
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 4
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 4
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 32
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 32
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 16
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 16
+GPU full U32 materials including high bits and all six directions verified
+Pixels 262144, excluded 0, mismatches 0, invalid edges 0, upstream 0, covered 0, materials 0, directions 0
+Rendered asymmetric rectangles passed all six directions, full U32 materials and inside back-face culling
+Actual Vulkan Atelier logical-array bytes, state equality, resource rows and rendered rectangles passed
++ bend examples/voxel_offscreen.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen
+Complete packed geometry verified, faces 384
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Pixels 262144, excluded 19015, mismatches 0, invalid edges 0, upstream 0, covered 39142, materials 1, directions 42
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 396
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Pixels 262144, excluded 19499, mismatches 0, invalid edges 0, upstream 0, covered 39142, materials 1, directions 43
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 396
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 390
+Pixels 262144, excluded 19012, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 0
+Pixels 262144, excluded 0, mismatches 0, invalid edges 0, upstream 0, covered 0, materials 0, directions 0
+Complete packed geometry verified, faces 34
+Pixels 262144, excluded 1777, mismatches 0, invalid edges 0, upstream 0, covered 3298, materials 255, directions 42
+Pixels 262144, excluded 1772, mismatches 0, invalid edges 0, upstream 0, covered 3198, materials 255, directions 42
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 128, directions 2
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 128, directions 2
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 1, directions 1
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 1, directions 1
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 8
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 8
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 4
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 4
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 32
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 32
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 16
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 16
+GPU full U32 materials including high bits and all six directions verified
+Voxel complete geometry, RGBA8+D32 references, camera reuse, carve/repeat/reset, empty mesh and bounded replacements passed
++ bend examples/discover.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/discover
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/discover
+Loader API version bits: 4211051
+Layer: VK_LAYER_VALVE_steam_overlay_32
+Layer: VK_LAYER_VALVE_steam_overlay_64
+Layer: VK_LAYER_VALVE_steam_fossilize_32
+Layer: VK_LAYER_VALVE_steam_fossilize_64
+Layer: VK_LAYER_MANGOHUD_overlay_x86_64
+Layer: VK_LAYER_MANGOHUD_overlay_x86
+Layer: VK_LAYER_FROG_gamescope_wsi_x86_64
+Layer: VK_LAYER_NV_optimus
+Layer: VK_LAYER_NV_present
+Layer: VK_LAYER_KHRONOS_validation
+Instance extension: VK_KHR_device_group_creation
+Instance extension: VK_KHR_display
+Instance extension: VK_KHR_external_fence_capabilities
+Instance extension: VK_KHR_external_memory_capabilities
+Instance extension: VK_KHR_external_semaphore_capabilities
+Instance extension: VK_KHR_get_display_properties2
+Instance extension: VK_KHR_get_physical_device_properties2
+Instance extension: VK_KHR_get_surface_capabilities2
+Instance extension: VK_KHR_surface
+Instance extension: VK_KHR_surface_maintenance1
+Instance extension: VK_KHR_surface_protected_capabilities
+Instance extension: VK_KHR_wayland_surface
+Instance extension: VK_KHR_xcb_surface
+Instance extension: VK_KHR_xlib_surface
+Instance extension: VK_EXT_acquire_drm_display
+Instance extension: VK_EXT_acquire_xlib_display
+Instance extension: VK_EXT_debug_report
+Instance extension: VK_EXT_debug_utils
+Instance extension: VK_EXT_direct_mode_display
+Instance extension: VK_EXT_display_surface_counter
+Instance extension: VK_EXT_surface_maintenance1
+Instance extension: VK_EXT_swapchain_colorspace
+Instance extension: VK_NV_display_stereo
+Instance extension: VK_KHR_portability_enumeration
+Instance extension: VK_LUNARG_direct_driver_loading
+Vulkan device: NVIDIA GeForce GTX 1660
+Device extension: VK_KHR_16bit_storage
+Device extension: VK_KHR_8bit_storage
+Device extension: VK_KHR_acceleration_structure
+Device extension: VK_KHR_bind_memory2
+Device extension: VK_KHR_buffer_device_address
+Device extension: VK_KHR_calibrated_timestamps
+Device extension: VK_KHR_compute_shader_derivatives
+Device extension: VK_KHR_copy_commands2
+Device extension: VK_KHR_copy_memory_indirect
+Device extension: VK_KHR_create_renderpass2
+Device extension: VK_KHR_dedicated_allocation
+Device extension: VK_KHR_deferred_host_operations
+Device extension: VK_KHR_depth_clamp_zero_one
+Device extension: VK_KHR_depth_stencil_resolve
+Device extension: VK_KHR_descriptor_update_template
+Device extension: VK_KHR_device_address_commands
+Device extension: VK_KHR_device_fault
+Device extension: VK_KHR_device_group
+Device extension: VK_KHR_draw_indirect_count
+Device extension: VK_KHR_driver_properties
+Device extension: VK_KHR_dynamic_rendering
+Device extension: VK_KHR_dynamic_rendering_local_read
+Device extension: VK_KHR_external_fence
+Device extension: VK_KHR_external_fence_fd
+Device extension: VK_KHR_external_memory
+Device extension: VK_KHR_external_memory_fd
+Device extension: VK_KHR_external_semaphore
+Device extension: VK_KHR_external_semaphore_fd
+Device extension: VK_KHR_format_feature_flags2
+Device extension: VK_KHR_fragment_shader_barycentric
+Device extension: VK_KHR_fragment_shading_rate
+Device extension: VK_KHR_get_memory_requirements2
+Device extension: VK_KHR_global_priority
+Device extension: VK_KHR_image_format_list
+Device extension: VK_KHR_imageless_framebuffer
+Device extension: VK_KHR_incremental_present
+Device extension: VK_KHR_index_type_uint8
+Device extension: VK_KHR_internally_synchronized_queues
+Device extension: VK_KHR_line_rasterization
+Device extension: VK_KHR_load_store_op_none
+Device extension: VK_KHR_maintenance1
+Device extension: VK_KHR_maintenance10
+Device extension: VK_KHR_maintenance11
+Device extension: VK_KHR_maintenance2
+Device extension: VK_KHR_maintenance3
+Device extension: VK_KHR_maintenance4
+Device extension: VK_KHR_maintenance5
+Device extension: VK_KHR_maintenance6
+Device extension: VK_KHR_maintenance7
+Device extension: VK_KHR_maintenance8
+Device extension: VK_KHR_maintenance9
+Device extension: VK_KHR_map_memory2
+Device extension: VK_KHR_multiview
+Device extension: VK_KHR_pipeline_binary
+Device extension: VK_KHR_pipeline_executable_properties
+Device extension: VK_KHR_pipeline_library
+Device extension: VK_KHR_present_id
+Device extension: VK_KHR_present_id2
+Device extension: VK_KHR_present_mode_fifo_latest_ready
+Device extension: VK_KHR_present_wait
+Device extension: VK_KHR_present_wait2
+Device extension: VK_KHR_push_descriptor
+Device extension: VK_KHR_ray_tracing_maintenance1
+Device extension: VK_KHR_ray_tracing_pipeline
+Device extension: VK_KHR_relaxed_block_layout
+Device extension: VK_KHR_robustness2
+Device extension: VK_KHR_sampler_mirror_clamp_to_edge
+Device extension: VK_KHR_sampler_ycbcr_conversion
+Device extension: VK_KHR_separate_depth_stencil_layouts
+Device extension: VK_KHR_shader_abort
+Device extension: VK_KHR_shader_atomic_int64
+Device extension: VK_KHR_shader_clock
+Device extension: VK_KHR_shader_constant_data
+Device extension: VK_KHR_shader_draw_parameters
+Device extension: VK_KHR_shader_expect_assume
+Device extension: VK_KHR_shader_float16_int8
+Device extension: VK_KHR_shader_float_controls
+Device extension: VK_KHR_shader_float_controls2
+Device extension: VK_KHR_shader_fma
+Device extension: VK_KHR_shader_integer_dot_product
+Device extension: VK_KHR_shader_maximal_reconvergence
+Device extension: VK_KHR_shader_non_semantic_info
+Device extension: VK_KHR_shader_quad_control
+Device extension: VK_KHR_shader_relaxed_extended_instruction
+Device extension: VK_KHR_shader_subgroup_extended_types
+Device extension: VK_KHR_shader_subgroup_rotate
+Device extension: VK_KHR_shader_subgroup_uniform_control_flow
+Device extension: VK_KHR_shader_terminate_invocation
+Device extension: VK_KHR_shader_untyped_pointers
+Device extension: VK_KHR_shared_presentable_image
+Device extension: VK_KHR_spirv_1_4
+Device extension: VK_KHR_storage_buffer_storage_class
+Device extension: VK_KHR_swapchain
+Device extension: VK_KHR_swapchain_maintenance1
+Device extension: VK_KHR_swapchain_mutable_format
+Device extension: VK_KHR_synchronization2
+Device extension: VK_KHR_timeline_semaphore
+Device extension: VK_KHR_unified_image_layouts
+Device extension: VK_KHR_uniform_buffer_standard_layout
+Device extension: VK_KHR_variable_pointers
+Device extension: VK_KHR_vertex_attribute_divisor
+Device extension: VK_KHR_video_decode_h264
+Device extension: VK_KHR_video_decode_h265
+Device extension: VK_KHR_video_decode_queue
+Device extension: VK_KHR_video_decode_vp9
+Device extension: VK_KHR_video_encode_h264
+Device extension: VK_KHR_video_encode_h265
+Device extension: VK_KHR_video_encode_intra_refresh
+Device extension: VK_KHR_video_encode_quantization_map
+Device extension: VK_KHR_video_encode_queue
+Device extension: VK_KHR_video_maintenance1
+Device extension: VK_KHR_video_maintenance2
+Device extension: VK_KHR_video_queue
+Device extension: VK_KHR_vulkan_memory_model
+Device extension: VK_KHR_workgroup_memory_explicit_layout
+Device extension: VK_KHR_zero_initialize_workgroup_memory
+Device extension: VK_EXT_4444_formats
+Device extension: VK_EXT_attachment_feedback_loop_dynamic_state
+Device extension: VK_EXT_attachment_feedback_loop_layout
+Device extension: VK_EXT_blend_operation_advanced
+Device extension: VK_EXT_border_color_swizzle
+Device extension: VK_EXT_buffer_device_address
+Device extension: VK_EXT_calibrated_timestamps
+Device extension: VK_EXT_color_write_enable
+Device extension: VK_EXT_conditional_rendering
+Device extension: VK_EXT_conservative_rasterization
+Device extension: VK_EXT_custom_border_color
+Device extension: VK_EXT_custom_resolve
+Device extension: VK_EXT_depth_bias_control
+Device extension: VK_EXT_depth_clamp_control
+Device extension: VK_EXT_depth_clamp_zero_one
+Device extension: VK_EXT_depth_clip_control
+Device extension: VK_EXT_depth_clip_enable
+Device extension: VK_EXT_depth_range_unrestricted
+Device extension: VK_EXT_descriptor_buffer
+Device extension: VK_EXT_descriptor_heap
+Device extension: VK_EXT_descriptor_indexing
+Device extension: VK_EXT_device_address_binding_report
+Device extension: VK_EXT_device_fault
+Device extension: VK_EXT_device_generated_commands
+Device extension: VK_EXT_device_memory_report
+Device extension: VK_EXT_discard_rectangles
+Device extension: VK_EXT_display_control
+Device extension: VK_EXT_dynamic_rendering_unused_attachments
+Device extension: VK_EXT_extended_dynamic_state
+Device extension: VK_EXT_extended_dynamic_state2
+Device extension: VK_EXT_extended_dynamic_state3
+Device extension: VK_EXT_external_memory_dma_buf
+Device extension: VK_EXT_external_memory_host
+Device extension: VK_EXT_fragment_shader_interlock
+Device extension: VK_EXT_global_priority
+Device extension: VK_EXT_global_priority_query
+Device extension: VK_EXT_graphics_pipeline_library
+Device extension: VK_EXT_hdr_metadata
+Device extension: VK_EXT_host_image_copy
+Device extension: VK_EXT_host_query_reset
+Device extension: VK_EXT_image_2d_view_of_3d
+Device extension: VK_EXT_image_drm_format_modifier
+Device extension: VK_EXT_image_robustness
+Device extension: VK_EXT_image_sliced_view_of_3d
+Device extension: VK_EXT_image_view_min_lod
+Device extension: VK_EXT_index_type_uint8
+Device extension: VK_EXT_inline_uniform_block
+Device extension: VK_EXT_legacy_vertex_attributes
+Device extension: VK_EXT_line_rasterization
+Device extension: VK_EXT_load_store_op_none
+Device extension: VK_EXT_map_memory_placed
+Device extension: VK_EXT_memory_budget
+Device extension: VK_EXT_memory_decompression
+Device extension: VK_EXT_memory_priority
+Device extension: VK_EXT_mesh_shader
+Device extension: VK_EXT_multi_draw
+Device extension: VK_EXT_mutable_descriptor_type
+Device extension: VK_EXT_nested_command_buffer
+Device extension: VK_EXT_non_seamless_cube_map
+Device extension: VK_EXT_pageable_device_local_memory
+Device extension: VK_EXT_pci_bus_info
+Device extension: VK_EXT_physical_device_drm
+Device extension: VK_EXT_pipeline_creation_cache_control
+Device extension: VK_EXT_pipeline_creation_feedback
+Device extension: VK_EXT_pipeline_library_group_handles
+Device extension: VK_EXT_pipeline_robustness
+Device extension: VK_EXT_post_depth_coverage
+Device extension: VK_EXT_present_mode_fifo_latest_ready
+Device extension: VK_EXT_present_timing
+Device extension: VK_EXT_primitive_restart_index
+Device extension: VK_EXT_primitive_topology_list_restart
+Device extension: VK_EXT_primitives_generated_query
+Device extension: VK_EXT_private_data
+Device extension: VK_EXT_provoking_vertex
+Device extension: VK_EXT_queue_family_foreign
+Device extension: VK_EXT_ray_tracing_invocation_reorder
+Device extension: VK_EXT_robustness2
+Device extension: VK_EXT_sample_locations
+Device extension: VK_EXT_sampler_filter_minmax
+Device extension: VK_EXT_scalar_block_layout
+Device extension: VK_EXT_separate_stencil_usage
+Device extension: VK_EXT_shader_64bit_indexing
+Device extension: VK_EXT_shader_atomic_float
+Device extension: VK_EXT_shader_demote_to_helper_invocation
+Device extension: VK_EXT_shader_image_atomic_int64
+Device extension: VK_EXT_shader_long_vector
+Device extension: VK_EXT_shader_module_identifier
+Device extension: VK_EXT_shader_object
+Device extension: VK_EXT_shader_replicated_composites
+Device extension: VK_EXT_shader_split_barrier
+Device extension: VK_EXT_shader_subgroup_ballot
+Device extension: VK_EXT_shader_subgroup_partitioned
+Device extension: VK_EXT_shader_subgroup_vote
+Device extension: VK_EXT_shader_uniform_buffer_unsized_array
+Device extension: VK_EXT_shader_viewport_index_layer
+Device extension: VK_EXT_subgroup_size_control
+Device extension: VK_EXT_swapchain_maintenance1
+Device extension: VK_EXT_texel_buffer_alignment
+Device extension: VK_EXT_tooling_info
+Device extension: VK_EXT_transform_feedback
+Device extension: VK_EXT_vertex_attribute_divisor
+Device extension: VK_EXT_vertex_attribute_robustness
+Device extension: VK_EXT_vertex_input_dynamic_state
+Device extension: VK_EXT_ycbcr_2plane_444_formats
+Device extension: VK_EXT_ycbcr_image_arrays
+Device extension: VK_EXT_zero_initialize_device_memory
+Device extension: VK_NV_clip_space_w_scaling
+Device extension: VK_NV_compute_shader_derivatives
+Device extension: VK_NV_copy_memory_indirect
+Device extension: VK_NV_corner_sampled_image
+Device extension: VK_NV_coverage_reduction_mode
+Device extension: VK_NV_cuda_kernel_launch
+Device extension: VK_NV_dedicated_allocation
+Device extension: VK_NV_dedicated_allocation_image_aliasing
+Device extension: VK_NV_descriptor_pool_overallocation
+Device extension: VK_NV_device_diagnostic_checkpoints
+Device extension: VK_NV_device_diagnostics_config
+Device extension: VK_NV_device_generated_commands
+Device extension: VK_NV_device_generated_commands_compute
+Device extension: VK_NV_disk_cache_utils
+Device extension: VK_NV_extended_sparse_address_space
+Device extension: VK_NV_fill_rectangle
+Device extension: VK_NV_fragment_coverage_to_color
+Device extension: VK_NV_fragment_shader_barycentric
+Device extension: VK_NV_fragment_shading_rate_enums
+Device extension: VK_NV_framebuffer_mixed_samples
+Device extension: VK_NV_geometry_shader_passthrough
+Device extension: VK_NV_inherited_viewport_scissor
+Device extension: VK_NV_internal_handle
+Device extension: VK_NV_internal_nvpresent
+Device extension: VK_NV_linear_color_attachment
+Device extension: VK_NV_low_latency
+Device extension: VK_NV_low_latency2
+Device extension: VK_NV_memory_decompression
+Device extension: VK_NV_mesh_shader
+Device extension: VK_NV_present_metering
+Device extension: VK_NV_push_constant_bank
+Device extension: VK_NV_raw_access_chains
+Device extension: VK_NV_ray_tracing
+Device extension: VK_NV_ray_tracing_invocation_reorder
+Device extension: VK_NV_representative_fragment_test
+Device extension: VK_NV_sample_mask_override_coverage
+Device extension: VK_NV_scissor_exclusive
+Device extension: VK_NV_shader_atomic_float16_vector
+Device extension: VK_NV_shader_image_footprint
+Device extension: VK_NV_shader_sm_builtins
+Device extension: VK_NV_shader_subgroup_partitioned
+Device extension: VK_NV_shading_rate_image
+Device extension: VK_NV_viewport_array2
+Device extension: VK_NV_viewport_swizzle
+Device extension: VK_NVX_binary_import
+Device extension: VK_NVX_image_view_handle
+Device extension: VK_NVX_multiview_per_view_attributes
+Device extension: VK_AMD_buffer_marker
+Device extension: VK_GOOGLE_hlsl_functionality1
+Device extension: VK_GOOGLE_user_type
+Memory heap size limbs: lo=2147483648 hi=1 flags 1
+Memory heap size limbs: lo=3700913152 hi=5 flags 0
+Memory heap size limbs: lo=257949696 hi=0 flags 1
+Image/framebuffer limits: 32768 32768 32768
+Color/push/vertex limits: 8 256 32 32 2047 2048
+Allocation/atom/copy/row limits: 4294967295 lo=64 hi=0 lo=1 hi=0 lo=1 hi=0
+RGBA8 format masks: 122115 122243 536871000
++ bend examples/indexed_offscreen.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/indexed-offscreen
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/indexed-offscreen
+Indexed RGBA8+D32 every-pixel occlusion in both orders, U16/U32 offsets and negative base vertex passed
++ bend examples/offscreen_roundtrip.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/offscreen-roundtrip
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/offscreen-roundtrip
+Optimal RGBA8 image clear and every-pixel readback verified
++ bend examples/buffer_roundtrip.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/buffer-roundtrip
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/buffer-roundtrip
+Host roundtrip and GPU buffer fill verified
++ bend tests/viewport.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/viewport
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/viewport
+Viewport square rays, wide-field picking and extent rejection passed
++ bend tests/interactive.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/interactive
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/interactive
+one queued click voxels=505
+two queued clicks before upload voxels=484
+reset then queued click before upload voxels=505
+reset prepared cut then click before upload voxels=505
+Queued edit/reset picking before upload passed
++ bend tests/descriptors.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/descriptors
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/descriptors
+Literal uniform and rendered D32 sampling, arrays, sparse equivalent schemas and rewrites passed
++ bend tests/semaphores.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/semaphores
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/semaphores
+Binary semaphore signal-to-wait literal GPU readback passed
++ bend tests/discovery.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/discovery-tests
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/discovery-tests
+Capability discovery and raw limb adapters passed
++ bend tests/native.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests
+Native Vulkan checks passed
++ bend tests/transfers.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/transfers
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/transfers
+Packed upload and GPU copy passed
++ bend tests/overlap.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/overlap
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/overlap
+Two submissions before either fence observation, literal independent readbacks, all-owner host exclusion and query generations passed
++ bend tests/upload_lifetime.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/upload-lifetime
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/upload-lifetime
+Reusable staging literal source bytes and pending/completed/recorded retirement passed
++ bend tests/image_repeated.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-repeated
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-repeated
+32 distinct color+D32 pass/readback cycles and 32 image/view/pass/framebuffer churn cycles passed with bounded rows
++ bend tests/image_formats.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-formats
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-formats
+RGBA/BGRA UNORM/SRGB raw channels and encoded bytes 17 31 63 127 passed; D16 depth 1.0 = ff ff and depth 0.0 upload = 00 00 passed
++ bend tests/indexed_graphics.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/indexed-graphics
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/indexed-graphics
+Every RGBA8/D32 pixel passed for both index widths/orders, winding, lateral/near/far clipping, orientation, dynamic state, column-major camera, changing pushes and 32 stable reuses
++ bend tests/graphics_resources.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/graphics-resources
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/graphics-resources
+Real shader/layout/pipeline lifecycle and shader release passed
++ bend tests/rendering.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/rendering
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/rendering
+Optimal color image has no host-visible type; staging readback used
+Real color+D32 pass clears, partial preservation and framebuffer-only pending host exclusion passed
++ bend tests/offscreen.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/offscreen
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/offscreen
+Every-pixel clear and padded two-layer nonzero-mip offscreen transfers passed; D32 depth 0.5 = 00 00 00 3f
++ bend tests/images.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/images
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/images
+Six optimal image formats, requirements, views and resource lifetimes passed
++ bend tests/repeated.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/repeated
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/repeated
+32 repeated GPU transfers and 32 private-fence reuses passed
+Khronos validation and synchronization validation: available
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/descriptors
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/semaphores
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/buffer-roundtrip
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/offscreen-roundtrip
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/transfers
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/upload-lifetime
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/overlap
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/repeated
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/images
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/offscreen
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/rendering
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-repeated
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/image-formats
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/graphics-resources
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/indexed-offscreen
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/indexed-graphics
++ bend tests/native.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests.c
++ clang -std=c11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests.c -lpthread -lm -ldl -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests-sanitized
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/native-tests-sanitized
+Native Vulkan checks passed
++ bend examples/voxel_offscreen.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen.c
++ clang -std=c11 -E -P /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen.c -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen-preprocessed.c
++ clang -std=c11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen.c -lpthread -lm -ldl -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen-sanitized
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-offscreen-sanitized
+Complete packed geometry verified, faces 384
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Pixels 262144, excluded 19015, mismatches 0, invalid edges 0, upstream 0, covered 39142, materials 1, directions 42
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 396
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Pixels 262144, excluded 19499, mismatches 0, invalid edges 0, upstream 0, covered 39142, materials 1, directions 43
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 396
+Pixels 262144, excluded 19296, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Complete packed geometry verified, faces 396
+Complete packed geometry verified, faces 384
+Pixels 262144, excluded 18820, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 390
+Pixels 262144, excluded 19012, mismatches 0, invalid edges 0, upstream 0, covered 38330, materials 1, directions 42
+Complete packed geometry verified, faces 0
+Pixels 262144, excluded 0, mismatches 0, invalid edges 0, upstream 0, covered 0, materials 0, directions 0
+Complete packed geometry verified, faces 34
+Pixels 262144, excluded 1777, mismatches 0, invalid edges 0, upstream 0, covered 3298, materials 255, directions 42
+Pixels 262144, excluded 1772, mismatches 0, invalid edges 0, upstream 0, covered 3198, materials 255, directions 42
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 128, directions 2
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 128, directions 2
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 1, directions 1
+Pixels 262144, excluded 946, mismatches 0, invalid edges 0, upstream 0, covered 1225, materials 1, directions 1
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 8
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 8
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 4
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 4
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 32
+Pixels 262144, excluded 1792, mismatches 0, invalid edges 0, upstream 0, covered 5460, materials 255, directions 32
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 16
+Pixels 262144, excluded 2160, mismatches 0, invalid edges 0, upstream 0, covered 6272, materials 255, directions 16
+GPU full U32 materials including high bits and all six directions verified
+Voxel complete geometry, RGBA8+D32 references, camera reuse, carve/repeat/reset, empty mesh and bounded replacements passed
++ bend tests/geometry_device.bend -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device.c
++ clang -std=c11 -E -P /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device.c -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device-preprocessed.c
++ clang -std=c11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device.c -lpthread -lm -ldl -o /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device-sanitized
++ /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/geometry-device-sanitized
+Device geometry quads=10304 vertex_bytes=1648640 index_bytes=247296
+Device geometry quads=10359 vertex_bytes=1657440 index_bytes=248616
+Device geometry quads=10359 vertex_bytes=1657440 index_bytes=248616
+Device geometry quads=10304 vertex_bytes=1648640 index_bytes=247296
+Device geometry quads=0 vertex_bytes=0 index_bytes=0
+Complete packed geometry verified, faces 34
+Pixels 262144, excluded 6154, mismatches 0, invalid edges 0, upstream 0, covered 21405, materials 255, directions 42
+Pixels 262144, excluded 6095, mismatches 0, invalid edges 0, upstream 0, covered 20891, materials 255, directions 58
+Pixels 262144, excluded 9942, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 128, directions 2
+Pixels 262144, excluded 9942, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 128, directions 2
+Pixels 262144, excluded 10248, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 1, directions 1
+Pixels 262144, excluded 10248, mismatches 0, invalid edges 0, upstream 0, covered 29400, materials 1, directions 1
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 8
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 8
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 4
+Pixels 262144, excluded 7864, mismatches 0, invalid edges 0, upstream 0, covered 43200, materials 255, directions 4
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 32
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 32
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 16
+Pixels 262144, excluded 6172, mismatches 0, invalid edges 0, upstream 0, covered 33540, materials 255, directions 16
+GPU full U32 materials including high bits and all six directions verified
+Pixels 262144, excluded 0, mismatches 0, invalid edges 0, upstream 0, covered 0, materials 0, directions 0
+Rendered asymmetric rectangles passed all six directions, full U32 materials and inside back-face culling
+Actual Vulkan Atelier logical-array bytes, state equality, resource rows and rendered rectangles passed
++ /usr/bin/python3 tools/check_native.py --sanitize
+Native Vulkan checks passed
+Injected metadata/map/flush checks and packed/Term array ownership passed
+Injected layer/extension dispatch, eight enumeration retries, count limits, and composite capability ABI passed
+Controlled image graph idle-error retry and known-loss ordered teardown passed
+Descriptor graph idle-error retry and loss cleanup returned exact row and metadata counts
+Injected submit OOM/uncertainty, wait/idle/reset/record errors, private fence isolation, timeout limbs, and sticky device loss passed
+Atomic retirement late bad pair/real alias, scratch allocation OOM, empty/duplicates/idempotence and exact metadata cleanup passed
+Retirement retained pending and failed-reset references and sealed future recording passed
+Timestamp allocation/dispatch OOM, finite wrap bounds, failed-reset references and result retry passed
+Two pending submissions and timestamp generation GPU checks passed
+Real disjoint buffer/optimal-image suballocation passed in both binding orders
+Controlled image query/create/bind/view rollback, exact high limbs, both binding orders and zero-row delta passed
+Controlled image command F32, all preparation allocations, rollback, exact spans, queue granularity and depth restrictions passed
+Optimal color image has no host-visible type; staging readback used
+Controlled pass/framebuffer allocation rollback, fixed layouts, scope, framebuffer-only timeout/uncertainty and metadata cleanup passed
+Controlled graphics creation allocation-before-dispatch, exact errors and nonnull failed output rollback passed
+Controlled graphics readiness, signed extremes, U64 offsets, overwritten roots, pending/Uncertain host exclusion and failed-reset retention passed
+Every RGBA8/D32 pixel passed for both index widths/orders, winding, lateral/near/far clipping, orientation, dynamic state, column-major camera, changing pushes and 32 stable reuses
+Controlled semaphore allocation rollback, OOM, uncertainty and signal retention passed
+Binary semaphore signal-to-wait literal GPU readback passed
+Controlled descriptor metadata sweeps, limits, typed rollback, freeze phases, multiple commands, transitive memory, unrelated memory, stale budgets and quarantine passed
+Literal GPU readback after injected sampled and uniform rewrite OOM passed
+Literal uniform and rendered D32 sampling, arrays, sparse equivalent schemas and rewrites passed
+Controlled native probes and real GPU integration passed
++ /usr/bin/python3 tools/check_acquisition.py --sanitize --isolated-display
+Actual native acquisition-time edit/camera/hover and device geometry/frame bytes passed
++ /usr/bin/python3 tools/check_presentation.py --sanitize --isolated-display
+Controlled swapchain changing enumeration, interned keys, stale rejection and allocation rollback passed
+Bend target pipeline failure rolled back every partial resource
+Same-index reacquisition binds and submits before old presentation observation; old completion preserves new owner
+Independent acquisition completion, stale token/recording rejection and fence reuse passed
+Controlled acquire lifecycle, timeout, uncertain ownership and allocation-free dispatch passed
+Controlled present OOM retry, accepted errors, uncertainty and independent fence retention passed
+Native presentation borrowing and controlled cleanup passed
++ /usr/bin/python3 tools/check_window.py --build --all --sanitize --isolated-display
+Native window shared passed. Evidence build/window-shared.log
+Native window split passed. Evidence build/window-split.log
+Native window shared-suspended-close passed. Evidence build/window-shared-suspended-close.log
++ /usr/bin/python3 tools/check_atelier_window.py --binary /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/voxel-interactive-sanitized --isolated-display
+Actual default Atelier shared edit/Space/reset/flight/capture/resize/suspend/remap/close passed
+Actual default Atelier split edit/Space/reset/flight/capture/resize/suspend/remap/close passed
++ /usr/bin/python3 tools/check_window.py --product --isolated-display
+Ordinary product default quiet, edit pixels, exact reset and suspended WM close passed. Evidence build/window-product.log
+Generation, proofs, and native Vulkan integration passed.

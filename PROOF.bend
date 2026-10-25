@@ -244,6 +244,20 @@ def Laws.appearance_selected_offset():
 def Laws.appearance_ring_index_count():
   {==}
 
+
+def Laws.upload_source_range_exact_end():
+  {==}
+
+def Laws.upload_source_range_rejects_next():
+  {==}
+
+def Laws.upload_source_range_no_wrap():
+  {==}
+
+def Laws.upload_empty_at_end():
+  {==}
+
+
 def Laws.chunk_region_boundary():
   {==}
 
@@ -275,4 +289,47 @@ def Laws.greedy_four_tiles_one_rectangle():
   {==}
 
 def Laws.chunk_runs_merge_only_adjacent_local_ranges():
+  {==}
+
+def Laws.completed_revision_first_zero():
+  {==}
+
+def Laws.completed_revision_reverse_order():
+  {==}
+
+def Laws.completed_revision_unavailable_ignored():
+  {==}
+
+def Laws.revision_last_valid():
+  {==}
+
+def Laws.revision_exhaustion_does_not_wrap():
+  {==}
+
+def Laws.submission_sequence_blocks_newer():
+  {==}
+
+def Laws.submission_sequence_accepts_exact():
+  {==}
+
+def Laws.submission_sequence_checks_high_limb():
+  {==}
+
+def Laws.submission_sequence_carries():
+  {==}
+
+def Laws.submission_sequence_never_wraps():
+  {==}
+
+
+def Laws.retirement_keeps_exact_key_and_version():
+  {==}
+
+def Laws.retirement_selects_changed_and_removed():
+  {==}
+
+def Laws.retirement_equal_version_different_key_is_obsolete():
+  {==}
+
+def Laws.retirement_empty_has_no_allocations():
   {==}

@@ -1,4 +1,5 @@
 import Base
+import ./examples/voxel/residency.bend as Residency
 import ./examples/voxel/chunks.bend as Chunks
 import ./examples/voxel/greedy.bend as Greedy
 import ./examples/voxel/appearance.bend as Appearance
@@ -283,6 +284,20 @@ law appearance_selected_offset:
 law appearance_ring_index_count:
   {Appearance.ring_index_count() == 576 : U32}
 
+
+law upload_source_range_exact_end:
+  {Core.subrange_contains(W.of_u32(16),W.of_u32(9),W.of_u32(7)) == True{} : Bool}
+
+law upload_source_range_rejects_next:
+  {Core.subrange_contains(W.of_u32(16),W.of_u32(10),W.of_u32(7)) == False{} : Bool}
+
+law upload_source_range_no_wrap:
+  {Core.subrange_contains(W.of_u32(16),Core.whole_size(),W.of_u32(2)) == False{} : Bool}
+
+law upload_empty_at_end:
+  {Core.subrange_contains(W.of_u32(16),W.of_u32(16),W.zero()) == True{} : Bool}
+
+
 law chunk_region_boundary:
   {[Chunks.region(32,Voxel.Cell{31,32,63}),Chunks.region(32,Voxel.Cell{32,31,64})] == [Chunks.ChunkKey{0,32,32,32},Chunks.ChunkKey{32,0,64,32}] : List<&2,Chunks.ChunkKey>}
 
@@ -316,3 +331,46 @@ law greedy_four_tiles_one_rectangle:
 
 law chunk_runs_merge_only_adjacent_local_ranges:
   {Chunks.runs([Chunks.Primitive{Chunks.ChunkKey{0,0,0,32},0,Voxel.Face{Voxel.Cell{0,0,0},Voxel.NegX{},1}},Chunks.Primitive{Chunks.ChunkKey{0,0,0,32},1,Voxel.Face{Voxel.Cell{0,0,0},Voxel.PosX{},1}},Chunks.Primitive{Chunks.ChunkKey{0,0,0,32},3,Voxel.Face{Voxel.Cell{0,0,0},Voxel.NegY{},1}}]) == [Chunks.Run{Chunks.ChunkKey{0,0,0,32},0,2},Chunks.Run{Chunks.ChunkKey{0,0,0,32},3,1}] : List<&2,Chunks.Run>}
+
+law completed_revision_first_zero:
+  {Core.completed_revision(4294967295,0) == 0 : U32}
+
+law completed_revision_reverse_order:
+  {Core.completed_revision(Core.completed_revision(4294967295,2),1) == 2 : U32}
+
+law completed_revision_unavailable_ignored:
+  {Core.completed_revision(7,4294967295) == 7 : U32}
+
+law revision_last_valid:
+  {Core.next_revision(4294967293) == Some{4294967294} : Maybe<&2,U32>}
+
+law revision_exhaustion_does_not_wrap:
+  {Core.next_revision(4294967294) == None{} : Maybe<&2,U32>}
+
+law submission_sequence_blocks_newer:
+  {Core.sequence_ready(W.U64{0,0},W.U64{1,0}) == False{} : Bool}
+
+law submission_sequence_accepts_exact:
+  {Core.sequence_ready(W.U64{1,0},W.U64{1,0}) == True{} : Bool}
+
+law submission_sequence_checks_high_limb:
+  {Core.sequence_ready(W.U64{0,1},W.U64{0,2}) == False{} : Bool}
+
+law submission_sequence_carries:
+  {Core.sequence_next(W.U64{4294967295,0}) == Some{W.U64{0,1}} : Maybe<&2,W.U64>}
+
+law submission_sequence_never_wraps:
+  {Core.sequence_next(W.U64{4294967295,4294967295}) == None{} : Maybe<&2,W.U64>}
+
+
+law retirement_keeps_exact_key_and_version:
+  {Residency.obsolete(~Residency.Version,~(version => version),[Residency.Version{Chunks.ChunkKey{0,0,0,32},7}],[Residency.Version{Chunks.ChunkKey{0,0,0,32},7}]) == Nil{} : List<&2,Residency.Version>}
+
+law retirement_selects_changed_and_removed:
+  {Residency.obsolete(~Residency.Version,~(version => version),[Residency.Version{Chunks.ChunkKey{0,0,0,32},7},Residency.Version{Chunks.ChunkKey{32,0,0,32},7},Residency.Version{Chunks.ChunkKey{64,0,0,32},7}],[Residency.Version{Chunks.ChunkKey{0,0,0,32},7},Residency.Version{Chunks.ChunkKey{32,0,0,32},8}]) == [Residency.Version{Chunks.ChunkKey{32,0,0,32},7},Residency.Version{Chunks.ChunkKey{64,0,0,32},7}] : List<&2,Residency.Version>}
+
+law retirement_equal_version_different_key_is_obsolete:
+  {Residency.contains([Residency.Version{Chunks.ChunkKey{32,0,0,32},7}],Residency.Version{Chunks.ChunkKey{0,0,0,32},7}) == False{} : Bool}
+
+law retirement_empty_has_no_allocations:
+  {Residency.obsolete(~Residency.Version,~(version => version),Nil{},Nil{}) == Nil{} : List<&2,Residency.Version>}

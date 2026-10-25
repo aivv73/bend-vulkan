@@ -1,0 +1,3 @@
+Native window shared passed. Evidence build/window-shared.log
+Native window split passed. Evidence build/window-split.log
+Native window shared-suspended-close passed. Evidence build/window-shared-suspended-close.log

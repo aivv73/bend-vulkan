@@ -5,7 +5,7 @@ Bend owns the world, edits, meshing, and application state. GLSL vertex and frag
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
 
 Milestones are ordered by dependency and observable results. They are not release dates.
-Milestones 0 through 6 are implemented. Later milestones describe planned capabilities and proposed API names.
+Milestones 0 through 7 are implemented. Later milestones describe planned capabilities and proposed API names.
 
 ## Delivery order
 
@@ -18,7 +18,7 @@ Milestones 0 through 6 are implemented. Later milestones describe planned capabi
 | 4. Voxel mesh consumer | Implemented | Complete the minimal mesh-drawing API through a real consumer | Intact and carved 8³ cube exported at 512×512 |
 | 5. Interactive presentation | Implemented | Native surfaces, swapchains, acquire/submit/present, frame lifecycle | Editable cube runs in a Vulkan window |
 | 6. Full scene and appearance | Implemented | Descriptors, uniforms, sampled images, samplers, shadow passes | Atelier scene, materials, ground, shadows, and brush preview |
-| 7. Repeated edits and throughput | Planned | Reusable upload storage, resource retirement, measured batching | Camera flight and repeated carving stay correct with stable resource use |
+| 7. Repeated edits and throughput | Implemented | Sparse chunks, reusable uploads, atomic retirement, independent frames and diagnostics | Exact geometry, bounded appearance, stable repeated edits and scoped configuration measurements |
 | 8. Library breadth and portability | Planned | Broader generated bindings, negotiated extensions, additional platforms | Documented support verified on additional drivers and applications |
 
 The first public renderer checkpoint is milestone 4. The first interactive renderer checkpoint is milestone 5.
@@ -224,20 +224,47 @@ Acceptance passed the complete `env -u DISPLAY python3 tools/verify.py --sanitiz
 
 Wrapper work:
 
-- [ ] Add reusable staging storage, subrange uploads, and deferred resource release tied to completion.
-- [ ] Support multiple frames in flight without overwriting camera data or buffers still used by earlier frames.
-- [ ] Add timestamp queries and clearly scoped diagnostics when the renderer needs attribution.
-- [ ] Add optional memory suballocation only after the initial explicit allocation path is stable.
+- [x] Add reusable staging storage, checked source and destination subranges, and deferred release after recorded references disappear.
+- [x] Atomically retire every obsolete allocation in a generation, with rollback on rejection and collection after owner selection.
+- [x] Support independent frames without overwriting earlier camera, appearance, shadow or command resources. Order present calls by submission sequence.
+- [x] Add owned timestamp queries and clearly scoped monotonic diagnostics. Unsupported or unavailable timing preserves rendering.
 
 Renderer work:
 
-- [ ] Add chunks and dirty-chunk mesh rebuilds, including neighboring boundaries affected by an edit.
-- [ ] Add greedy merging that preserves material, direction, exterior coverage, and shading requirements.
-- [ ] Add culling and draw batching when representative workloads justify them.
+- [x] Derive sparse chunks from authoritative Body state. Rebuild dirty chunks, neighboring exterior owners and remote source domains changed by splitting.
+- [x] Keep huge valid cuboids analytic and parallelize independent chunk builds with deterministic ordering.
+- [x] Feed greedy rectangles to production shadow geometry while retaining canonical color and picking anchors, extents and source order.
+- [x] Verify repeated cuts, empty-after-edit, reset, camera-only reuse, two pending slots and safe resize, suspension and cleanup.
 
-Completion evidence: repeated carving and reset preserve geometry and reach stable resource use.
-Measure complete displayed frames for camera flight and edits. Report meshing, upload, rendering, and presentation costs with their measurement limits.
-Tune Bend parallel meshing and GPU frame overlap separately. Retain changes only when representative measurements support them.
+The complete `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` command passed on NVIDIA GeForce GTX 1660 under Linux/X11. Khronos and synchronization validation, actual ASan/UBSan execution, shared queue pair 0/0 and split pair 0/2 passed. The [milestone 7 evidence](../.audit/m7-results.md) retains the complete log, build provenance, review dispositions and measurement reports. The [voxel contract](voxel.md#sparse-chunks-and-frame-generations) describes geometry and appearance limits.
+
+The old/new comparison is output-ineligible. All 20 processes exited zero and all 160 cut/reset actions completed, including warmup. Every one of 90 static RGB capture pairs differs at four pixels, with a maximum channel delta of four. Geometry and view fields match. All ten timing pairs remain excluded. No implementation speedup or regression is demonstrated.
+
+The following sweeps use the same ordinary release binary on both sides. Each workload has five alternating eligible pairs and no failures. Each sweep completes 160 edit actions, including warmup. Values are medians with ranges across five runs. Cut and reset values use each run's median of six measured actions.
+
+With one frame slot fixed:
+
+| CPU workers | Observed handoffs/s | Cut latency, ms | Reset latency, ms |
+| --- | --- | --- | --- |
+| 1 | 42.44, 42.36 to 42.86 | 1207.5, 1202.0 to 1231.4 | 9483.1, 9373.3 to 9537.9 |
+| 6 | 41.32, 41.05 to 43.16 | 1669.2, 1645.3 to 1682.5 | 4034.1, 3998.1 to 4044.3 |
+
+One worker has lower observed cut latency, and six have lower reset latency. Flight ranges overlap. This mixed result selects no universal worker count.
+
+With six CPU workers fixed:
+
+| Frame slots | Observed handoffs/s | Cut latency, ms | Reset latency, ms |
+| --- | --- | --- | --- |
+| 1 | 41.80, 41.48 to 42.13 | 1666.1, 1638.9 to 1681.8 | 4010.4, 3980.5 to 4094.7 |
+| 2 | 43.81, 43.20 to 44.39 | 1687.5, 1667.5 to 1716.6 | 4064.8, 4000.1 to 4128.2 |
+
+Two slots have a higher observed handoff rate in this traced configuration. Cut and reset ranges overlap. The existing two-slot default and Bend's automatic worker default remain unchanged. These results establish neither a universally tuned production configuration nor an implementation speedup.
+
+Handoffs count observed matching presentation-resource fences, which can signal before full presentation completes. Physical scanout is unmeasured. Flight runs share scripted input duration, while time-driven poses and per-frame GPU work can differ. Edit latency includes event dispatch through observation of the requested completed revision. Trace overhead, application logging delay and scheduling contributions are unmeasured. Observed polling gaps and read durations bound observer resolution only.
+
+The separate four-run profile passed. Whole-run producer recording/submission has a median near 20.5 ms. Main-pass inclusive GPU medians are 0.601 and 0.624 ms in the two flight runs, and 1.431 and 1.441 ms in the two edit runs. Upload and shadow medians stay below 1 ms in all four runs. Long edit/event calls and whole-run CPU observations also identify host work. CPU scopes can realize deferred pure Bend work, and their run-wide medians include empty polls, warmup and settling. Isolated meshing cost is unavailable. GPU TOP-to-BOTTOM windows can overlap and cannot be added to each other or CPU samples. The observer and active desktop also consume resources.
+
+Automatic allocation pooling, additional culling and additional draw batching remain conditional and deferred. No additional optimization has an independently verified win from these runs. Further batching must preserve canonical draw order and immutable generation ownership. Manual memory suballocation was available before this milestone. No shadow-history cache is implemented.
 
 ## 8. Library breadth and portability
 
@@ -273,4 +300,4 @@ Finish each milestone's acceptance result before starting its dependent mileston
 
 ## Start here
 
-Milestone 6 is complete. Milestone 7 should measure and improve repeated editing and uploads. Preserve the exact geometry, production appearance and native presentation gates. Multiple frames, chunk uploads and shadow-history caching remain outside the implemented consumer.
+Milestone 7 is complete within its documented Linux/X11 and measurement scope. Milestone 8 extends binding breadth and portability. Preserve the exact geometry, bounded appearance, shadow-causality and native presentation gates as new consumers are added.

@@ -1,0 +1,258 @@
+{
+  "instrumented_only": true,
+  "comparative_samples": false,
+  "limits": [
+    "Independent instrumented profile. Excluded from comparative timing samples.",
+    "Proc sampling and nvidia-smi add unmeasured observer overhead.",
+    "GPU utilization is device-wide and includes the active desktop.",
+    "CPU scopes name producer calls and may realize deferred Bend work.",
+    "Run-wide stages include polling, warmup and settling; they are not isolated edit mesher costs.",
+    "No perf call stacks are available. Thread CPU, waits and native stages bound attribution."
+  ],
+  "raw_sha256": {
+    "build/m7-profile-smoke.json": "e671548ac1b5628d95e4976b9c6c25fff6ba0b084d513d926a80cfee04db1ca6",
+    "build/m7-limiter-profile.json": "d016b41bcbfa3e5290336d57f83e62c77a8741e087134d6d559ed90c4bdc1465"
+  },
+  "runs": [
+    {
+      "id": "default-flight-01-baseline",
+      "passed": true,
+      "stages": {
+        "cpu_scope.edit_mesh_events_ns": {
+          "unit": "ns",
+          "count": 184,
+          "median": 8032.0,
+          "minimum": 4261,
+          "maximum": 7254536
+        },
+        "cpu_scope.upload_prepare_ns": {
+          "unit": "ns",
+          "count": 166,
+          "median": 125167.0,
+          "minimum": 95622,
+          "maximum": 94071420
+        },
+        "gpu_scope.upload_ns": {
+          "unit": "ns",
+          "count": 164,
+          "median": 2496.0,
+          "minimum": 2048.0,
+          "maximum": 404704.0
+        },
+        "gpu_scope.shadow_ns": {
+          "unit": "ns",
+          "count": 164,
+          "median": 348864.0,
+          "minimum": 330368.0,
+          "maximum": 877472.0
+        },
+        "gpu_scope.main_ns": {
+          "unit": "ns",
+          "count": 164,
+          "median": 623792.0,
+          "minimum": 580000.0,
+          "maximum": 1382400.0
+        },
+        "cpu_scope.present_call_ns": {
+          "unit": "ns",
+          "count": 164,
+          "median": 198437.5,
+          "minimum": 112525,
+          "maximum": 781597
+        },
+        "cpu_scope.record_and_submit_ns": {
+          "unit": "ns",
+          "count": 166,
+          "median": 20397769.5,
+          "minimum": 19524567,
+          "maximum": 22651165
+        }
+      },
+      "sampled_seconds": 8.037999464,
+      "application_cpu_cores_whole_run": 2.179646823624122,
+      "observer_cpu_cores_whole_run": 0.10450361483129354,
+      "valid_proc_samples": 152,
+      "gpu_samples": 8
+    },
+    {
+      "id": "default-flight-01-candidate",
+      "passed": true,
+      "stages": {
+        "cpu_scope.edit_mesh_events_ns": {
+          "unit": "ns",
+          "count": 166,
+          "median": 7613.0,
+          "minimum": 4261,
+          "maximum": 6904389
+        },
+        "cpu_scope.upload_prepare_ns": {
+          "unit": "ns",
+          "count": 163,
+          "median": 111198,
+          "minimum": 98415,
+          "maximum": 105902387
+        },
+        "gpu_scope.upload_ns": {
+          "unit": "ns",
+          "count": 162,
+          "median": 2496.0,
+          "minimum": 2112.0,
+          "maximum": 423936.0
+        },
+        "gpu_scope.shadow_ns": {
+          "unit": "ns",
+          "count": 162,
+          "median": 335808.0,
+          "minimum": 323744.0,
+          "maximum": 372704.0
+        },
+        "gpu_scope.main_ns": {
+          "unit": "ns",
+          "count": 162,
+          "median": 600848.0,
+          "minimum": 566880.0,
+          "maximum": 706432.0
+        },
+        "cpu_scope.present_call_ns": {
+          "unit": "ns",
+          "count": 162,
+          "median": 197809.0,
+          "minimum": 119649,
+          "maximum": 1550063
+        },
+        "cpu_scope.record_and_submit_ns": {
+          "unit": "ns",
+          "count": 163,
+          "median": 20326629,
+          "minimum": 19560957,
+          "maximum": 22553728
+        }
+      },
+      "sampled_seconds": 7.967573494,
+      "application_cpu_cores_whole_run": 2.2127188426032482,
+      "observer_cpu_cores_whole_run": 0.09664171916077714,
+      "valid_proc_samples": 151,
+      "gpu_samples": 8
+    },
+    {
+      "id": "default-edits-01-baseline",
+      "passed": true,
+      "stages": {
+        "cpu_scope.edit_mesh_events_ns": {
+          "unit": "ns",
+          "count": 301,
+          "median": 8940,
+          "minimum": 3842,
+          "maximum": 3891307480
+        },
+        "cpu_scope.upload_prepare_ns": {
+          "unit": "ns",
+          "count": 218,
+          "median": 135365.0,
+          "minimum": 96041,
+          "maximum": 157605722
+        },
+        "gpu_scope.upload_ns": {
+          "unit": "ns",
+          "count": 216,
+          "median": 8480.0,
+          "minimum": 2368.0,
+          "maximum": 1403936.0
+        },
+        "gpu_scope.shadow_ns": {
+          "unit": "ns",
+          "count": 216,
+          "median": 835504.0,
+          "minimum": 333824.0,
+          "maximum": 882688.0
+        },
+        "gpu_scope.main_ns": {
+          "unit": "ns",
+          "count": 216,
+          "median": 1441376.0,
+          "minimum": 577536.0,
+          "maximum": 3611328.0
+        },
+        "cpu_scope.present_call_ns": {
+          "unit": "ns",
+          "count": 216,
+          "median": 217890.0,
+          "minimum": 116367,
+          "maximum": 1480494
+        },
+        "cpu_scope.record_and_submit_ns": {
+          "unit": "ns",
+          "count": 218,
+          "median": 20530551.0,
+          "minimum": 19445010,
+          "maximum": 38064490
+        }
+      },
+      "sampled_seconds": 54.178522984,
+      "application_cpu_cores_whole_run": 2.545842751023934,
+      "observer_cpu_cores_whole_run": 0.07936724301749376,
+      "valid_proc_samples": 1029,
+      "gpu_samples": 53
+    },
+    {
+      "id": "default-edits-01-candidate",
+      "passed": true,
+      "stages": {
+        "cpu_scope.edit_mesh_events_ns": {
+          "unit": "ns",
+          "count": 287,
+          "median": 9359,
+          "minimum": 3841,
+          "maximum": 3995412115
+        },
+        "cpu_scope.upload_prepare_ns": {
+          "unit": "ns",
+          "count": 216,
+          "median": 139102.0,
+          "minimum": 100372,
+          "maximum": 225330551
+        },
+        "gpu_scope.upload_ns": {
+          "unit": "ns",
+          "count": 214,
+          "median": 8416.0,
+          "minimum": 2240.0,
+          "maximum": 1404096.0
+        },
+        "gpu_scope.shadow_ns": {
+          "unit": "ns",
+          "count": 214,
+          "median": 831552.0,
+          "minimum": 327680.0,
+          "maximum": 875296.0
+        },
+        "gpu_scope.main_ns": {
+          "unit": "ns",
+          "count": 214,
+          "median": 1430944.0,
+          "minimum": 573440.0,
+          "maximum": 4835168.0
+        },
+        "cpu_scope.present_call_ns": {
+          "unit": "ns",
+          "count": 214,
+          "median": 220999.0,
+          "minimum": 112594,
+          "maximum": 1541122
+        },
+        "cpu_scope.record_and_submit_ns": {
+          "unit": "ns",
+          "count": 216,
+          "median": 20828837.5,
+          "minimum": 19468271,
+          "maximum": 37738512
+        }
+      },
+      "sampled_seconds": 53.775755839,
+      "application_cpu_cores_whole_run": 2.519908793206093,
+      "observer_cpu_cores_whole_run": 0.07865998225416407,
+      "valid_proc_samples": 1022,
+      "gpu_samples": 52
+    }
+  ]
+}

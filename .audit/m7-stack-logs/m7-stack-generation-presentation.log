@@ -1,0 +1,7 @@
+Controlled swapchain changing enumeration, interned keys, stale rejection and allocation rollback passed
+Bend target pipeline failure rolled back every partial resource
+Same-index reacquisition binds and submits before old presentation observation; old completion preserves new owner
+Independent acquisition completion, stale token/recording rejection and fence reuse passed
+Controlled acquire lifecycle, timeout, uncertain ownership and allocation-free dispatch passed
+Controlled present OOM retry, accepted errors, uncertainty and independent fence retention passed
+Native presentation borrowing and controlled cleanup passed

@@ -1,0 +1,462 @@
+{
+  "scope": "Fresh checks of reconstructed lower endpoints. Final frame source uses exact restored-tree identity plus the preserved complete acceptance run.",
+  "units": {
+    "chunks": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "proof",
+          "command": [
+            "bend",
+            "PROOF.bend"
+          ],
+          "status": 0,
+          "log": "build/m7-stack-chunks-proof.log",
+          "sha256": "931f1e664a679af1355a9ca547ac1daef9f7b14137bc7cc21b110b0cc504b5b1",
+          "bytes": 58,
+          "archive_log": "m7-stack-logs/m7-stack-chunks-proof.log"
+        },
+        {
+          "name": "chunks",
+          "command": [
+            "python3",
+            "tools/check_chunks.py"
+          ],
+          "status": 0,
+          "log": "build/m7-stack-chunks-chunks.log",
+          "sha256": "c25843dac32f47c2831e95c5da6513908db338fb1dc279ee94fcebe3ce41d0e3",
+          "bytes": 487,
+          "archive_log": "m7-stack-logs/m7-stack-chunks-chunks.log"
+        }
+      ]
+    },
+    "measurement": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "proof",
+          "command": [
+            "bend",
+            "PROOF.bend"
+          ],
+          "markers": {
+            "ALL PROOFS CHECK": true
+          },
+          "started_utc": "2026-10-17T14:45:19.082794+00:00",
+          "finished_utc": "2026-10-17T14:46:09.308696+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "found_forbidden": [],
+          "log": "build/m7-stack-measurement-proof.log",
+          "sha256": "931f1e664a679af1355a9ca547ac1daef9f7b14137bc7cc21b110b0cc504b5b1",
+          "bytes": 58,
+          "archive_log": "m7-stack-logs/m7-stack-measurement-proof.log"
+        },
+        {
+          "name": "protocol",
+          "command": [
+            "python3",
+            "build/milestone-7-driver-correction/test_measurement_validity.py",
+            "tools/measure_m7.py"
+          ],
+          "markers": {
+            "Ran 22 tests": true,
+            "OK": true
+          },
+          "started_utc": "2026-10-17T14:46:09.309319+00:00",
+          "finished_utc": "2026-10-17T14:46:09.615625+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "found_forbidden": [],
+          "log": "build/m7-stack-measurement-protocol.log",
+          "sha256": "5deaa19c9d70413e23e7370fbea9e0c0e5fa40a4787c9dae9a4da02565afb2ce",
+          "bytes": 121,
+          "archive_log": "m7-stack-logs/m7-stack-measurement-protocol.log"
+        }
+      ]
+    },
+    "generation": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "generator",
+          "command": [
+            "python3",
+            "tools/generate.py",
+            "--check"
+          ],
+          "started_utc": "2026-10-17T14:47:14.437835+00:00",
+          "finished_utc": "2026-10-17T14:47:14.506326+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-generator.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "archive_log": "m7-stack-logs/m7-stack-generation-generator.log"
+        },
+        {
+          "name": "shaders",
+          "command": [
+            "python3",
+            "tools/build_shaders.py",
+            "--check"
+          ],
+          "started_utc": "2026-10-17T14:47:14.506782+00:00",
+          "finished_utc": "2026-10-17T14:47:19.294826+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-shaders.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "archive_log": "m7-stack-logs/m7-stack-generation-shaders.log"
+        },
+        {
+          "name": "proof",
+          "command": [
+            "bend",
+            "PROOF.bend"
+          ],
+          "markers": {
+            "ALL PROOFS CHECK": true
+          },
+          "started_utc": "2026-10-17T14:47:19.295107+00:00",
+          "finished_utc": "2026-10-17T14:48:09.616211+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-proof.log",
+          "sha256": "931f1e664a679af1355a9ca547ac1daef9f7b14137bc7cc21b110b0cc504b5b1",
+          "bytes": 58,
+          "archive_log": "m7-stack-logs/m7-stack-generation-proof.log"
+        },
+        {
+          "name": "generations",
+          "command": [
+            "python3",
+            "tools/check_generations.py",
+            "--sanitize"
+          ],
+          "started_utc": "2026-10-17T14:48:09.616525+00:00",
+          "finished_utc": "2026-10-17T14:49:25.820554+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-generations.log",
+          "sha256": "c0157b7df2bc44fcd6e2dd331c4aa4d0112d413f1791ec060d91d6cccab33663",
+          "bytes": 109,
+          "archive_log": "m7-stack-logs/m7-stack-generation-generations.log"
+        },
+        {
+          "name": "retirement",
+          "command": [
+            "python3",
+            "tools/check_retirement.py",
+            "--sanitize"
+          ],
+          "started_utc": "2026-10-17T14:49:25.821061+00:00",
+          "finished_utc": "2026-10-17T14:51:15.018348+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-retirement.log",
+          "sha256": "6b97cbe0d5711a596ea19662951a07107f62493d838352cccf185fd802d84455",
+          "bytes": 372,
+          "archive_log": "m7-stack-logs/m7-stack-generation-retirement.log"
+        },
+        {
+          "name": "installation",
+          "command": [
+            "python3",
+            "tools/check_installation.py",
+            "--sanitize"
+          ],
+          "started_utc": "2026-10-17T14:51:15.018632+00:00",
+          "finished_utc": "2026-10-17T14:52:42.737669+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-installation.log",
+          "sha256": "9cf6fc22a96bb815e851f2df3dc5eae2c3a18c2c2934941b2d8123a0975f5c15",
+          "bytes": 191,
+          "archive_log": "m7-stack-logs/m7-stack-generation-installation.log"
+        },
+        {
+          "name": "uploads",
+          "command": [
+            "python3",
+            "tools/check_uploads.py",
+            "--sanitize"
+          ],
+          "started_utc": "2026-10-17T14:52:42.738205+00:00",
+          "finished_utc": "2026-10-17T14:52:57.170181+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-uploads.log",
+          "sha256": "57bb0fed4971769da86bf2c2bbe30c750c4a59c47f3abc09cc655ac0820bec03",
+          "bytes": 87,
+          "archive_log": "m7-stack-logs/m7-stack-generation-uploads.log"
+        },
+        {
+          "name": "native",
+          "command": [
+            "python3",
+            "tools/check_native.py",
+            "--sanitize"
+          ],
+          "started_utc": "2026-10-17T14:52:57.170491+00:00",
+          "finished_utc": "2026-10-17T14:55:08.401733+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-native.log",
+          "sha256": "c39331d69a5fc83ac46e6c48a1f2c51e5ee6557b4b54e8919a78dd9bd7f29724",
+          "bytes": 2422,
+          "archive_log": "m7-stack-logs/m7-stack-generation-native.log"
+        },
+        {
+          "name": "presentation",
+          "command": [
+            "python3",
+            "tools/check_presentation.py",
+            "--sanitize",
+            "--isolated-display"
+          ],
+          "unset_env": [
+            "DISPLAY"
+          ],
+          "started_utc": "2026-10-17T14:55:08.402531+00:00",
+          "finished_utc": "2026-10-17T14:55:32.570292+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-presentation.log",
+          "sha256": "c8b134201dea3bf3e4951f8b08d79615b80064c322f402a9a3a4e81e8c9d3bf8",
+          "bytes": 628,
+          "archive_log": "m7-stack-logs/m7-stack-generation-presentation.log"
+        },
+        {
+          "name": "legacy-build",
+          "command": [
+            "bend",
+            "examples/voxel_offscreen.bend",
+            "-o",
+            "build/m7-stack-generation-legacy"
+          ],
+          "started_utc": "2026-10-17T14:55:32.570995+00:00",
+          "finished_utc": "2026-10-17T14:55:54.993478+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-legacy-build.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "archive_log": "m7-stack-logs/m7-stack-generation-legacy-build.log"
+        },
+        {
+          "name": "legacy",
+          "command": [
+            "build/m7-stack-generation-legacy"
+          ],
+          "env": {},
+          "markers": {
+            "Voxel complete geometry, RGBA8+D32 references": true
+          },
+          "forbidden": [
+            "Validation Error",
+            "SYNC-HAZARD",
+            "runtime error:",
+            "AddressSanitizer"
+          ],
+          "started_utc": "2026-10-17T14:55:54.994073+00:00",
+          "finished_utc": "2026-10-17T14:56:40.132232+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-legacy.log",
+          "sha256": "03e29af14df243f0071770bfe4ca47e5ae7dd40b12ff1931923fb01fecbae17b",
+          "bytes": 3990,
+          "archive_log": "m7-stack-logs/m7-stack-generation-legacy.log"
+        },
+        {
+          "name": "legacy-validation",
+          "command": [
+            "build/m7-stack-generation-legacy"
+          ],
+          "env": {
+            "VK_INSTANCE_LAYERS": "VK_LAYER_KHRONOS_validation",
+            "VK_LAYER_VALIDATE_SYNC": "1",
+            "VK_LAYER_ENABLES": "VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT"
+          },
+          "markers": {
+            "Voxel complete geometry, RGBA8+D32 references": true
+          },
+          "forbidden": [
+            "Validation Error",
+            "SYNC-HAZARD",
+            "runtime error:",
+            "AddressSanitizer"
+          ],
+          "started_utc": "2026-10-17T14:56:40.132866+00:00",
+          "finished_utc": "2026-10-17T14:57:24.981627+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-legacy-validation.log",
+          "sha256": "932963d5afc6832a941f76a5f3ce26b5c66532b6ff2d5f55894d4e7a8193a1a8",
+          "bytes": 4461,
+          "archive_log": "m7-stack-logs/m7-stack-generation-legacy-validation.log"
+        },
+        {
+          "name": "production",
+          "command": [
+            "python3",
+            "tools/check_production.py"
+          ],
+          "markers": {
+            "Production exact raw/shaded coverage": true,
+            "Original-Body actual512 D32 caster/visibility causality and five corrupt-depth negative controls passed": true
+          },
+          "started_utc": "2026-10-17T14:57:24.982349+00:00",
+          "finished_utc": "2026-10-17T15:04:38.145013+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-production.log",
+          "sha256": "e884ebcd4699a780f8cb6bdafa479ef111ab71b4ae044009a2ffcf50a5272b3b",
+          "bytes": 450,
+          "archive_log": "m7-stack-logs/m7-stack-generation-production.log"
+        }
+      ]
+    },
+    "generation-window": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "window",
+          "command": [
+            "python3",
+            "tools/check_window.py",
+            "--build",
+            "--all",
+            "--isolated-display"
+          ],
+          "unset_env": [
+            "DISPLAY"
+          ],
+          "started_utc": "2026-10-17T15:05:10.061642+00:00",
+          "finished_utc": "2026-10-17T15:06:38.257437+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-window-window.log",
+          "sha256": "1098c8fd5f087c83aeb218332831d2539aa3e68fb8cd55dcdd8efa4217e60a70",
+          "bytes": 216,
+          "archive_log": "m7-stack-logs/m7-stack-generation-window-window.log"
+        },
+        {
+          "name": "atelier",
+          "command": [
+            "python3",
+            "tools/check_atelier_window.py",
+            "--binary",
+            "build/voxel-interactive-checked",
+            "--isolated-display"
+          ],
+          "unset_env": [
+            "DISPLAY"
+          ],
+          "started_utc": "2026-10-17T15:06:38.257890+00:00",
+          "finished_utc": "2026-10-17T15:07:39.537552+00:00",
+          "exit_code": 0,
+          "passed": true,
+          "markers": {},
+          "found_forbidden": [],
+          "log": "build/m7-stack-generation-window-atelier.log",
+          "sha256": "b79b9be89c724b696c0821cd1ebe4b6bf174d8bd6cb96b45ad6e7688f19863e3",
+          "bytes": 191,
+          "archive_log": "m7-stack-logs/m7-stack-generation-window-atelier.log"
+        }
+      ]
+    }
+  },
+  "intermediate_production": {
+    "source_tree": "58f5f92744928f1482c718d582389a36a6c52892",
+    "statuses": {
+      "normal": "pass",
+      "validation": "pass",
+      "sanitized": "not requested"
+    },
+    "scope": "Only fresh reports from the reconstructed generation run. No older sanitized result is included.",
+    "reports": [
+      {
+        "path": "source-artifact-sha256.json",
+        "sha256": "81c2d89ea588a3d50fcb670a5d466c16d61e532a2c8331a0e9d05311794717db",
+        "bytes": 279730
+      },
+      {
+        "path": "producer-source-sha256.json",
+        "sha256": "608b534f0434ae27fc9927ce1434163ab1f84cd981a403aa33bef8afd2659de1",
+        "bytes": 240330
+      },
+      {
+        "path": "normal-results.json",
+        "sha256": "87d87c02052efef252b9cbd11a216a6cb0bbb869a84ebb8d99d89252f7a1b3ab",
+        "bytes": 787621
+      },
+      {
+        "path": "validation-results.json",
+        "sha256": "87d87c02052efef252b9cbd11a216a6cb0bbb869a84ebb8d99d89252f7a1b3ab",
+        "bytes": 787621
+      },
+      {
+        "path": "commands.json",
+        "sha256": "490f5a8e982a042f31bb96cea340cbc082c780eaa9dc6d700b15290a58dde658",
+        "bytes": 2469
+      },
+      {
+        "path": "shadow-causality/results.json",
+        "sha256": "372a513e10e751105a83c19c537e96565337b8aaba4efeeee33b5fed7de3fc3b",
+        "bytes": 736403
+      },
+      {
+        "path": "shadow-causality/commands.json",
+        "sha256": "4f89b2b0b8d8bb14dd623b4171718a2468ebc3a3e00084e22b31a8063d8979de",
+        "bytes": 5313
+      },
+      {
+        "path": "shadow-causality/snapshot/manifest.json",
+        "sha256": "cfae5664a6a05d06dc2db83d08345fa1c2556ba94d920cfd3febb7da23744bb7",
+        "bytes": 2472
+      }
+    ]
+  },
+  "limits": [
+    "Intermediate production repeat includes normal and validation modes. It does not repeat sanitized production.",
+    "Added intermediate window checks use an ordinary instrumented executable without sanitizers.",
+    "The preserved complete final acceptance includes sanitized production and native window checks.",
+    "ASan leak detection is disabled for Vulkan driver process globals. No complete heap or driver-memory bound is claimed."
+  ],
+  "frame_proof": {
+    "command": [
+      "bend",
+      "PROOF.bend"
+    ],
+    "exit_code": 0,
+    "log": "build/m7-stack-frame-proof.log",
+    "sha256": "931f1e664a679af1355a9ca547ac1daef9f7b14137bc7cc21b110b0cc504b5b1",
+    "archive_log": "m7-stack-logs/m7-stack-frame-proof.log"
+  }
+}

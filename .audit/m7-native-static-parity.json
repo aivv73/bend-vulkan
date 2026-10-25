@@ -1,0 +1,1810 @@
+{
+  "source": "build/m7-old-new.json",
+  "hashes": {
+    "baseline": "93a9ef7f43e457323d08d2754d55e4e60fb97eb4ee7b1ced0a4fd4c0f9e52ec2",
+    "candidate": "3db06ee2d3bebe7a8bf56c6477b2a91e3f54febed5f4e08c721b7ab15b6e6172"
+  },
+  "scope": "Static app-window RGB captures only. Dynamic flight-final pose excluded. Exact mismatch keeps timing pairs ineligible regardless of the numerical delta.",
+  "captures": [
+    {
+      "configuration": "default",
+      "workload": "flight",
+      "pair": 0,
+      "label": "flight-initial",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-01-baseline/flight-initial.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-01-candidate/flight-initial.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "flight",
+      "pair": 1,
+      "label": "flight-initial",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-02-baseline/flight-initial.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-02-candidate/flight-initial.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "flight",
+      "pair": 2,
+      "label": "flight-initial",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-03-baseline/flight-initial.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-03-candidate/flight-initial.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "flight",
+      "pair": 3,
+      "label": "flight-initial",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-04-baseline/flight-initial.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-04-candidate/flight-initial.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "flight",
+      "pair": 4,
+      "label": "flight-initial",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-05-baseline/flight-initial.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-05-candidate/flight-initial.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-00-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-00-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-00-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-00-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-00-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-00-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-01-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-01-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-01-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-01-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-01-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-01-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-02-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-02-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-02-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-02-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-02-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-02-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-03-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-03-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-03-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-03-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-03-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-03-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-04-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-04-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-04-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-04-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-04-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-04-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-05-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-05-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-05-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-05-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-05-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-05-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-06-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-06-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-06-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-06-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-06-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-06-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-07-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-07-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-07-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-07-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-07-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-07-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-original",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-original.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-original.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-00-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-00-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-00-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-00-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-00-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-00-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-01-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-01-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-01-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-01-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-01-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-01-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-02-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-02-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-02-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-02-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-02-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-02-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-03-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-03-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-03-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-03-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-03-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-03-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-04-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-04-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-04-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-04-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-04-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-04-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-05-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-05-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-05-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-05-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-05-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-05-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-06-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-06-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-06-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-06-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-06-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-06-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-07-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-07-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-07-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-07-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-07-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-07-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 1,
+      "label": "edit-original",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-baseline/edit-original.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-02-candidate/edit-original.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-00-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-00-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-00-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-00-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-00-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-00-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-01-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-01-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-01-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-01-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-01-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-01-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-02-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-02-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-02-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-02-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-02-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-02-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-03-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-03-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-03-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-03-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-03-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-03-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-04-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-04-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-04-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-04-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-04-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-04-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-05-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-05-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-05-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-05-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-05-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-05-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-06-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-06-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-06-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-06-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-06-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-06-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-07-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-07-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-07-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-07-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-07-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-07-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 2,
+      "label": "edit-original",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-baseline/edit-original.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-03-candidate/edit-original.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-00-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-00-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-00-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-00-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-00-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-00-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-01-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-01-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-01-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-01-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-01-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-01-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-02-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-02-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-02-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-02-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-02-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-02-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-03-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-03-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-03-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-03-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-03-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-03-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-04-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-04-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-04-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-04-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-04-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-04-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-05-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-05-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-05-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-05-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-05-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-05-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-06-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-06-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-06-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-06-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-06-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-06-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-07-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-07-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-07-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-07-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-07-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-07-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 3,
+      "label": "edit-original",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-baseline/edit-original.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-04-candidate/edit-original.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-00-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-00-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-00-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-00-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-00-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-00-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-01-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-01-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-01-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-01-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-01-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-01-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-02-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-02-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-02-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-02-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-02-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-02-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-03-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-03-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-03-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-03-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-03-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-03-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-04-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-04-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-04-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-04-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-04-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-04-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-05-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-05-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-05-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-05-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-05-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-05-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-06-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-06-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-06-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-06-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-06-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-06-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-07-cut",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-07-cut.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-07-cut.png",
+      "same_shape": true,
+      "baseline_sha256": "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+      "candidate_sha256": "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-07-reset",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-07-reset.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-07-reset.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    },
+    {
+      "configuration": "default",
+      "workload": "edits",
+      "pair": 4,
+      "label": "edit-original",
+      "baseline": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-baseline/edit-original.png",
+      "candidate": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-05-candidate/edit-original.png",
+      "same_shape": true,
+      "baseline_sha256": "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+      "candidate_sha256": "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11",
+      "changed_bbox_inclusive": [
+        494,
+        235,
+        495,
+        246
+      ],
+      "changed_pixels": 4,
+      "changed_channels": 12,
+      "maximum_channel_delta": 4
+    }
+  ]
+}

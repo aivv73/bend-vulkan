@@ -1,0 +1,55 @@
+{
+  "candidate": {
+    "binary": "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-7-candidate-window",
+    "sha256": "3db06ee2d3bebe7a8bf56c6477b2a91e3f54febed5f4e08c721b7ab15b6e6172",
+    "source_commit": "ab3f2a1102db132ab60ec26afd69a7784b1e1c67",
+    "command": [
+      "bend",
+      "examples/voxel_interactive.bend",
+      "-o",
+      "build/milestone-7-candidate-window"
+    ],
+    "compiler_version": "bend 2.0.37",
+    "ordinary_release": true,
+    "instrumented": false,
+    "build_log": "build/m7-candidate-release-build-ab3f2a1.log",
+    "compiler_flags_evidence": "build/m7-candidate-compiler-argv-ab3f2a1.json",
+    "compiler_flags_limit": "Actual candidate compiler argv was observed through /proc during this build. Preserved baseline flags remain supported by its original Bend command and a separate same-version release-build probe, not interception of the original baseline compiler.",
+    "linked_dependencies": "\tlinux-vdso.so.1 (0x00007f63cdb33000)\n\tlibm.so.6 => /usr/lib/libm.so.6 (0x00007f63cd9f1000)\n\tlibX11.so.6 => /usr/lib/libX11.so.6 (0x00007f63cd488000)\n\tlibc.so.6 => /usr/lib/libc.so.6 (0x00007f63cd200000)\n\t/lib64/ld-linux-x86-64.so.2 => /usr/lib64/ld-linux-x86-64.so.2 (0x00007f63cdb35000)\n\tlibxcb.so.1 => /usr/lib/libxcb.so.1 (0x00007f63cd9c4000)\n\tlibXau.so.6 => /usr/lib/libXau.so.6 (0x00007f63cd9bd000)\n\tlibXdmcp.so.6 => /usr/lib/libXdmcp.so.6 (0x00007f63cd9b5000)\n"
+  },
+  "candidate_compiler_argv": {
+    "source_commit": "ab3f2a1102db132ab60ec26afd69a7784b1e1c67",
+    "pid": 425320,
+    "observed_utc": "2026-10-17T11:47:30.431760+00:00",
+    "argv": [
+      "clang",
+      "-std=c11",
+      "-O3",
+      "/tmp/bend-8pDiU6/milestone-7-candidate-window.c",
+      "-lpthread",
+      "-lm",
+      "-lX11",
+      "-ldl",
+      "-o",
+      "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-7-candidate-window"
+    ],
+    "scope": "Actual compiler driver argv observed through /proc while the ordinary Bend release build was active. Baseline flags remain evidenced separately by same-version probe."
+  },
+  "baseline": {
+    "binary": "build/milestone-7-baseline-window",
+    "sha256": "93a9ef7f43e457323d08d2754d55e4e60fb97eb4ee7b1ced0a4fd4c0f9e52ec2",
+    "source_commit": "928bee9e677983c063811e0540f8783d86467a83",
+    "compiler_version": "bend 2.0.37",
+    "command": [
+      "bend",
+      "examples/voxel_interactive.bend",
+      "-o",
+      "build/milestone-7-baseline-window"
+    ],
+    "build_log": "build/milestone-7-baseline-window-build.log",
+    "evidence": "Root T3 activity item 78 records the actual ordinary build command. This is not an instrumented check_window build.",
+    "effective_native_compiler_flags": "Bend 2.0.37 ordinary native build was independently observed invoking clang -std=c11 -O3, linking pthread and m. This is a separate same-version probe, not interception of the earlier baseline build.",
+    "flag_probe": "/tmp/bend-m7-compiler-flags/compiler-argv.jsonl"
+  },
+  "scope": "Ordinary native executables used for milestone7 comparisons. Candidate compiler argv observed directly. Baseline compiler flags are inferred from its original command and a separate same-version probe, not original compiler interception."
+}

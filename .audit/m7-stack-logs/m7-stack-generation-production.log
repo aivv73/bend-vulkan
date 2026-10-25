@@ -1,0 +1,8 @@
+Original-Body actual512 D32 caster/visibility causality and five corrupt-depth negative controls passed
+Shadow evidence: /home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/milestone-6-production/shadow-causality/results.json
+Production exact raw/shaded coverage, original identity, actual512 D32 PCF, palette, transfer, rings and repeated frame acceptance passed
+{
+  "normal": "pass",
+  "validation": "pass",
+  "sanitized": "not requested"
+}

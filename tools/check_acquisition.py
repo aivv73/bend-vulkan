@@ -31,6 +31,12 @@ def main():
         output=run([binary], 'run',dict(os.environ,VK_INSTANCE_LAYERS='VK_LAYER_KHRONOS_validation',VK_LAYER_VALIDATE_SYNC='1',
                                        ASAN_OPTIONS='detect_leaks=0:halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
         assert 'matched device geometry plus all 2336 frame bytes' in output
+        assert 'distinct camera and shadow readbacks passed' in output
+        assert 'Actual completion observation order 2 then 1 retained completed_revision=2' in output
+        assert 'Newer submitted slot waited for older present dispatch sequences zero then one' in output
+        assert 'Same body revision camera packets obeyed actual submission order with two pending uniforms' in output
+        assert 'Two obsolete submitted packets drained exact semaphore waits and acquisition leases' in output
+        assert 'Presenting camera/pointer state survived completion and populated a later acquisition without mesh upload' in output
     print('Actual native acquisition-time edit/camera/hover and device geometry/frame bytes passed')
 
 

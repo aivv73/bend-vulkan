@@ -291,6 +291,37 @@ def Laws.greedy_four_tiles_one_rectangle():
 def Laws.chunk_runs_merge_only_adjacent_local_ranges():
   {==}
 
+def Laws.completed_revision_first_zero():
+  {==}
+
+def Laws.completed_revision_reverse_order():
+  {==}
+
+def Laws.completed_revision_unavailable_ignored():
+  {==}
+
+def Laws.revision_last_valid():
+  {==}
+
+def Laws.revision_exhaustion_does_not_wrap():
+  {==}
+
+def Laws.submission_sequence_blocks_newer():
+  {==}
+
+def Laws.submission_sequence_accepts_exact():
+  {==}
+
+def Laws.submission_sequence_checks_high_limb():
+  {==}
+
+def Laws.submission_sequence_carries():
+  {==}
+
+def Laws.submission_sequence_never_wraps():
+  {==}
+
+
 def Laws.retirement_keeps_exact_key_and_version():
   {==}
 

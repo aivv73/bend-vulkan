@@ -1,0 +1,24 @@
+Native Vulkan checks passed
+Injected metadata/map/flush checks and packed/Term array ownership passed
+Injected layer/extension dispatch, eight enumeration retries, count limits, and composite capability ABI passed
+Controlled image graph idle-error retry and known-loss ordered teardown passed
+Descriptor graph idle-error retry and loss cleanup returned exact row and metadata counts
+Injected submit OOM/uncertainty, wait/idle/reset/record errors, private fence isolation, timeout limbs, and sticky device loss passed
+Atomic retirement late bad pair/real alias, scratch allocation OOM, empty/duplicates/idempotence and exact metadata cleanup passed
+Retirement retained pending and failed-reset references and sealed future recording passed
+Timestamp allocation/dispatch OOM, finite wrap bounds, failed-reset references and result retry passed
+Two pending submissions and timestamp generation GPU checks passed
+Real disjoint buffer/optimal-image suballocation passed in both binding orders
+Controlled image query/create/bind/view rollback, exact high limbs, both binding orders and zero-row delta passed
+Controlled image command F32, all preparation allocations, rollback, exact spans, queue granularity and depth restrictions passed
+Optimal color image has no host-visible type; staging readback used
+Controlled pass/framebuffer allocation rollback, fixed layouts, scope, framebuffer-only timeout/uncertainty and metadata cleanup passed
+Controlled graphics creation allocation-before-dispatch, exact errors and nonnull failed output rollback passed
+Controlled graphics readiness, signed extremes, U64 offsets, overwritten roots, pending/Uncertain host exclusion and failed-reset retention passed
+Every RGBA8/D32 pixel passed for both index widths/orders, winding, lateral/near/far clipping, orientation, dynamic state, column-major camera, changing pushes and 32 stable reuses
+Controlled semaphore allocation rollback, OOM, uncertainty and signal retention passed
+Binary semaphore signal-to-wait literal GPU readback passed
+Controlled descriptor metadata sweeps, limits, typed rollback, freeze phases, multiple commands, transitive memory, unrelated memory, stale budgets and quarantine passed
+Literal GPU readback after injected sampled and uniform rewrite OOM passed
+Literal uniform and rendered D32 sampling, arrays, sparse equivalent schemas and rewrites passed
+Controlled native probes and real GPU integration passed

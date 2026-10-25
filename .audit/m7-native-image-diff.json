@@ -1,0 +1,455 @@
+{
+  "scope": "Diagnostic comparison of actual first old/new pairs. No eligibility rule or tolerance changed. Dynamic flight-final captures excluded.",
+  "results": [
+    {
+      "workload": "flight",
+      "pair": 0,
+      "label": "flight-initial",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-01-baseline/flight-initial.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-flight-01-candidate/flight-initial.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-00-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-00-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-00-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-00-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-00-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-00-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-01-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-01-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-01-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-01-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-01-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-01-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-02-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-02-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-02-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-02-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-02-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-02-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-03-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-03-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-03-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-03-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-03-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-03-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-04-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-04-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-04-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-04-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-04-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-04-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-05-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-05-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-05-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-05-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-05-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-05-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-06-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-06-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-06-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-06-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-06-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-06-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-07-cut",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-07-cut.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-07-cut.png"
+      ],
+      "file_sha256": [
+        "1d6c4e0e3e02616226b81040c67e65ea929f3e4191d04044afb9aee81591b035",
+        "955eb5ba5cf2104286c3e61136bcbd90084e7c46ea1649ddb5808c9a0cdaa2ea"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-07-reset",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-07-reset.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-07-reset.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    },
+    {
+      "workload": "edits",
+      "pair": 0,
+      "label": "edit-original",
+      "paths": [
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-baseline/edit-original.png",
+        "/home/aivv/.t3/worktrees/bend-vulkan/t3code-5bf4a4b0/build/m7-old-new-runs-1792244424885911821/default-edits-01-candidate/edit-original.png"
+      ],
+      "file_sha256": [
+        "b44dd12773b06428e2be51679f61b903aeb27eff098ea019db2f0ed0563402ce",
+        "85384f894679ece7f7efe7a231e2cd6bc89c29f4da16bd19a2c6ab4ef6837d11"
+      ],
+      "size": [
+        640,
+        480
+      ],
+      "changed_pixels": 4,
+      "maximum_channel_delta": 4,
+      "bounding_box": [
+        494,
+        235,
+        496,
+        247
+      ]
+    }
+  ]
+}

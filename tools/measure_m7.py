@@ -17,6 +17,7 @@ import platform
 import re
 import shutil
 import statistics
+import struct
 import subprocess
 import sys
 import time
@@ -35,7 +36,7 @@ DIAGNOSTIC = re.compile(
     r'AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer|ThreadSanitizer|'
     r'MemorySanitizer|runtime error:|assertion.*failed', re.IGNORECASE)
 LIMITS = [
-    'STATE.frame counts presentation-fence completions, not submissions or physical scanout.',
+    'STATE.frame counts observed presentation-resource fence completions for successful presents. Full presentation completion and physical scanout are unmeasured.',
     'Trace receipt timestamps include application logging, file visibility, driver polling and scheduling delay.',
     'Both native executables use the same stdbuf -oL wrapper. Line buffering and trace logging overhead are unmeasured; logging delay remains unbounded.',
     'Polling gaps and read intervals bound observer resolution only; application logging delay has no measured bound.',
@@ -414,12 +415,52 @@ def stage_timings(run):
         result[category] = dict(available=bool(fields), fields=fields,
             scope='Producer-defined diagnostic fields. No unreported stage costs are inferred.' if fields else
                   'Unavailable. This binary emitted no recognized stage timing with an explicit unit.')
+    protocol = {
+        ('cpu_scope', 'edit_mesh_events'): 'cpu_meshing',
+        ('cpu_scope', 'upload_prepare'): 'upload',
+        ('cpu_scope', 'record_and_submit'): 'cpu_recording',
+        ('cpu_scope', 'present_call'): 'presentation',
+        ('gpu_scope', 'upload'): 'upload',
+        ('gpu_scope', 'shadow'): 'gpu_render',
+        ('gpu_scope', 'main'): 'gpu_render',
+    }
+    for record in records:
+        values = record['values']
+        for (label, scope), category in protocol.items():
+            if values.get(label) != scope:
+                continue
+            if label == 'cpu_scope':
+                lo, hi = values.get('ns_lo'), values.get('ns_hi')
+                if not all(type(v) is int and 0 <= v <= 0xffffffff for v in (lo, hi)):
+                    continue
+                value = (hi << 32) | lo
+            else:
+                bits = values.get('ns_f32_bits')
+                if type(bits) is not int or not 0 <= bits <= 0xffffffff:
+                    continue
+                value = struct.unpack('<f', struct.pack('<I', bits))[0]
+                if not math.isfinite(value) or value < 0:
+                    continue
+            result.setdefault(category, dict(available=False, fields={}, scope='Unavailable.'))
+            field = label + '.' + scope + '_ns'
+            result[category]['fields'].setdefault(field, dict(unit='ns', producer_label=label,
+                producer_scope=scope, samples=[]))['samples'].append(dict(
+                    observed_ns=record['observed_ns'], value=value, line=record['line']))
+            result[category]['available'] = True
+            result[category]['scope'] = ('Explicit milestone 7 producer scopes. CPU integer limbs are exact; '
+                'GPU values are finite decoded F32 nanoseconds. GPU TOP-to-BOTTOM windows can include preceding completion and overlap following work; they are not isolated costs. CPU scopes can realize deferred pure work and include polling/warmup/settling. CPU and GPU observations must not be added.')
     capabilities = {}
     for record in records:
         for name, value in record['values'].items():
             if re.search(r'timestamp|query', name, re.IGNORECASE):
                 capabilities.setdefault(name, []).append(dict(observed_ns=record['observed_ns'],
                                                               value=value, line=record['line']))
+    for item in capabilities.get('timestamp_period_ns_f32_bits', []):
+        bits = item['value']
+        if type(bits) is int and 0 <= bits <= 0xffffffff:
+            period = struct.unpack('<f', struct.pack('<I', bits))[0]
+            if math.isfinite(period) and period > 0:
+                capabilities.setdefault('timestamp_period_ns', []).append(dict(item, value=period))
     result['gpu_render']['timestamp_capabilities'] = dict(available=bool(capabilities), fields=capabilities,
         scope='Producer diagnostics only. Query support, tick period, valid bits and wrap limits are unavailable unless emitted.')
     return result

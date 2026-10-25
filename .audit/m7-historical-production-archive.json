@@ -1,0 +1,75 @@
+{
+  "source_commit": null,
+  "recorded_utc": "2026-10-17T12:15:29.043446+00:00",
+  "scope": "Mixed current files copied at12:15Z. Normal and validation reports had already been replaced by the corrected ab3f2a1 rerun. This bundle does not establish coherent historical3bf6303 provenance or complete-suite success.",
+  "source_identity_check": "The older source manifest identifies3bf6303 Acceptance only. That fingerprint does not bind the copied normal and validation reports to that run.",
+  "failed_suite_manifest": "build/m7-final-failed-voxel-offscreen.json",
+  "files": [
+    {
+      "source": "build/milestone-6-production/source-artifact-sha256.json",
+      "path": "source-artifact-sha256.json",
+      "sha256": "16edb9529e66530235358e4bead0db8841615b08a81f2bba6591cdc7f9bbaa8c",
+      "source_mtime_ns": 1792237049689123789,
+      "provenance_note": "Pre-rerun modification time retained. The mixed bundle does not bind all stored reports to one source run."
+    },
+    {
+      "source": "build/milestone-6-production/normal-results.json",
+      "path": "normal-results.json",
+      "sha256": "87d87c02052efef252b9cbd11a216a6cb0bbb869a84ebb8d99d89252f7a1b3ab",
+      "source_mtime_ns": 1792238550415152617,
+      "provenance_note": "Modified by the corrected ab3f2a1 rerun before copying; not an original3bf6303 report."
+    },
+    {
+      "source": "build/milestone-6-production/validation-results.json",
+      "path": "validation-results.json",
+      "sha256": "87d87c02052efef252b9cbd11a216a6cb0bbb869a84ebb8d99d89252f7a1b3ab",
+      "source_mtime_ns": 1792238701052539273,
+      "provenance_note": "Modified by the corrected ab3f2a1 rerun before copying; not an original3bf6303 report."
+    },
+    {
+      "source": "build/milestone-6-production/sanitized-results.json",
+      "path": "sanitized-results.json",
+      "sha256": "87d87c02052efef252b9cbd11a216a6cb0bbb869a84ebb8d99d89252f7a1b3ab",
+      "source_mtime_ns": 1792236939674981895,
+      "provenance_note": "Pre-rerun modification time retained. The mixed bundle does not bind all stored reports to one source run."
+    },
+    {
+      "source": "build/milestone-6-production/shadow-causality/results.json",
+      "path": "shadow-causality/results.json",
+      "sha256": "2b36bd4299cdb30e03c328aa58b16adeb72f9bbfcd06bc2ee5d88399c1852b98",
+      "source_mtime_ns": 1792237049480985027,
+      "provenance_note": "Pre-rerun modification time retained. The mixed bundle does not bind all stored reports to one source run."
+    },
+    {
+      "source": "build/milestone-6-production/shadow-causality/commands.json",
+      "path": "shadow-causality/commands.json",
+      "sha256": "4f89b2b0b8d8bb14dd623b4171718a2468ebc3a3e00084e22b31a8063d8979de",
+      "source_mtime_ns": 1792237049433008201,
+      "provenance_note": "Pre-rerun modification time retained. The mixed bundle does not bind all stored reports to one source run."
+    },
+    {
+      "source": "build/milestone-6-production/shadow-causality/snapshot/manifest.json",
+      "path": "shadow-causality/snapshot/manifest.json",
+      "sha256": "c9ded2ee55c2753fac4d494085b47619bf773c9571873405ab30721808ab8ddc",
+      "source_mtime_ns": 1792236940705797324,
+      "provenance_note": "Pre-rerun modification time retained. The mixed bundle does not bind all stored reports to one source run."
+    }
+  ],
+  "superseded_claim": {
+    "source_commit": "3bf6303acde570aad76ae91f2eefa83bed9e5b42",
+    "scope": "Completed production component passes before the later failed legacy offscreen stage. Not a complete-suite pass. Shared runtime reports are being reused by current ab3f2a1 rerun.",
+    "source_identity_check": "Acceptance source hash matches3bf6303 and all three production modes are pass."
+  },
+  "provenance_status": "MIXED",
+  "source_manifest_commit": "3bf6303acde570aad76ae91f2eefa83bed9e5b42",
+  "corrected_utc": "2026-10-17T14:33:11.018097+00:00",
+  "original_manifest": {
+    "path": "m7-historical-production-original-manifest.json",
+    "sha256": "d4f4ef807a0dc26ed823762d92b6dacd2a5bd3ce7723ab865d85ab4475b57d52"
+  },
+  "correction_evidence": [
+    "T3 root positions1630 and1637",
+    "m7-final-trail-audit-r2"
+  ],
+  "source_archive_root": "build/m7-production-pass-3bf6303"
+}

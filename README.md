@@ -6,7 +6,7 @@ Vulkan 64-bit sizes, offsets, and alignments use the actual two-limb `U64` from 
 
 This is a 64-bit Linux Vulkan 1.0 subset with optional X11 presentation. It supports capability discovery, explicit barriers, packed array uploads, GPU transfers, fence-backed command reuse, color/depth attachment clears, and indexed depth-tested draws.
 Images use a six-format, optimal-tiled 2D profile with explicit mips, layers, binding, views, and staging readback.
-X11 presentation requires `VK_EXT_swapchain_maintenance1`. Headless binaries keep the Vulkan 1.0 path and load no X11 library.
+Reusable staging, checked source subranges, recorded-reference retirement, independent submissions and timestamp queries support repeated edits. The production consumer derives sparse chunks and greedy shadow geometry. X11 presentation requires `VK_EXT_swapchain_maintenance1`. Headless binaries keep the Vulkan 1.0 path and load no X11 library.
 Uniform-buffer and combined-image-sampler descriptors support sparse bindings, arrays, and normalized samplers. Recorded sets stay frozen until command reset. Callbacks and general `pNext` chains are not implemented.
 
 ## Run the buffer example
@@ -112,6 +112,8 @@ The default scene is the full pinned Atelier with `Camera.atelier()`, linear mat
 Use WASD and Q/E to fly. Hold RMB to look. Left click carves the hovered surface. Space cuts the current hover. R restores the original scene while retaining the camera.
 Escape and the native window close button exit. Resize and minimize preserve world state. Ordinary runs are quiet; `--trace` enables verification diagnostics.
 
+Atelier uses two independent frame slots by default. `--slots=1` selects one slot, and `--slots=2` selects two. Each slot freezes its own camera, appearance and shadow resources after acquisition completes. Camera-only frames reuse the installed geometry. Bend's `--threads` option controls CPU workers independently of the slot count.
+
 Use `./build/voxel-interactive --cube` for the earlier basic cube mode. Its Space key retains the fixed demo cut. The [presentation contract](docs/presentation.md) describes ownership, input and completion.
 
 ![Actual default Atelier application window with brush preview](docs/atelier-interactive.png)
@@ -214,3 +216,7 @@ The milestone-4 consumer also passes the complete sanitize suite on that device,
 Its native translation unit preprocesses and builds without CUDA support.
 
 Milestone 6 acceptance passed the complete sanitizer and isolated-display presentation gate on NVIDIA GeForce GTX 1660 with Khronos and synchronization validation. The separately executed pure shadow-causality gate uses the same actual captures. See `build/milestone-6-appearance-verification.log`, `build/milestone-6-shadow-causality-verification.log` and `build/milestone-6-production/shadow-causality/results.json`.
+
+Milestone 7 implementation acceptance passed `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` on the same device. The complete log is `build/milestone-7-final-verification.log`. It includes sparse chunk coverage, independent original-Body checks, atomic retirement rollback, two pending submissions, full acquisition-time uniforms, distinct shadow readbacks, ordered presentation, resize and suspension, and quiet launches without timing output. Native windows cover queue pairs 0/0 and 0/2.
+
+The [milestone 7 evidence](.audit/m7-results.md) retains build provenance, correctness results, the separate profile and timing limits. Old/new static outputs are ineligible for timing comparison. No implementation speedup is demonstrated. CPU and slot sweeps compare configurations of the same binary.

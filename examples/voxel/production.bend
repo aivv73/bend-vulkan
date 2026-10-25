@@ -80,3 +80,4 @@ def destroy_target(+device: V.Device, t: Target) -> V.Action(Unit):
     destroy_attachment(device,color)
     destroy_attachment(device,depth)
     GPU.release_buffer(device,stage)
+    V.Device.collect_retired(device)

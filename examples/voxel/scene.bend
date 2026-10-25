@@ -7,6 +7,9 @@ import ../indexed_offscreen.bend as E
 import ../offscreen_roundtrip.bend as Memory
 import ../buffer_roundtrip.bend as D
 import ./renderer.bend as GPU
+import ./chunks.bend as C
+import ./generation.bend as G
+import ../../src/upload.bend as Upload
 import ./mesh.bend as M
 import ./appearance.bend as A
 
@@ -158,6 +161,74 @@ def install(instance: V.Instance, physical: V.PhysicalDevice, device: V.Device, 
   Group{a,g,+previous,u} = group
   install_needed(U32.is_ne(previous,revision),instance,physical,device,group,revision,mesh)
 
+def failed_install(+device: V.Device, command: V.CommandBuffer, plan: G.Plan, staging: Upload.Staging, primary: V.VkResult(Unit)) -> V.Action(Unit):
+  do IO<V.VkResult(Unit)>:
+    reset : V.VkResult(Unit) <- V.CommandBuffer.reset(command)
+    retired : V.VkResult(Unit) <- G.retire_plan(device,plan)
+    released : V.VkResult(Unit) <- Upload.release(device,staging)
+    return V.Entry.finish(Unit,primary,V.Entry.finish(Unit,reset,V.Entry.finish(Unit,retired,released)))
+
+def install_rejected(device: V.Device, plan: G.Plan, error: U32 & String) -> V.Action(Group & C.ChunkSet):
+  do IO<V.VkResult(Group & C.ChunkSet)>:
+    cleanup : V.VkResult(Unit) <- G.abort(device,plan)
+    return V.Entry.finish(Group & C.ChunkSet,Fail{error},cleanup)
+
+def install_selected(device: V.Device, a: Assets, revision: U32, uploads: U32, set: C.ChunkSet, plan: G.Plan, retired: V.VkResult(Unit)) -> V.Action(Group & C.ChunkSet):
+  G.Plan{geometry,copies,created,bytes} = plan
+  match retired:
+    case Fail{error}: install_rejected(device,plan,error)
+    case Done{unit}: V.Action.pure(Group & C.ChunkSet,(Group{a,geometry,revision,(uploads + U32.from_nat(List.length(&2,G.Copy,copies)) : U32)},set))
+
+def install_committed(+device: V.Device, a: Assets, old: GPU.Geometry, revision: U32, uploads: U32, set: C.ChunkSet, plan: G.Plan, released: V.VkResult(Unit)) -> V.Action(Group & C.ChunkSet):
+  G.Plan{+geometry,+copies,created,bytes} = plan
+  match released:
+    case Fail{error}: install_rejected(device,plan,error)
+    case Done{unit}:
+      do V.Action<Group & C.ChunkSet>:
+        retired : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),G.commit(device,old,geometry))
+        install_selected(device,a,revision,uploads,set,plan,retired)
+
+def install_recorded(+device: V.Device, command: V.CommandBuffer, a: Assets, old: GPU.Geometry, +revision: U32, +uploads: U32, set: C.ChunkSet, +staging: Upload.Staging, +plan: G.Plan, result: V.VkResult(Unit)) -> V.Action(Group & C.ChunkSet):
+  match result:
+    case Fail{(+code,+message)}:
+      do V.Action<Group & C.ChunkSet>:
+        failed_install(device,command,plan,staging,Fail{(code,message)})
+        IO.pure(V.VkResult(Group & C.ChunkSet),Fail{(code,message)})
+    case Done{unit}:
+      do V.Action<Group & C.ChunkSet>:
+        released : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),Upload.release(device,staging))
+        install_committed(device,a,old,revision,uploads,set,plan,released)
+
+def record_install(+device: V.Device, +command: V.CommandBuffer, +fence: V.Fence, plan: G.Plan) -> V.Action(Unit):
+  do V.Action<Unit>:
+    V.CommandBuffer.begin(command)
+    G.record(command,plan)
+    E.complete(device,command,fence)
+    E.reset(device,command,fence)
+
+def chunk_installed(+device: V.Device, +command: V.CommandBuffer, fence: V.Fence, a: Assets, old: GPU.Geometry, revision: U32, uploads: U32, pair: (C.ChunkSet & Upload.Staging) & V.VkResult(G.Plan)) -> V.Action(Group & C.ChunkSet):
+  (owner,result) = pair
+  (set,storage) = owner
+  match result:
+    case Fail{error}:
+      do IO<V.VkResult(Group & C.ChunkSet)>:
+        cleanup : V.VkResult(Unit) <- Upload.release(device,storage)
+        return V.Entry.finish(Group & C.ChunkSet,Fail{error},cleanup)
+    case Done{+plan}:
+      +staging : Upload.Staging = storage
+      do V.Action<Group & C.ChunkSet>:
+        result : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),record_install(device,command,fence,plan))
+        install_recorded(device,command,a,old,revision,uploads,set,staging,plan,result)
+
+def install_chunks(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, +command: V.CommandBuffer, +fence: V.Fence, group: Group, +revision: U32, set: C.ChunkSet) -> V.Action(Group & C.ChunkSet):
+  Group{a,+geometry,previous,uploads} = group
+  do V.Action<Group & C.ChunkSet>:
+    V.CommandBuffer.reset(command)
+    V.Fence.reset(fence)
+    V.Device.collect_retired(device)
+    pair : (C.ChunkSet & Upload.Staging) & V.VkResult(G.Plan) <- V.Action.lift((C.ChunkSet & Upload.Staging) & V.VkResult(G.Plan),G.prepare(instance,physical,device,geometry,Upload.Empty{},set))
+    chunk_installed(device,command,fence,a,geometry,revision,uploads,pair)
+
 def upload(+device: V.Device, a: Assets, words: Maybe<Array<U32>>) -> V.Action(Unit):
   Assets{uniform,s,ss,p,f,sd,sampler,sh,sp,sf,ps,fl,ml,ix,palette} = a
   match words:
@@ -194,7 +265,7 @@ def record(+command: V.CommandBuffer, group: Group, programs: Programs, framebuf
     V.CommandBuffer.bind_graphics_pipeline(command,shadow_pipeline)
     V.CommandBuffer.bind_descriptor_sets(command,0,[frame])
     viewport(command,512,512)
-    GPU.draw(command,geometry)
+    GPU.draw_shadow(command,geometry)
     V.CommandBuffer.end_render_pass(command)
     E.transition(command,shadow,2,3,4,768,128,1024,32)
     V.CommandBuffer.begin_render_pass(command,framebuffer,V.RenderArea{V.Offset2D{0,0},V.Extent2D{width,height}},[V.ColorClear{V.ClearColor{0.0,0.0,0.0,1.0}},V.DepthClear{1.0}])

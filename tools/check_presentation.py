@@ -53,7 +53,7 @@ def main():
     (BUILD/'presentation-probes.log').write_text(text)
     print(text,end='',flush=True)
     completed.check_returncode()
-    for marker in ('Controlled swapchain changing enumeration','Controlled acquire lifecycle','Controlled present OOM retry','Native presentation borrowing','Bend target pipeline failure'):
+    for marker in ('Controlled swapchain changing enumeration','Controlled acquire lifecycle','Independent acquisition completion','Same-index reacquisition binds and submits','Controlled present OOM retry','Native presentation borrowing','Bend target pipeline failure'):
         if marker not in text: raise AssertionError(f'Missing executed probe group {marker}')
     if 'Validation Error' in text or 'SYNC-HAZARD' in text: raise AssertionError(text)
 

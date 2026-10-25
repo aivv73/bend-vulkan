@@ -29,6 +29,14 @@ type Surface is Data:
   Surface{key: U32}
 type Swapchain is Data:
   Swapchain{key: U32}
+type Acquisition is Data:
+  Acquisition{swapchain: Swapchain, serial: W.U64}
+type QueryPool is Data:
+  QueryPool{key: U32}
+type TimestampProperties is Data:
+  TimestampProperties{valid_bits: U32, period_ns: F32}
+type Timestamp is Data:
+  Timestamp{value: W.U64, available: Bool}
 type Semaphore is Data:
   Semaphore{key: U32}
 type WindowSnapshot is Type:
@@ -40,7 +48,7 @@ type PresentationDeviceInfo is Data:
 type SwapchainCreateInfo is Data:
   SwapchainCreateInfo{surface: Surface, image_count: U32, format: U32, color_space: U32, extent: Extent2D, usage: U32, transform: U32, alpha: U32, present_mode: U32}
 type AcquireOutcome is Data:
-  Acquired{index: U32, suboptimal: Bool}
+  Acquired{acquisition: Acquisition, index: U32, suboptimal: Bool}
   AcquireOutOfDate{}
   AcquireNotReady{}
   AcquireTimeout{}
@@ -292,6 +300,14 @@ def Device.destroy_buffer(device: Device, buffer: Buffer) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 
+def Device.retire_buffers(device: Device, allocations: List<(Buffer & DeviceMemory)>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.collect_retired(device: Device) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
 def Device.buffer_requirements_raw(device: Device, buffer: Buffer) -> IO(VkResult(((U32 & U32) & ((U32 & U32) & U32)))):
   import "./src/native.c"
   import "./src/native.js"
@@ -312,7 +328,7 @@ def Device.write_memory(device: Device, memory: DeviceMemory, offset: W.U64, byt
   import "./src/native.c"
   import "./src/native.js"
 
-def Device.write_memory_words(device: Device, memory: DeviceMemory, offset: W.U64, byte_length: W.U64, words: Array<U32>) -> IO(Array<U32> & VkResult(Unit)):
+def Device.write_memory_words(device: Device, memory: DeviceMemory, offset: W.U64, source_byte: W.U64, byte_length: W.U64, words: Array<U32>) -> IO(Array<U32> & VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 
@@ -600,7 +616,7 @@ def Device.acquire(device: Device, swapchain: Swapchain, fence: Fence, timeout_n
   import "./src/native.c"
   import "./src/native.js"
 
-def Device.release_acquired(device: Device, swapchain: Swapchain) -> IO(VkResult(Unit)):
+def Device.release_acquired(device: Device, acquisition: Acquisition) -> IO(VkResult(Unit)):
   import "./src/native.c"
   import "./src/native.js"
 
@@ -616,7 +632,7 @@ def Device.submit_synced(device: Device, command: CommandBuffer, fence: Fence, w
   import "./src/native.c"
   import "./src/native.js"
 
-def Device.present(device: Device, swapchain: Swapchain, index: U32, wait: Semaphore, fence: Fence) -> IO(VkResult(PresentOutcome)):
+def Device.present(device: Device, acquisition: Acquisition, wait: Semaphore, fence: Fence) -> IO(VkResult(PresentOutcome)):
   import "./src/native.c"
   import "./src/native.js"
 
@@ -661,6 +677,42 @@ def Device.destroy_sampler(device: Device, sampler: Sampler) -> IO(VkResult(Unit
   import "./src/native.js"
 
 def CommandBuffer.bind_descriptor_sets(command: CommandBuffer, first: U32, sets: List<DescriptorSet>) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.use_acquisition(command: CommandBuffer, acquisition: Acquisition) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.timestamp_properties(device: Device) -> IO(VkResult(TimestampProperties)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.create_timestamp_pool(device: Device, count: U32) -> IO(VkResult(QueryPool)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.destroy_query_pool(device: Device, pool: QueryPool) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.reset_timestamp_queries(command: CommandBuffer, pool: QueryPool, first: U32, count: U32) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def CommandBuffer.write_timestamp(command: CommandBuffer, pool: QueryPool, query: U32, stage: U32) -> IO(VkResult(Unit)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.timestamp_results(device: Device, pool: QueryPool, first: U32, count: U32) -> IO(VkResult(List<Timestamp>)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def Device.timestamp_duration(device: Device, start: W.U64, end: W.U64, cpu_bound_ns: W.U64) -> IO(VkResult(F32)):
+  import "./src/native.c"
+  import "./src/native.js"
+
+def monotonic_ns() -> IO(VkResult(W.U64)):
   import "./src/native.c"
   import "./src/native.js"
 # END GENERATED EFFECTS

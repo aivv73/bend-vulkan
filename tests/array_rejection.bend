@@ -26,7 +26,7 @@ def words() -> Array<U32>:
 
 def run() -> V.Action(Unit):
   do IO<V.VkResult(Unit)>:
-    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(V.Device{0}, V.DeviceMemory{0}, W.zero(), W.of_u32(7), words())
+    owned : Array<U32> & V.VkResult(Unit) <- V.Device.write_memory_words(V.Device{0}, V.DeviceMemory{0}, W.zero(),W.zero(), W.of_u32(7), words())
     check_owned(owned, 1610612737)
 
 def main() -> IO(Unit):

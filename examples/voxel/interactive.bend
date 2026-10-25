@@ -203,15 +203,15 @@ def production_target(device: V.Device, target: P.Target, assets: Scene.Assets, 
     case Cube{}: V.Action.pure(P.Target,target)
     case Atelier{}: P.promote(device,target,assets)
 
-def record_world(+device: V.Device, frame: P.Frame, target: P.Target, index: U32, camera: R.Camera, original: Original, +scene: Scene.Group, words: Maybe<Array<U32>>) -> V.Action(Unit):
+def record_world(+device: V.Device, frame: P.Frame, target: P.Target, acquisition: V.Acquisition, index: U32, camera: R.Camera, original: Original, +scene: Scene.Group, words: Maybe<Array<U32>>) -> V.Action(Unit):
   match original:
     case Cube{}:
       Scene.Group{a,geometry,r,u} = scene
-      P.record(device,frame,target,index,camera,geometry)
+      P.record(device,frame,target,acquisition,index,camera,geometry)
     case Atelier{}:
       do V.Action<Unit>:
         Scene.upload(device,Scene.assets(scene),words)
-        P.record_production(device,frame,target,index,scene)
+        P.record_production(device,frame,target,acquisition,index,scene)
 
 def idle_target(+context: WSI.Context, frame: P.Frame, world: World, target: Maybe<&2,P.Target>, +width: U32, +height: U32, +mapped: Bool, frames: U32, +generations: U32, +scene: Scene.Group, replace: Bool) -> V.Action(Session):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
@@ -228,7 +228,7 @@ def idle_target(+context: WSI.Context, frame: P.Frame, world: World, target: May
 
 def acquire_result(world: World, +target: P.Target, +width: U32, +height: U32, +mapped: Bool, frames: U32, generations: U32, scene: Scene.Group, outcome: V.AcquireOutcome) -> V.Action(Session):
   match outcome:
-    case V.Acquired{index,suboptimal}: V.Action.pure(Session,Session{world,Some{target},P.Acquiring{index,suboptimal},width,height,mapped,False{},frames,generations,scene})
+    case V.Acquired{acquisition,index,suboptimal}: V.Action.pure(Session,Session{world,Some{target},P.Acquiring{acquisition,index,suboptimal},width,height,mapped,False{},frames,generations,scene})
     case V.AcquireOutOfDate{}: V.Action.pure(Session,Session{world,Some{target},P.Idle{},width,height,mapped,True{},frames,generations,scene})
     case V.AcquireSurfaceLost{}: IO.pure(V.VkResult(Session),Fail{(3294967296,"Surface lost during acquisition")})
     case _: V.Action.pure(Session,Session{world,Some{target},P.Idle{},width,height,mapped,False{},frames,generations,scene})
@@ -263,16 +263,16 @@ def frame_extent(bounds: Maybe<&2,M.Extent>) -> U32:
 def output(+format: U32) -> A.Output:
   Bool.pick(A.Output,U32.is_eq(format,43) || U32.is_eq(format,50),A.Srgb{},A.Unorm{})
 
-def record_ready(+context: WSI.Context, +frame: P.Frame, pending: PendingWorld, +width: U32, +height: U32, mapped: Bool, replace: Bool, frames: U32, generations: U32, +target: P.Target, +index: U32, suboptimal: Bool, installed: Scene.Group & M.Mesh) -> V.Action(Session):
+def record_ready(+context: WSI.Context, +frame: P.Frame, pending: PendingWorld, +width: U32, +height: U32, mapped: Bool, replace: Bool, frames: U32, generations: U32, +target: P.Target, +acquisition: V.Acquisition, +index: U32, suboptimal: Bool, installed: Scene.Group & M.Mesh) -> V.Action(Session):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
   PendingWorld{body,+camera,+controls,revision,+original,+point,changed} = pending
   P.Target{sc,images,depth,pass,layout,pipeline,+tw,+th,format,production} = target
   (+scene,M.Mesh{+faces,size,+bounds,vs,ix}) = installed
   do V.Action<Session>:
-    record_world(device,frame,target,index,camera,original,scene,A.encode(A.FrameInput{R.Camera.basis(camera),tw,th,frame_extent(bounds),Scene.palette(Scene.assets(scene)),hover(View.Mapping{width,height,tw,th},camera,controls,point,faces),output(format),A.Shaded{}}))
-    return Session{World{body,M.Mesh{faces,size,bounds,vs,ix},camera,controls,revision,original,point,False{}},Some{target},P.Submitted{index,suboptimal},width,height,mapped,replace,frames,generations,scene}
+    record_world(device,frame,target,acquisition,index,camera,original,scene,A.encode(A.FrameInput{R.Camera.basis(camera),tw,th,frame_extent(bounds),Scene.palette(Scene.assets(scene)),hover(View.Mapping{width,height,tw,th},camera,controls,point,faces),output(format),A.Shaded{}}))
+    return Session{World{body,M.Mesh{faces,size,bounds,vs,ix},camera,controls,revision,original,point,False{}},Some{target},P.Submitted{acquisition,index,suboptimal},width,height,mapped,replace,frames,generations,scene}
 
-def acquired_ready(+context: WSI.Context, +frame: P.Frame, app: Session, +index: U32, suboptimal: Bool, status: U32) -> V.Action(Session):
+def acquired_ready(+context: WSI.Context, +frame: P.Frame, app: Session, acquisition: V.Acquisition, +index: U32, suboptimal: Bool, status: U32) -> V.Action(Session):
   WSI.Context{window,+instance,+physical,surface,+device,g,p} = context
   P.Frame{pool,command,acquire,render,present,finished} = frame
   Session{World{body,mesh,camera,controls,+revision,original,point,changed},target,phase,width,height,mapped,replace,frames,generations,+scene} = app
@@ -281,7 +281,7 @@ def acquired_ready(+context: WSI.Context, +frame: P.Frame, app: Session, +index:
       do V.Action<Session>:
         V.Fence.reset(acquire)
         installed : Scene.Group & M.Mesh <- Scene.install(instance,physical,device,scene,revision,mesh)
-        record_ready(context,frame,PendingWorld{body,camera,controls,revision,original,point,changed},width,height,mapped,replace,frames,generations,target,index,suboptimal,installed)
+        record_ready(context,frame,PendingWorld{body,camera,controls,revision,original,point,changed},width,height,mapped,replace,frames,generations,target,acquisition,index,suboptimal,installed)
     case _ _:
       V.Action.pure(Session,Session{World{body,mesh,camera,controls,revision,original,point,changed},target,phase,width,height,mapped,replace,frames,generations,scene})
 
@@ -292,14 +292,14 @@ def present_result(app: Session, replace: Bool, outcome: V.PresentOutcome) -> V.
     case V.PresentSurfaceLost{}: V.Action.pure(Session,Session{world,target,P.Presenting{True{},True{}},width,height,mapped,recreate,frames,generations,scene})
     case _: V.Action.pure(Session,Session{world,target,P.Presenting{True{},False{}},width,height,mapped,recreate,frames,generations,scene})
 
-def submitted_ready(context: WSI.Context, frame: P.Frame, app: Session, +index: U32, replace: Bool, status: U32) -> V.Action(Session):
+def submitted_ready(context: WSI.Context, frame: P.Frame, app: Session, acquisition: V.Acquisition, +index: U32, replace: Bool, status: U32) -> V.Action(Session):
   WSI.Context{window,instance,physical,surface,+device,g,p} = context
   P.Frame{pool,command,acquire,render,present,finished} = frame
   Session{world,target,phase,width,height,mapped,recreate,frames,generations,scene} = app
   match target status:
     case Some{+target} 0:
       do V.Action<Session>:
-        outcome : V.PresentOutcome <- V.Device.present(device,target_swapchain(target),index,finished,present)
+        outcome : V.PresentOutcome <- V.Device.present(device,acquisition,finished,present)
         present_result(Session{world,Some{target},phase,width,height,mapped,recreate,frames,generations,scene},replace,outcome)
     case _ _: V.Action.pure(Session,Session{world,target,phase,width,height,mapped,recreate,frames,generations,scene})
 
@@ -320,14 +320,14 @@ def advance(+frame: P.Frame, app: Session, +context: WSI.Context) -> V.Action(Se
   Session{world,target,phase,+width,+height,+mapped,replace,frames,generations,scene} = app
   match phase:
     case P.Idle{}: idle(world,target,width,height,mapped,replace,frames,generations,scene,context,frame,Core.drawable(mapped,width,height))
-    case P.Acquiring{+index,+suboptimal}:
+    case P.Acquiring{+acquisition,+index,+suboptimal}:
       do V.Action<Session>:
         status : U32 <- V.Fence.wait(acquire,W.of_u32(1000000))
-        acquired_ready(context,frame,Session{world,target,P.Acquiring{index,suboptimal},width,height,mapped,replace,frames,generations,scene},index,suboptimal,status)
-    case P.Submitted{+index,+suboptimal}:
+        acquired_ready(context,frame,Session{world,target,P.Acquiring{acquisition,index,suboptimal},width,height,mapped,replace,frames,generations,scene},acquisition,index,suboptimal,status)
+    case P.Submitted{+acquisition,+index,+suboptimal}:
       do V.Action<Session>:
         status : U32 <- V.Fence.wait(render,W.of_u32(1000000))
-        submitted_ready(context,frame,Session{world,target,P.Submitted{index,suboptimal},width,height,mapped,replace,frames,generations,scene},index,suboptimal,status)
+        submitted_ready(context,frame,Session{world,target,P.Submitted{acquisition,index,suboptimal},width,height,mapped,replace,frames,generations,scene},acquisition,index,suboptimal,status)
     case P.Presenting{+suboptimal,+lost}:
       do V.Action<Session>:
         status : U32 <- V.Fence.wait(present,W.of_u32(1000000))

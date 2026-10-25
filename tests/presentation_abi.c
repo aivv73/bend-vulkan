@@ -13,7 +13,7 @@ static Term presentation_abi_probe(Env e,Term* f,IoWork* w) {
   Term fields[6];abi_unpack(e,f[3],6,fields);
   assert(fields[0]==800 && fields[1]==450 && fields[2]==1 && fields[3]==0 && fields[4]==1);
   Term list[2];abi_unpack(e,fields[5],2,list);abi_lanes(e,list[0],2,(uint32_t[]){119,1});assert(term_aux(list[1])==CID(Nil));
-  abi_lanes(e,f[4],2,(uint32_t[]){7,1});
+  abi_lanes(e,f[4],5,(uint32_t[]){29,0x89abcdef,0x1234567,7,1});
   for(unsigned j=5;j<9;j++)for(unsigned k=j+1;k<9;k++)assert(f[j]!=f[k]);
   for(unsigned j=9;j<13;j++)for(unsigned k=j+1;k<13;k++)assert(f[j]!=f[k]);
   abi_lanes(e,f[13],2,(uint32_t[]){23,1024});

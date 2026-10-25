@@ -1,16 +1,24 @@
 import Base
+import ./chunks.bend as C
 import ../../Vulkan.bend as V
 import ../../src/core.bend as Core
+import ../../src/upload.bend as Upload
 import ../../deps/bend-collections/src/math/u64.bend as W
 import ../../deps/bend-voxel/render.bend as R
+import ../../deps/bend-voxel/voxel.bend as X
 import ../../shaders/spirv.bend as S
 import ../indexed_offscreen.bend as E
 import ../buffer_roundtrip.bend as D
 import ../offscreen_roundtrip.bend as Memory
 import ./mesh.bend as M
 
+type Stream is Data:
+  Stream{vertices: E.BoundBuffer, indices: E.BoundBuffer, count: U32}
+type Resident is Data:
+  Resident{key: C.ChunkKey, version: U32, color: Stream, shadow: Stream}
 type Geometry is Data:
   Empty{}
+  Chunked{chunks: List<&2,Resident>, runs: List<&2,C.Run>}
   Geometry{vertices: E.BoundBuffer, indices: E.BoundBuffer, count: U32}
 type Renderer is Data:
   Renderer{instance: V.Instance, physical: V.PhysicalDevice, device: V.Device, command: V.CommandBuffer, fence: V.Fence, framebuffer: V.Framebuffer, color: E.Attachment, depth: E.Attachment, stage: E.BoundBuffer, basic: V.GraphicsPipeline, material: V.GraphicsPipeline, direction: V.GraphicsPipeline, geometry: Geometry, uploads: U32}
@@ -70,19 +78,58 @@ def prepare(renderer: Renderer) -> V.Action(Unit):
     E.complete(device,command,fence)
     E.reset(device,command,fence)
 
-def release_buffer(+device: V.Device, buffer: E.BoundBuffer) -> V.Action(Unit):
+def bound_pair(buffer: E.BoundBuffer) -> V.Buffer & V.DeviceMemory:
   E.BoundBuffer{b,m} = buffer
-  do V.Action<Unit>:
-    V.Device.destroy_buffer(device,b)
-    V.Device.free_memory(device,m)
+  (b,m)
 
-def release(+device: V.Device, geometry: Geometry) -> V.Action(Unit):
+def append_pairs(xs: List<(V.Buffer & V.DeviceMemory)>, ys: List<(V.Buffer & V.DeviceMemory)>) -> List<(V.Buffer & V.DeviceMemory)>:
+  match xs:
+    case Nil{}: ys
+    case x <> rest: x <> append_pairs(rest,ys)
+
+def stream_pairs(stream: Stream) -> List<(V.Buffer & V.DeviceMemory)>:
+  Stream{vs,ix,count} = stream
+  [bound_pair(vs),bound_pair(ix)]
+
+def resident_pairs(resident: Resident) -> List<(V.Buffer & V.DeviceMemory)>:
+  Resident{key,version,color,shadow} = resident
+  append_pairs(stream_pairs(color),stream_pairs(shadow))
+
+def chunk_pairs(chunks: List<&2,Resident>) -> List<(V.Buffer & V.DeviceMemory)>:
+  match chunks:
+    case Nil{}: Nil{}
+    case resident <> rest: append_pairs(resident_pairs(resident),chunk_pairs(rest))
+
+def geometry_pairs(geometry: Geometry) -> List<(V.Buffer & V.DeviceMemory)>:
   match geometry:
-    case Empty{}: V.Action.pure(Unit,Unit{})
-    case Geometry{vs,ix,count}:
-      do V.Action<Unit>:
-        release_buffer(device,vs)
-        release_buffer(device,ix)
+    case Empty{}: Nil{}
+    case Chunked{chunks,runs}: chunk_pairs(chunks)
+    case Geometry{vs,ix,count}: [bound_pair(vs),bound_pair(ix)]
+
+def release_buffer(device: V.Device, buffer: E.BoundBuffer) -> V.Action(Unit):
+  V.Device.retire_buffers(device,[bound_pair(buffer)])
+
+def release(device: V.Device, geometry: Geometry) -> V.Action(Unit):
+  V.Device.retire_buffers(device,geometry_pairs(geometry))
+
+def discard_buffers(+device: V.Device, xs: List<(V.Buffer & V.DeviceMemory)>) -> V.Action(Unit):
+  match xs:
+    case Nil{}: V.Action.pure(Unit,Unit{})
+    case (buffer,memory) <> rest:
+      do IO<V.VkResult(Unit)>:
+        head : V.VkResult(Unit) <- Upload.discard(device,Upload.Allocation{buffer,memory,W.zero()})
+        tail : V.VkResult(Unit) <- discard_buffers(device,rest)
+        return V.Entry.finish(Unit,head,tail)
+
+def upload_rejected(device: V.Device, candidates: List<(V.Buffer & V.DeviceMemory)>, error: U32 & String) -> V.Action(Geometry & M.Mesh):
+  do IO<V.VkResult(Geometry & M.Mesh)>:
+    cleanup : V.VkResult(Unit) <- discard_buffers(device,candidates)
+    return V.Entry.finish(Geometry & M.Mesh,Fail{error},cleanup)
+
+def upload_published(device: V.Device, candidate: Geometry, mesh: M.Mesh, result: V.VkResult(Unit)) -> V.Action(Geometry & M.Mesh):
+  match result:
+    case Fail{error}: upload_rejected(device,geometry_pairs(candidate),error)
+    case Done{unit}: V.Action.pure(Geometry & M.Mesh,(candidate,mesh))
 
 def upload_checked(pair: Array<U32> & V.VkResult(Unit)) -> V.Action(Array<U32>):
   (words,result) = pair
@@ -93,7 +140,7 @@ def upload_checked(pair: Array<U32> & V.VkResult(Unit)) -> V.Action(Array<U32>):
 def upload(+device: V.Device, buffer: E.BoundBuffer, length: U32, words: Array<U32>) -> V.Action(Array<U32>):
   E.BoundBuffer{b,m} = buffer
   do V.Action<Array<U32>>:
-    pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,m,W.zero(),W.of_u32(length),words))
+    pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,m,W.zero(),W.zero(),W.of_u32(length),words))
     upload_checked(pair)
 
 def upload_sizes(size: M.PackedSize) -> V.Action(Unit):
@@ -118,6 +165,38 @@ def index_length(s: M.PackedSize) -> U32:
   M.PackedSize{q,vc,ic,vw,iw,vb,W.U64{ib,hi},vsize,isize,vd,id} = s
   ib
 
+def bound_buffer(allocation: Upload.Allocation) -> E.BoundBuffer:
+  Upload.Allocation{buffer,memory,capacity} = allocation
+  E.BoundBuffer{buffer,memory}
+
+def uploaded_indices(+device: V.Device, old: Geometry, +vbuffer: E.BoundBuffer, +ibuffer: E.BoundBuffer, +ic: U32, fs: List<&2, X.Face>, s: M.PackedSize, bounds: Maybe<&2,M.Extent>, vertices: Array<U32>, pair: Array<U32> & V.VkResult(Unit)) -> V.Action(Geometry & M.Mesh):
+  (indices,result) = pair
+  match result:
+    case Fail{error}: upload_rejected(device,[bound_pair(vbuffer),bound_pair(ibuffer)],error)
+    case Done{unit}:
+      do V.Action<Geometry & M.Mesh>:
+        retired : V.VkResult(Unit) <- V.Action.lift(V.VkResult(Unit),release(device,old))
+        upload_published(device,Geometry{vbuffer,ibuffer,ic},M.Mesh{fs,s,bounds,vertices,indices},retired)
+
+def uploaded_vertices(+device: V.Device, old: Geometry, +vbuffer: E.BoundBuffer, +ibuffer: E.BoundBuffer, +s: M.PackedSize, bounds: Maybe<&2,M.Extent>, fs: List<&2,X.Face>, indices: Array<U32>, pair: Array<U32> & V.VkResult(Unit)) -> V.Action(Geometry & M.Mesh):
+  E.BoundBuffer{ib,+im} = ibuffer
+  (vertices,result) = pair
+  match result:
+    case Fail{error}: upload_rejected(device,[bound_pair(vbuffer),bound_pair(ibuffer)],error)
+    case Done{unit}:
+      do V.Action<Geometry & M.Mesh>:
+        pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,im,W.zero(),W.zero(),W.of_u32(index_length(s)),indices))
+        uploaded_indices(device,old,vbuffer,ibuffer,index_count(s),fs,s,bounds,vertices,pair)
+
+def index_buffer_ready(+device: V.Device, old: Geometry, +vbuffer: E.BoundBuffer, mesh: M.Mesh, result: V.VkResult(Upload.Allocation)) -> V.Action(Geometry & M.Mesh):
+  E.BoundBuffer{vb,+vm} = vbuffer
+  match mesh result:
+    case _ Fail{error}: upload_rejected(device,[bound_pair(vbuffer)],error)
+    case M.Mesh{fs,+s,bounds,vs,ix} Done{allocation}:
+      do V.Action<Geometry & M.Mesh>:
+        pair : Array<U32> & V.VkResult(Unit) <- V.Action.lift(Array<U32> & V.VkResult(Unit),V.Device.write_memory_words(device,vm,W.zero(),W.zero(),W.of_u32(vertex_length(s)),vs))
+        uploaded_vertices(device,old,vbuffer,bound_buffer(allocation),s,bounds,fs,ix,pair)
+
 def upload_nonempty(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, old: Geometry, mesh: M.Mesh, empty: Bool) -> V.Action(Geometry & M.Mesh):
   match mesh empty:
     case M.Mesh{fs,s,bounds,vs,ix} True{}:
@@ -125,20 +204,15 @@ def upload_nonempty(+instance: V.Instance, +physical: V.PhysicalDevice, +device:
         release(device,old)
         return (Empty{},M.Mesh{fs,s,bounds,vs,ix})
     case M.Mesh{fs,+s,bounds,vs,ix} False{}:
-      +ic = index_count(s)
-      +vb = vertex_length(s)
-      +ib = index_length(s)
       do V.Action<Geometry & M.Mesh>:
-        release(device,old)
-        +vbuffer : E.BoundBuffer <- E.buffer(instance,physical,device,vb,128)
-        +ibuffer : E.BoundBuffer <- E.buffer(instance,physical,device,ib,64)
-        vertices : Array<U32> <- upload(device,vbuffer,vb,vs)
-        indices : Array<U32> <- upload(device,ibuffer,ib,ix)
-        return (Geometry{vbuffer,ibuffer,ic},M.Mesh{fs,s,bounds,vertices,indices})
+        vbuffer : Upload.Allocation <- Upload.allocate(instance,physical,device,W.of_u32(vertex_length(s)),128,2)
+        result : V.VkResult(Upload.Allocation) <- V.Action.lift(V.VkResult(Upload.Allocation),Upload.allocate(instance,physical,device,W.of_u32(index_length(s)),64,2))
+        index_buffer_ready(device,old,bound_buffer(vbuffer),M.Mesh{fs,s,bounds,vs,ix},result)
 
 def upload_mesh(+instance: V.Instance, +physical: V.PhysicalDevice, +device: V.Device, old: Geometry, mesh: M.Mesh) -> V.Action(Geometry & M.Mesh):
   M.Mesh{fs,+s,bounds,vs,ix} = mesh
   do V.Action<Geometry & M.Mesh>:
+    V.Device.collect_retired(device)
     upload_sizes(s)
     upload_nonempty(instance,physical,device,old,M.Mesh{fs,s,bounds,vs,ix},U32.is_zero(quads(s)))
 
@@ -169,24 +243,70 @@ def matrix_extent(basis: R.Basis, width: U32, height: U32) -> List<U32>:
 def matrix(basis: R.Basis) -> List<U32>:
   matrix_extent(basis,512,512)
 
+def find_resident(xs: List<&2,Resident>, +key: C.ChunkKey) -> Maybe<&2,Resident>:
+  match xs:
+    case Nil{}: None{}
+    case +head <> rest:
+      Resident{own,v,c,s} = head
+      Bool.pick(Maybe<&2,Resident>,C.key_equal(own,key),Some{head},find_resident(rest,key))
+
+def draw_stream(+command: V.CommandBuffer, stream: Stream, first: U32, count: U32) -> V.Action(Unit):
+  Stream{E.BoundBuffer{vb,vm},E.BoundBuffer{ib,im},total} = stream
+  do V.Action<Unit>:
+    V.CommandBuffer.bind_vertex_buffer(command,0,vb,W.zero())
+    V.CommandBuffer.bind_index_buffer(command,ib,W.zero(),1)
+    V.CommandBuffer.draw_indexed(command,V.IndexedDraw{count,1,first,V.BaseVertex{0},0})
+
+def draw_run(command: V.CommandBuffer, run: C.Run, resident: Maybe<&2,Resident>) -> V.Action(Unit):
+  C.Run{key,first,count} = run
+  match resident:
+    case None{}: D.require(False{},"Canonical draw run has no chunk generation")
+    case Some{Resident{k,v,color,shadow}}: draw_stream(command,color,(first * 6 : U32),(count * 6 : U32))
+
+def draw_runs(+command: V.CommandBuffer, +chunks: List<&2,Resident>, runs: List<&2,C.Run>) -> V.Action(Unit):
+  match runs:
+    case Nil{}: V.Action.pure(Unit,Unit{})
+    case +run <> rest:
+      C.Run{key,first,count} = run
+      do V.Action<Unit>:
+        draw_run(command,run,find_resident(chunks,key))
+        draw_runs(command,chunks,rest)
+
+def shadow_chunks(+command: V.CommandBuffer, xs: List<&2,Resident>) -> V.Action(Unit):
+  match xs:
+    case Nil{}: V.Action.pure(Unit,Unit{})
+    case Resident{k,v,c,+shadow} <> rest:
+      Stream{vs,ix,count} = shadow
+      do V.Action<Unit>:
+        draw_stream(command,shadow,0,count)
+        shadow_chunks(command,rest)
+
 def draw(+command: V.CommandBuffer, geometry: Geometry) -> V.Action(Unit):
   match geometry:
     case Empty{}: V.Action.pure(Unit,Unit{})
+    case Chunked{chunks,runs}: draw_runs(command,chunks,runs)
     case Geometry{E.BoundBuffer{vb,vm},E.BoundBuffer{ib,im},count}:
       do V.Action<Unit>:
         V.CommandBuffer.bind_vertex_buffer(command,0,vb,W.zero())
         V.CommandBuffer.bind_index_buffer(command,ib,W.zero(),1)
         V.CommandBuffer.draw_indexed(command,V.IndexedDraw{count,1,0,V.BaseVertex{0},0})
 
+def draw_shadow(command: V.CommandBuffer, geometry: Geometry) -> V.Action(Unit):
+  match geometry:
+    case Chunked{chunks,runs}: shadow_chunks(command,chunks)
+    case _: draw(command,geometry)
+
 def publish(+command: V.CommandBuffer, geometry: Geometry) -> V.Action(Unit):
   match geometry:
     case Empty{}: V.Action.pure(Unit,Unit{})
+    case Chunked{chunks,runs}: V.CommandBuffer.pipeline_barrier(command,20480,4,[V.MemoryBarrier{20480,6}],[],[])
     case Geometry{E.BoundBuffer{vb,vm},E.BoundBuffer{ib,im},count}:
       V.CommandBuffer.pipeline_barrier(command,16384,4,[],[V.BufferMemoryBarrier{vb,W.zero(),Core.whole_size(),16384,4},V.BufferMemoryBarrier{ib,W.zero(),Core.whole_size(),16384,2}],[])
 
 def frame(renderer: Renderer, camera: R.Camera, +mode: U32) -> V.Action(List<U32> & List<U32>):
   Renderer{instance,physical,+device,+command,+fence,fb,E.Attachment{+color,cm,cv},E.Attachment{+depth,dm,dv},E.BoundBuffer{+stage,+memory},basic,mat,dir,+geometry,uploads} = renderer
   do V.Action<List<U32> & List<U32>>:
+    V.Device.collect_retired(device)
     V.CommandBuffer.begin(command)
     publish(command,geometry)
     E.transition(command,color,1,6,2,4096,1024,2048,256)
@@ -213,12 +333,18 @@ def upload_count(renderer: Renderer) -> U32:
   Renderer{instance,physical,device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,uploads} = renderer
   uploads
 
-def geometry_bytes(renderer: Renderer) -> V.Action(List<U32>):
-  Renderer{instance,physical,+device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,uploads} = renderer
+def geometry_bytes_read(+device: V.Device, geometry: Geometry) -> V.Action(List<U32>):
   match geometry:
     case Empty{}: V.Action.pure(List<U32>,Nil{})
+    case Chunked{chunks,runs}: IO.pure(V.VkResult(List<U32>),Fail{(1,"Chunked device bytes require a transfer readback")})
     case Geometry{E.BoundBuffer{vb,vm},E.BoundBuffer{ib,im},+count}:
       do V.Action<List<U32>>:
         vs : List<U32> <- V.Device.read_memory(device,vm,W.zero(),(count / 6 * 160 : U32))
         ix : List<U32> <- V.Device.read_memory(device,im,W.zero(),(count * 4 : U32))
         return List.append(&1,U32,vs,ix)
+
+def geometry_bytes(+renderer: Renderer) -> V.Action(List<U32>):
+  Renderer{instance,physical,+device,command,fence,fb,color,depth,stage,basic,mat,dir,geometry,uploads} = renderer
+  do V.Action<List<U32>>:
+    V.Device.collect_retired(device)
+    geometry_bytes_read(device,geometry)

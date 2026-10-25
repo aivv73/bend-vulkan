@@ -29,9 +29,9 @@ Dense bodies retain pinned extraction semantics. Their side must be a positive p
 
 The checked source and quad limit is 26,843,545. Each padded array has at most 2^30 words. Counts are checked before products, allocation, or narrowing. The Bend runtime still owns allocation failure behavior. Before releasing old geometry or allocating buffers, the renderer checks both logical U64 byte lengths against the existing 16 MiB single-write limit. Padding is never uploaded. No chunked upload path is provided.
 
-The basic offscreen regression uses `Renderer.replace_mesh`, which releases the previous geometry and uploads the exact logical lengths of both new arrays. An empty mesh owns no vertex or index buffers. Calls occur after the previous synchronous frame has observed its fence and reset its command buffer. `Renderer.frame` accepts a camera and diagnostic mode. It records, submits, waits, reads RGBA8 and D32 staging bytes, and resets the command and fence. It neither meshes nor uploads geometry.
+The basic offscreen regression uses `Renderer.replace_mesh`, which prepares replacement buffers and uploads the exact logical lengths of both arrays before retiring the previous geometry. An empty mesh owns no vertex or index buffers. Calls occur after the previous synchronous frame has observed its fence and reset its command buffer. `Renderer.frame` accepts a camera and diagnostic mode. It records, submits, waits, reads RGBA8 and D32 staging bytes, and resets the command and fence. It neither meshes nor uploads geometry.
 
-Mesh buffers use host-visible memory. A HOST_WRITE to VERTEX_INPUT barrier publishes their vertex and index contents. Images use explicit color/depth attachment and transfer-source transitions. The staging transfer is made visible to the host after fence completion. Scope cleanup uses the existing Vulkan resource graph. Replacements explicitly destroy buffers before freeing their allocations.
+Mesh buffers use host-visible memory. A HOST_WRITE to VERTEX_INPUT barrier publishes their vertex and index contents. Images use explicit color/depth attachment and transfer-source transitions. The staging transfer is made visible to the host after fence completion. Scope cleanup uses the existing Vulkan resource graph. Replacements retire dedicated buffers and their allocations. Collection releases them after command references disappear.
 
 ## Packed data
 
@@ -126,3 +126,37 @@ The verifier checks the dependency pin, generation freshness, normal proofs, all
 The shadow-causality evidence runner currently requires one enumerated capture device so saved subpixel precision is unambiguous. Its fixed-light original-cuboid model covers the pinned Atelier fixtures.
 
 The renderer remains single-flight with one GPU geometry owner, whole-mesh replacement and existing 16 MiB per-write limits. It supplies no chunk framework, shadow-history cache or multiple frames in flight. Coordinate, overlap and upload limits above remain enforced. Native presentation retains the Linux/X11 maintenance1 boundary documented in the [presentation contract](presentation.md).
+
+
+The optimized renderer derives a sparse `ChunkSet` from the authoritative `Body`.
+Dense chunks cover at most 32 cells per axis and read an immutable one-cell halo.
+Cuboid chunks group exact source tuples in adaptive analytic regions. A valid
+cuboid with a 2^20-cell edge remains analytic. Cut invalidation includes adjacent
+exterior owners and source domains changed by cuboid splitting.
+
+Canonical primitives retain the original face anchors, extents, materials and
+source order. Draw runs select contiguous index ranges in immutable chunk
+buffers. A separate greedy rectangle stream feeds the production shadow pass.
+`tools/check_chunks.py` checks exact canonical order, signed rectangle coverage,
+dirty neighbors, unchanged generations and byte-identical output with one and
+six CPU threads. The original geometry checker retains its strict face/count
+and packing checks.
+
+`generation.bend` prepares changed chunks through reusable staging and GPU buffer
+copies. Every prepare result returns the CPU chunk arrays and staging owner.
+Allocation or upload failure disposes only new buffers. Publication retires old
+buffers absent from the replacement generation; recorded command references
+retain them until successful reset or command-pool destruction. Abort requires
+removing any recorded references first. The shared `Scene.record` publication
+barrier covers host and transfer writes before vertex and index reads.
+
+The offscreen production recorder uses this chunk path. Its unchanged appearance
+and original-Body shadow-causality gates include five corrupt-depth negative
+controls. `tools/check_generations.py` exercises actual device bytes, no-op
+reuse, empty-after-edit, reset, injected failures and resource cleanup. The
+offscreen installer reuses its caller-owned command buffer and fence. It checks
+them before preparing replacements. On a handled recording or submission error,
+it attempts command reset, retires candidate allocations and releases staging.
+Pending or uncertain recordings keep their sealed resources until recovery and
+successful reset. `tools/check_installation.py` retries controlled begin and
+mid-copy failures while checking the original device bytes and resource rows.

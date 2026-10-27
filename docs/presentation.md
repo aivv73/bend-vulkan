@@ -6,7 +6,7 @@ The native wrapper owns checked handles and Vulkan dispatch. Production draws ma
 
 ## Run and verify
 
-Use Bend 2.0.37, Linux X11, Vulkan headers, X11 headers, `libX11.so.6`, and a Vulkan driver with `VK_EXT_swapchain_maintenance1`.
+Use Bend 2.0.39, Linux X11, Vulkan headers, X11 headers, `libX11.so.6`, and a Vulkan driver with `VK_EXT_swapchain_maintenance1`.
 The optional `src/x11.c` adapter loads Xlib through `libdl`. The generator bundles it with the guarded core in `src/window.c` for Bend's single C import.
 Headless effects import only `src/native.c`.
 The adapter initializes Xlib threading before opening a display and locks its pointer-warp request sequences. Vulkan may use the same display from presentation threads, as the [Xlib WSI contract](https://docs.vulkan.org/spec/latest/chapters/VK_KHR_surface/wsi.html) requires. Manual C builds still link `-ldl`, without `-lX11`.

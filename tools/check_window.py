@@ -349,7 +349,7 @@ def build_window(sanitize=False, compile_timeout=None):
     subprocess.run(['bend','examples/voxel_interactive.bend','-o',str(source)],cwd=ROOT,check=True,timeout=compile_timeout)
     emitted=deduplicate_native(source.read_text())
     allocator=(ROOT/'tests/probes.c').read_text().split('static unsigned bv_test_barrier_calls;')[0]+'\nstatic uint64_t bv_test_acquisitions;\n'
-    begin=emitted.index('// Bend 2.0.37 effect ABI.')
+    begin=emitted.index('// Bend native effect ABI.')
     end=emitted.index('static void __attribute__((constructor)) bv_register(void)',begin)
     native=emitted[begin:end]
     native=native.replace('malloc(', 'bv_test_alloc(').replace('calloc(', 'bv_test_calloc(').replace('realloc(', 'bv_test_realloc(')

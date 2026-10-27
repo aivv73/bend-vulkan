@@ -8,7 +8,7 @@ The historical milestone 4 readback below shows the intact basic cube on the lef
 
 ## Run and inspect exports
 
-Initialize dependencies, then build and run from the repository root with Bend 2.0.37:
+Initialize dependencies, then build and run from the repository root with Bend 2.0.39:
 
 ```sh
 git submodule update --init --recursive

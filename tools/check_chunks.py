@@ -102,7 +102,7 @@ def main():
     for threads in (6, 1):
         path = BUILD / f'chunks-dump-{threads}.jsonl'
         with path.open('wb') as log:
-            subprocess.run([str(binary), '--threads', str(threads), '--gpu', 'off'], cwd=ROOT, stdout=log, check=True, timeout=300)
+            subprocess.run([str(binary), '+RTS', '--threads', str(threads), '--gpu', 'off', '-RTS'], cwd=ROOT, stdout=log, check=True, timeout=300)
         check(path)
     assert (BUILD / 'chunks-dump-6.jsonl').read_bytes() == (BUILD / 'chunks-dump-1.jsonl').read_bytes(), 'parallel chunk output differs'
     body_mutation_control(BUILD / 'chunks-dump-6.jsonl')

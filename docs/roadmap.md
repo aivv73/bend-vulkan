@@ -36,7 +36,7 @@ The current implementation provides these capabilities:
 - [x] A pinned `bend-collections` dependency for every Vulkan size, offset, and alignment.
 - [x] Generated effect declarations, registrations, selected constants, and native-only JavaScript errors.
 
-The baseline targets Bend 2.0.37 and 64-bit Linux. The initial Vulkan API level is 1.0.
+The baseline targets Bend 2.0.39 and 64-bit Linux. The initial Vulkan API level is 1.0.
 The generator currently consumes a small enum extract and an effect manifest. It does not generate arbitrary Vulkan structs or dispatch tables.
 Milestone 0 provides one selected queue. Milestone 3 adds graphics pipelines.
 

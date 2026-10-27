@@ -11,7 +11,8 @@ Uniform-buffer and combined-image-sampler descriptors support sparse bindings, a
 
 ## Run the buffer example
 
-Use Linux with glibc 2.34 or newer. Install Bend **2.0.37**, Clang, Python 3, Vulkan development headers, `libvulkan.so.1`, and a Vulkan driver.
+Use Linux with glibc 2.34 or newer. Install Bend **2.0.39**, Clang, Python 3, Vulkan development headers, `libvulkan.so.1`, and a Vulkan driver.
+Run `bend update` to upgrade an existing Bend installation, then confirm `bend version` prints `bend 2.0.39`.
 A hardware driver or a software ICD such as Lavapipe can provide the device.
 The examples select a graphics queue for transfer commands.
 Production verification also requires Python NumPy and Pillow. Production rendering requires sampled D32 support.
@@ -112,7 +113,7 @@ The default scene is the full pinned Atelier with `Camera.atelier()`, linear mat
 Use WASD and Q/E to fly. Hold RMB to look. Left click carves the hovered surface. Space cuts the current hover. R restores the original scene while retaining the camera.
 Escape and the native window close button exit. Resize and minimize preserve world state. Ordinary runs are quiet; `--trace` enables verification diagnostics.
 
-Atelier uses two independent frame slots by default. `--slots=1` selects one slot, and `--slots=2` selects two. Each slot freezes its own camera, appearance and shadow resources after acquisition completes. Camera-only frames reuse the installed geometry. Bend's `--threads` option controls CPU workers independently of the slot count.
+Atelier uses two independent frame slots by default. `--slots=1` selects one slot, and `--slots=2` selects two. Each slot freezes its own camera, appearance and shadow resources after acquisition completes. Camera-only frames reuse the installed geometry. Bend's runtime options go between `+RTS` and `-RTS`: `./build/voxel-interactive +RTS --threads 4 -RTS --slots=2` selects four CPU workers independently of the slot count.
 
 Use `./build/voxel-interactive --cube` for the earlier basic cube mode. Its Space key retains the fixed demo cut. The [presentation contract](docs/presentation.md) describes ownership, input and completion.
 

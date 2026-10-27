@@ -114,7 +114,7 @@ def main():
     device=run(['vulkaninfo','--summary'],'device')
     run(['vulkaninfo'],'device-precision')
     validation='VK_LAYER_KHRONOS_validation' in device
-    normal_output=run([binary,'--threads','4'],'normal')
+    normal_output=run([binary,'+RTS','--threads','4','-RTS'],'normal')
     assert 'Production shared recorder live=0' in normal_output
     run([sys.executable,'tools/production_oracle.py'],'normal-oracle')
     (BUILD/'normal-results.json').write_bytes((BUILD/'results.json').read_bytes())
@@ -127,7 +127,7 @@ def main():
     statuses=dict(normal='pass',validation='unavailable',sanitized='not requested')
     validation_env=dict(os.environ,VK_INSTANCE_LAYERS='VK_LAYER_KHRONOS_validation',VK_LAYER_VALIDATE_SYNC='1') if validation else dict(os.environ)
     if validation:
-        output=run([binary,'--threads','4'],'validation',validation_env)
+        output=run([binary,'+RTS','--threads','4','-RTS'],'validation',validation_env)
         assert 'Production shared recorder live=0' in output
         assert expected==artifact_hashes(), 'Repeated validation run changed exact production artifacts'
         run([sys.executable,'tools/production_oracle.py'],'validation-oracle')
@@ -137,7 +137,7 @@ def main():
         sanitized=BUILD/'production-sanitized'
         run(['clang','-std=c11','-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer',source,
              '-lpthread','-lm','-ldl','-o',sanitized],'sanitizer-compile',timeout=COMPILE_TIMEOUT)
-        output=run([sanitized,'--threads','4'],'sanitized',dict(validation_env,ASAN_OPTIONS='detect_leaks=0:halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
+        output=run([sanitized,'+RTS','--threads','4','-RTS'],'sanitized',dict(validation_env,ASAN_OPTIONS='detect_leaks=0:halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
         assert 'Production shared recorder live=0' in output
         assert expected==artifact_hashes(), 'Sanitizers changed exact production artifacts'
         run([sys.executable,'tools/production_oracle.py'],'sanitized-oracle')

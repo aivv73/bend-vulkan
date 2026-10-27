@@ -112,13 +112,13 @@ def main():
     run(['bend', 'tests/appearance_gpu_main.bend', '-o', 'build/milestone-6-shader-gpu/shader-gpu'], 'bend-compile', timeout=COMPILE_TIMEOUT)
     device = run(['vulkaninfo', '--summary'], 'device')
     validation_available = 'VK_LAYER_KHRONOS_validation' in device
-    normal = run(['build/milestone-6-shader-gpu/shader-gpu', '--threads', '4'], 'normal')
+    normal = run(['build/milestone-6-shader-gpu/shader-gpu', '+RTS', '--threads', '4', '-RTS'], 'normal')
     results = {'normal': check_output(normal, 'normal')}
     validation_env = dict(os.environ, VK_INSTANCE_LAYERS='VK_LAYER_KHRONOS_validation',
                           VK_LAYER_ENABLES='VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT',
                           VK_LOADER_DEBUG='layer')
     if validation_available:
-        validation = run(['build/milestone-6-shader-gpu/shader-gpu', '--threads', '4'], 'validation', validation_env)
+        validation = run(['build/milestone-6-shader-gpu/shader-gpu', '+RTS', '--threads', '4', '-RTS'], 'validation', validation_env)
         results['validation'] = check_output(validation, 'validation')
     else:
         results['validation'] = dict(status='unavailable')
@@ -128,7 +128,7 @@ def main():
         run(['clang', '-std=c11', '-O1', '-g', '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
              'build/milestone-6-shader-gpu/shader-gpu.c', '-lpthread', '-lm', '-ldl', '-o', 'build/milestone-6-shader-gpu/shader-gpu-sanitized'], 'sanitizer-compile', timeout=COMPILE_TIMEOUT)
         env = dict(validation_env, ASAN_OPTIONS='detect_leaks=0:halt_on_error=1', UBSAN_OPTIONS='halt_on_error=1')
-        sanitized = run(['build/milestone-6-shader-gpu/shader-gpu-sanitized', '--threads', '4'], 'sanitized', env)
+        sanitized = run(['build/milestone-6-shader-gpu/shader-gpu-sanitized', '+RTS', '--threads', '4', '-RTS'], 'sanitized', env)
         results['sanitized'] = check_output(sanitized, 'sanitized')
     (BUILD / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
     print(json.dumps(results, indent=2))

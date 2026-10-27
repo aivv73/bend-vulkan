@@ -3,6 +3,8 @@
 
 Run only when other device workloads have stopped. Candidate configurations are
 arbitrary argv arrays, so CPU scaling and frame-overlap sweeps can run separately.
+Runtime flags in those arrays must go between +RTS and -RTS. Only the verified
+preserved baseline uses the pre-2.0.38 runtime argument format.
 """
 
 import argparse
@@ -738,7 +740,7 @@ def main(argv=None):
     selected_env = {key: value for key, value in environment.items() if
                     key.startswith(('VK_', 'ASAN_', 'UBSAN_', 'BEND_', 'OMP_', 'MESA_',
                                     'NVIDIA_', '__GL_', 'WAYLAND_')) or
-                    key in ('DISPLAY', 'LD_PRELOAD', 'LD_LIBRARY_PATH')}
+                    key in ('BENDRTS', 'DISPLAY', 'LD_PRELOAD', 'LD_LIBRARY_PATH')}
     selected_env['VK_INSTANCE_LAYERS'] = environment.get('VK_INSTANCE_LAYERS', '')
     selected_env['VK_LAYER_VALIDATE_SYNC'] = environment.get('VK_LAYER_VALIDATE_SYNC')
     metadata = {}
@@ -792,7 +794,10 @@ def main(argv=None):
                         for side in ('baseline', 'candidate'):
                             identifier = f'{name}-{workload}-{pair + 1:02d}-{side}'
                             directory = artifacts / identifier
-                            native_command = [str(getattr(args, side)), '--threads', str(args.threads), '--trace',
+                            runtime = ['--threads', str(args.threads)]
+                            if not (side == 'baseline' and legacy_provenance):
+                                runtime = ['+RTS', *runtime, '-RTS']
+                            native_command = [str(getattr(args, side)), *runtime, '--trace',
                                               *getattr(args, side + '_arg'), *([] if side == 'baseline' else extra)]
                             run = Run(identifier, side, name, workload, pair, wrapper + native_command,
                                       native_command, hashes[side], str(directory / 'application.log'),

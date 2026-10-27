@@ -471,7 +471,7 @@ def main():
     run(['bend','PROOF.bend'],'proof')
     for name in ('numeric_dump','abi_dump'):
         run(['bend',f'tests/appearance_{name}.bend','-o',str(BUILD/name)],name+'-compile')
-        output=run([str(BUILD/name),'--threads','4'],name)
+        output=run([str(BUILD/name),'+RTS','--threads','4','-RTS'],name)
         (BUILD/(name+'.tsv')).write_text(output)
     rows=parse_rows((BUILD/'numeric_dump.tsv').read_text())
     abi=parse_rows((BUILD/'abi_dump.tsv').read_text())

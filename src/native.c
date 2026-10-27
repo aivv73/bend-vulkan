@@ -1,6 +1,6 @@
 #ifndef BV_NATIVE_IMPLEMENTATION
 #define BV_NATIVE_IMPLEMENTATION
-// Bend 2.0.37 effect ABI. Only the IO event loop accesses the registry.
+// Bend native effect ABI. Only the IO event loop accesses the registry.
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 #include <dlfcn.h>

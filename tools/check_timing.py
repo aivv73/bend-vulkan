@@ -22,7 +22,7 @@ def main():
     assert emitted.count(anchor) == 1
     emitted = emitted.replace(anchor, probes + '\n' + anchor)
     allocator = (ROOT / 'tests/probes.c').read_text().split('static unsigned bv_test_barrier_calls;')[0]
-    begin = emitted.index('// Bend 2.0.37 effect ABI.')
+    begin = emitted.index('// Bend native effect ABI.')
     end = emitted.index(anchor)
     native = emitted[begin:end]
     native = native.replace('malloc(', 'bv_test_alloc(').replace('calloc(', 'bv_test_calloc(').replace('realloc(', 'bv_test_realloc(')
@@ -30,7 +30,7 @@ def main():
     native = native.replace('static BvRow* bv_add(', allocator + '\nstatic BvRow* bv_add(', 1)
     emitted = emitted[:begin] + native + emitted[end:]
     macros = re.findall(r'^#define (CID_\w+) \d+$', emitted, re.M)
-    matches = [m for m in macros if m.endswith('_VULKAN_FAIL') or m == 'CID_FAIL']
+    matches = [m for m in macros if m == 'CID_Fail']
     assert len(matches) == 1
     emitted = emitted.replace('CID(Fail)', matches[0])
     emitted, count = re.subn(r'(io_eff\(CID_\w+, )bv_reset_timestamp_queries(\);)', r'\1test_timing_reset\2', emitted)

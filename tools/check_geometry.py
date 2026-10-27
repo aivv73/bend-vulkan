@@ -21,11 +21,11 @@ def main():
         linked = subprocess.run(['ldd', str(BUILD / binary)], check=True, text=True, capture_output=True).stdout
         if 'libX11' in linked or 'libxcb' in linked or (BUILD / f'{binary}.gpu').exists():
             raise SystemExit(f'Geometry CPU executable gained a display or Bend GPU dependency: {binary}')
-    run([str(BUILD / 'geometry-clips'), '--threads', '6', '--gpu', 'off'], 'geometry-clips.jsonl')
+    run([str(BUILD / 'geometry-clips'), '+RTS', '--threads', '6', '--gpu', 'off', '-RTS'], 'geometry-clips.jsonl')
     run([sys.executable, 'tools/geometry_clips.py'], 'geometry-clips-oracle.log')
-    run([str(BUILD / 'geometry-dump'), '--threads', '6', '--gpu', 'off'], 'geometry-dump.jsonl')
+    run([str(BUILD / 'geometry-dump'), '+RTS', '--threads', '6', '--gpu', 'off', '-RTS'], 'geometry-dump.jsonl')
     run([sys.executable, 'tools/geometry_oracle.py'], 'geometry-oracle.log')
-    run([str(BUILD / 'geometry-dump'), '--threads', '1', '--gpu', 'off'], 'geometry-dump-serial.jsonl')
+    run([str(BUILD / 'geometry-dump'), '+RTS', '--threads', '1', '--gpu', 'off', '-RTS'], 'geometry-dump-serial.jsonl')
     if (BUILD / 'geometry-dump.jsonl').read_bytes() != (BUILD / 'geometry-dump-serial.jsonl').read_bytes():
         raise SystemExit('Production geometry output differs between 1 and 6 CPU threads')
     print((BUILD / 'geometry-clips-oracle.log').read_text(), end='')

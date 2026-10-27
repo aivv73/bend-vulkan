@@ -1,6 +1,6 @@
 # Bend Vulkan dispatch and ownership
 
-Bend 2.0.37 cannot extend its opaque host-handle types. Ordinary Data constructors are copyable and forgeable.
+Bend 2.0.39 cannot extend its opaque host-handle types. Ordinary Data constructors are copyable and forgeable.
 The wrapper keeps native handles and dispatch in C and exposes distinct checked U32 registry keys.
 `Entry.with` closes the resource tree after a callback returns either success or failure.
 Allocation, binding, stage/access masks, timeouts, and reset remain explicit caller choices.

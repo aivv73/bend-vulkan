@@ -31,7 +31,7 @@ def main():
                                      ('reference_matrix','matrix-dump','matrix-palette.jsonl'),
                                      ('reference_lighting','evidence','receivers.jsonl')]:
             run(['bend', f'tests/{source}.bend', '-o', BUILD/name], name+'-compile.log')
-            run([BUILD/name, '--threads', '4'], output)
+            run([BUILD/name, '+RTS', '--threads', '4', '-RTS'], output)
     assert (BUILD/'resolution-runtime.log').read_text().strip() == 'base_width=128 effective_atelier_width=512'
     run([sys.executable, 'tools/reference_lighting.py'], 'verification.log')
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (ROOT/'deps/bend-voxel').glob('*.bend')}

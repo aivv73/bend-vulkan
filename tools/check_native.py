@@ -30,8 +30,8 @@ def build(sanitize=False):
     macros = re.findall(r"^#define (CID_\w+) \d+$", emitted, re.M)
 
     def cid(match):
-        name = match[1].replace(".", "_").upper()
-        matches = [m for m in macros if m == "CID_" + name or m.endswith("_VULKAN_" + name)]
+        name = match[1].replace(".", "_")
+        matches = [m for m in macros if m == "CID_" + name or m.endswith("_Vulkan_" + name)]
         if len(matches) != 1:
             raise ValueError(f"Missing or ambiguous emitted constructor {name}: {matches}")
         return matches[0]
@@ -42,7 +42,7 @@ def build(sanitize=False):
     anchor = "static BvRow* bv_add("
     if emitted.count(anchor) != 1:
         raise ValueError("Native reference allocator moved")
-    begin = emitted.index("// Bend 2.0.37 effect ABI.")
+    begin = emitted.index("// Bend native effect ABI.")
     end = emitted.index("static void __attribute__((constructor)) bv_register(void)", begin)
     native = emitted[begin:end]
     native = native.replace("malloc(", "bv_test_alloc(").replace("calloc(", "bv_test_calloc(").replace("realloc(", "bv_test_realloc(")

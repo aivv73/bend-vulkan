@@ -10,6 +10,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
+BEND_VERSION = "2.0.39"
 
 
 def run(*args, **kwargs):
@@ -42,11 +43,11 @@ def main():
     if pin != "cdfd92d356229c5de5f4aaddd358f15ec3686dd4":
         raise SystemExit(f"Unexpected bend-voxel revision: {pin}")
     if not shutil.which("bend"):
-        raise SystemExit("Bend 2.0.37 is required on PATH")
+        raise SystemExit(f"Bend {BEND_VERSION} is required on PATH")
     version = subprocess.run(["bend", "version"], cwd=ROOT, check=True,
                              text=True, capture_output=True).stdout.strip()
-    if version != "bend 2.0.37":
-        raise SystemExit(f"The native effect ABI requires bend 2.0.37; found {version}")
+    if version != f"bend {BEND_VERSION}":
+        raise SystemExit(f"The native effect ABI requires bend {BEND_VERSION}; found {version}")
     BUILD.mkdir(exist_ok=True)
     run(sys.executable, "tools/generate.py", "--check")
     run(sys.executable, "tools/check_measurement.py")

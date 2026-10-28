@@ -11,6 +11,7 @@ from verify import BUILD, run
 
 def main():
     BUILD.mkdir(exist_ok=True)
+    run("bend", "examples/PROOF.bend")
     for source, name, expected in (
         ('examples/discover.bend', 'discover', 'Loader API version bits:'),
         ('examples/indexed_offscreen.bend', 'indexed-offscreen', 'Indexed RGBA8+D32 every-pixel occlusion'),

@@ -57,6 +57,31 @@ Build any example with the same `bend <source> -o <binary>` command:
 
 Check these examples independently with `python3 examples/verify.py`.
 
+## Run the independent window example
+
+[indexed_window.bend](examples/indexed_window.bend) renders a colored indexed cube above a floor with a perspective orbit camera and depth testing. It depends only on this library and bend-collections.
+
+In addition to the headless prerequisites, install X11 development headers and `libX11.so.6`, and run in an X11 session (or XWayland) with `DISPLAY` set. The Vulkan driver must support `VK_EXT_swapchain_maintenance1`; see the [presentation profile](docs/presentation.md#api-profile).
+
+```sh
+bend examples/indexed_window.bend -o build/indexed-window
+./build/indexed-window
+```
+
+Use **A/D** to orbit, **W/S** to change elevation, **Q/E** to zoom, and **R** to reset. Press **Escape** or use the window's close button to exit.
+
+Resizing recreates the swapchain, framebuffers and depth attachment and updates the camera aspect ratio. Unmapped or zero-sized windows keep processing events without acquiring images. One frame is in flight; acquisition, rendering and presentation fences complete before resources are reused. `Entry.with` cleans up on normal close or a returned error, and the example checks that no wrapper objects remain.
+
+The mesh uses 28 position/color vertices (24-byte stride), 42 UINT32 indices and the existing GLSL shaders. A column-major 64-byte camera push constant uses Vulkan's depth range of 0 to 1 and flips projection Y. The floor is drawn after the cube so their overlap exercises depth testing.
+
+To check the real window, install Python's `python-xlib` and `Pillow` packages, then run:
+
+```sh
+python3 examples/verify_window.py
+```
+
+This opens and closes its own windows, checks rendered colors and camera changes, resizes through landscape and portrait sizes, unmaps/restores, and tests Escape and close while suspended. Logs and captures are written under `build/indexed-window-*`. It enables Khronos and synchronization validation when the layer is installed. The headless suite remains independent of `DISPLAY` and these Python packages.
+
 ## Repository boundaries
 
 | Area | Code and tests | Verification |
@@ -106,7 +131,7 @@ To include AddressSanitizer and UndefinedBehaviorSanitizer:
 python3 tools/verify.py --sanitize
 ```
 
-Native-window and Atelier acceptance are in the [consumer suite](https://github.com/aivv73/bend-voxel/tree/main/vulkan/README.md#ownership-and-checks).
+The independent window check is `python3 examples/verify_window.py`. Atelier acceptance remains in the [consumer suite](https://github.com/aivv73/bend-voxel/tree/main/vulkan/README.md#ownership-and-checks).
 The root suite needs no `DISPLAY` and no files from bend-voxel.
 
 Pure rules live in [LAWS.bend](LAWS.bend), with proofs in [PROOF.bend](PROOF.bend). Before committing, run:

@@ -42,6 +42,12 @@ They reject direct destruction, memory requirements, and binding. Stale keys and
 Destroy views and reset recorded references before destroying a swapchain. Destroy the surface before its window.
 `Entry.with` closes the complete dependency tree after either a successful callback or a callback failure.
 
+## Independent mesh example
+
+[The indexed window example](../examples/indexed_window.bend) demonstrates this API without the voxel consumer. It uploads a conventional cube and floor once, pushes an orbit camera each frame, and draws with depth testing. See the [build and verification commands](../README.md#run-the-independent-window-example).
+
+Each frame observes acquisition completion, records against that acquisition, submits and observes rendering completion, then presents and observes the maintenance presentation fence. Command references are reset before target destruction. Resize and suboptimal/out-of-date outcomes recreate the target; surface loss returns an error through the cleanup scope. A suspended window continues polling for input and close events.
+
 ## Consumer lifecycle
 
 Atelier frame slots, camera controls, resize handling and live-window acceptance

@@ -1,0 +1,1 @@
+Git command failed in GitVcsDriver.pushCurrentBranch.pushWithUpstream (/home/aivv/Документы/projects/bend-vulkan-milestone1): Git command exited with a non-zero status.

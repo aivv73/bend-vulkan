@@ -1,0 +1,1 @@
+I want to create a bend Vulkan wrapper like ash for rust, for u64 use https://github.com/Giulio2002/bend-collections

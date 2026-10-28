@@ -1,0 +1,48 @@
+{
+  "revision": "101e87ca0690070633fcf4777d68e27b0978ee31",
+  "origin": "entire://aws-eu-central-1.entire.io/et/bend-engine/bend-vulkan",
+  "remote_main": "101e87ca0690070633fcf4777d68e27b0978ee31\trefs/heads/main",
+  "submodules": "bc78c4f4cabb536a2a1dd6e308b6a8f0afafda7c deps/bend-collections (v0.1.0-503-gbc78c4f)",
+  "initialized_submodules": "submodule.deps/bend-collections.url https://github.com/Giulio2002/bend-collections.git",
+  "status_before": {
+    "checkout": "",
+    "bend-collections": ""
+  },
+  "checkout": "/tmp/bend-vulkan-published-rs0j6a1k/checkout",
+  "system": "Linux-7.3.0-4-cachyos-x86_64-with-glibc2.44",
+  "bend": "bend 2.0.39",
+  "python": "Python 3.14.8",
+  "clang": "clang version 23.1.4\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin",
+  "glslc": "2026.4\n1:1.4.363.0\n1:1.4.363.0\n\nTarget: SPIR-V 1.0",
+  "spirv-val": "SPIRV-Tools v2026.4 v2026.4.rc2-0-gef96ed763\nTargets:\n  SPIR-V 1.0\n  SPIR-V 1.1\n  SPIR-V 1.2\n  SPIR-V 1.3\n  SPIR-V 1.4\n  SPIR-V 1.5\n  SPIR-V 1.6\n  SPIR-V 1.2 (under OpenCL 2.2 Full Profile semantics)\n  SPIR-V 1.0 (under Vulkan 1.0 semantics)\n  SPIR-V 1.3 (under Vulkan 1.1 semantics)\n  SPIR-V 1.4 (under Vulkan 1.1 semantics)\n  SPIR-V 1.5 (under Vulkan 1.2 semantics)\n  SPIR-V 1.6 (under Vulkan 1.3 semantics) SPIR-V 1.6 (under Vulkan 1.4 semantics)",
+  "DISPLAY": ":1",
+  "vulkan_environment": {},
+  "runs": [
+    {
+      "name": "library",
+      "command": [
+        "python3",
+        "tools/verify.py"
+      ],
+      "started_utc": "2026-10-28T17:39:00.006454+00:00",
+      "finished_utc": "2026-10-28T17:41:23.310483+00:00",
+      "exit_code": 0,
+      "display_unset": true
+    },
+    {
+      "name": "window",
+      "command": [
+        "python3",
+        "examples/verify_window.py"
+      ],
+      "started_utc": "2026-10-28T17:41:23.311055+00:00",
+      "finished_utc": "2026-10-28T17:41:35.026942+00:00",
+      "exit_code": 0,
+      "display_unset": false
+    }
+  ],
+  "status_after": {
+    "checkout": "",
+    "bend-collections": ""
+  }
+}

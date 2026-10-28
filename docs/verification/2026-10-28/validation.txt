@@ -1,0 +1,2 @@
+Khronos validation and synchronization validation: available
+Real GPU checks passed with validation and synchronization validation enabled.

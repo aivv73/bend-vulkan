@@ -1,0 +1,13 @@
++ git clone --no-recurse-submodules --single-branch --branch main entire://aws-eu-central-1.entire.io/et/bend-engine/bend-vulkan /tmp/bend-vulkan-published-rs0j6a1k/checkout
+Cloning into '/tmp/bend-vulkan-published-rs0j6a1k/checkout'...
++ git -C /tmp/bend-vulkan-published-rs0j6a1k/checkout checkout --detach 101e87ca0690070633fcf4777d68e27b0978ee31
+HEAD is now at 101e87c Add independent indexed window rendering example
++ git -C /tmp/bend-vulkan-published-rs0j6a1k/checkout submodule update --init -- deps/bend-collections
+Submodule 'deps/bend-collections' (https://github.com/Giulio2002/bend-collections.git) registered for path 'deps/bend-collections'
+Cloning into '/tmp/bend-vulkan-published-rs0j6a1k/checkout/deps/bend-collections'...
+Submodule path 'deps/bend-collections': checked out 'bc78c4f4cabb536a2a1dd6e308b6a8f0afafda7c'
++ git -C /tmp/bend-vulkan-published-rs0j6a1k/checkout rev-parse HEAD
+101e87ca0690070633fcf4777d68e27b0978ee31
++ git -C /tmp/bend-vulkan-published-rs0j6a1k/checkout submodule status --recursive
+ bc78c4f4cabb536a2a1dd6e308b6a8f0afafda7c deps/bend-collections (v0.1.0-503-gbc78c4f)
++ git -C /tmp/bend-vulkan-published-rs0j6a1k/checkout status --porcelain=v1 --untracked-files=all

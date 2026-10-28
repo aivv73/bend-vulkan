@@ -1,0 +1,4 @@
++ bend examples/indexed_window.bend -o /tmp/bend-vulkan-published-rs0j6a1k/checkout/build/indexed-window
+Khronos and synchronization validation: enabled
+Khronos and synchronization validation: enabled
+Indexed window camera, repeated resize, unmap/restore, Escape and suspended close passed; zero live objects.

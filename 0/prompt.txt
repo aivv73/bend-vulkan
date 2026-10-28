@@ -1,0 +1,1 @@
+Delegated task node:delegated-task:command%3Amcp%3Af044b54d-e621-49f0-b557-598475f825e4%3Adelegate-task%3Amilestone2-trail-r1 reached a terminal state. Use task_status with taskId node:delegated-task:command%3Amcp%3Af044b54d-e621-49f0-b557-598475f825e4%3Adelegate-task%3Amilestone2-trail-r1 to read the result.

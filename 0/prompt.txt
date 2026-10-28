@@ -1,0 +1,1 @@
+Why Khronos validation and synchronization validation were unavailable

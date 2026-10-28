@@ -1,0 +1,2 @@
+For the Vulkan port, should the rendering algorithm stay in Bend, or are separate GLSL/SPIR-V shaders acceptable?
+Separate Vulkan shaders are acceptable

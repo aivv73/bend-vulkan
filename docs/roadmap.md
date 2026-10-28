@@ -1,5 +1,7 @@
 # Vulkan wrapper roadmap
 
+The Vulkan API, general examples and historical voxel consumer now have separate verification entry points; see [repository boundaries](../README.md#repository-boundaries). Historical results below retain their original scope. Voxel laws and commands now live in the `vulkan/` directory of bend-voxel.
+
 The target is an ash-inspired Bend wrapper that can run bend-voxel as a mesh renderer.
 Bend owns the world, edits, meshing, and application state. GLSL vertex and fragment shaders run through Vulkan graphics pipelines.
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
@@ -160,9 +162,9 @@ Keep the existing renderer as a visual reference. Compare rasterization edge cov
 Milestone 4 used basic material colors. Milestone 6 adds production shadows and brush overlays.
 
 Acceptance passed with `python3 tools/verify.py --sanitize` on NVIDIA GeForce GTX 1660 with Khronos and synchronization validation enabled.
-The [consumer](../examples/voxel_offscreen.bend) exports intact and metric-demo-carved 8³ cubes at 512×512, plus reset, empty, and unchanged upstream renderer references.
+The [consumer](https://github.com/aivv73/bend-voxel/tree/main/vulkan/examples/voxel_offscreen.bend) exports intact and metric-demo-carved 8³ cubes at 512×512, plus reset, empty, and unchanged upstream renderer references.
 Independent occupancy enumeration and decoded packed geometry checks verify all 384 intact and 396 carved quads, materials, both triangle windings, and indices.
-Whole-frame basic color/D32 and full-U32-material/direction diagnostic readbacks pass the [fixed edge policy](voxel.md#verification-policy), including all six directions and high-bit IDs through `0xffffffff`.
+Whole-frame basic color/D32 and full-U32-material/direction diagnostic readbacks pass the [fixed edge policy](https://github.com/aivv73/bend-voxel/tree/main/vulkan/docs/voxel.md#verification-policy), including all six directions and high-bit IDs through `0xffffffff`.
 Camera-only frames preserve mesh bytes and upload counts. Repeated carve/reset replacements have bounded live resources, empty geometry owns no mesh buffers, and scope cleanup leaves zero rows.
 Pure packing, quad, count, and fixture-bounded index laws pass `bend PROOF.bend`.
 The pinned upstream submodule is unmodified. Its visual renderer runs directly on the CPU, and preprocessing plus native artifact inspection confirm no CUDA prerequisite.
@@ -218,7 +220,7 @@ Compare world and surface state exactly. Record any intentional appearance diffe
 
 The completed native default is Atelier with `Camera.atelier()`, exact 20 cm selection and depth-aware rings. `--cube` retains the older basic renderer with 64-byte push constants. Body is edit authority; CPU geometry updates before the next queued event, and acquisition-fence success atomically installs the latest geometry and matching appearance frame. Stable scene resources survive target recreation.
 
-Acceptance passed the complete `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` gate, plus the separately executed pure shadow-causality port on the same final actual captures. Khronos and synchronization validation and real ASan/UBSan device runs passed. Default Atelier windows with shared and distinct queue families exercised queue pairs 0/0 and 0/2. Logs and real images remain under `build/milestone-6-*`; the [voxel contract](voxel.md#production-appearance-and-evidence) records exact counts, selected shadow-depth witnesses, causal bounds, cached and direct visibility distinctions and proof limits. Both pinned Atelier and production shadows use effective 512-square depth. No unexplained selected shadow differences or masked identity errors are accepted.
+Acceptance passed the complete `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` gate, plus the separately executed pure shadow-causality port on the same final actual captures. Khronos and synchronization validation and real ASan/UBSan device runs passed. Default Atelier windows with shared and distinct queue families exercised queue pairs 0/0 and 0/2. Logs and real images remain under `build/milestone-6-*`; the [voxel contract](https://github.com/aivv73/bend-voxel/tree/main/vulkan/docs/voxel.md#production-appearance-and-evidence) records exact counts, selected shadow-depth witnesses, causal bounds, cached and direct visibility distinctions and proof limits. Both pinned Atelier and production shadows use effective 512-square depth. No unexplained selected shadow differences or masked identity errors are accepted.
 
 ## 7. Repeated edits and throughput
 
@@ -236,7 +238,7 @@ Renderer work:
 - [x] Feed greedy rectangles to production shadow geometry while retaining canonical color and picking anchors, extents and source order.
 - [x] Verify repeated cuts, empty-after-edit, reset, camera-only reuse, two pending slots and safe resize, suspension and cleanup.
 
-The complete `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` command passed on NVIDIA GeForce GTX 1660 under Linux/X11. Khronos and synchronization validation, actual ASan/UBSan execution, shared queue pair 0/0 and split pair 0/2 passed. The [milestone 7 evidence](../.audit/m7-results.md) retains the complete log, build provenance, review dispositions and measurement reports. The [voxel contract](voxel.md#sparse-chunks-and-frame-generations) describes geometry and appearance limits.
+The complete `env -u DISPLAY python3 tools/verify.py --sanitize --presentation --isolated-display` command passed on NVIDIA GeForce GTX 1660 under Linux/X11. Khronos and synchronization validation, actual ASan/UBSan execution, shared queue pair 0/0 and split pair 0/2 passed. The [milestone 7 evidence](../.audit/m7-results.md) retains the complete log, build provenance, review dispositions and measurement reports. The [voxel contract](https://github.com/aivv73/bend-voxel/tree/main/vulkan/docs/voxel.md#sparse-chunks-and-frame-generations) describes geometry and appearance limits.
 
 The old/new comparison is output-ineligible. All 20 processes exited zero and all 160 cut/reset actions completed, including warmup. Every one of 90 static RGB capture pairs differs at four pixels, with a maximum channel delta of four. Geometry and view fields match. All ten timing pairs remain excluded. No implementation speedup or regression is demonstrated.
 

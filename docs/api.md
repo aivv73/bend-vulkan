@@ -345,17 +345,7 @@ Its external rectangle and clip boundaries lie between pixel centers. Shared tri
 The test compares the union of those triangles, so diagonal edge ownership cannot change the expected result.
 Near/far plane crossings have literal D32 expectations at the surviving pixel centers.
 
-## Production voxel frame contract
-
-The voxel consumer retains the earlier 64-byte push shaders for basic cube regressions. Production uses a generated 2,336-byte std140 uniform block. `tools/build_shaders.py` owns one field table for GLSL declarations, Bend offsets, literal ABI diagnostics and freshness checks. It embeds canonical optimized SPIR-V in deterministic 128-word list chunks without changing shader words.
-
-`examples/voxel/appearance.bend` validates and encodes camera and light matrices, viewport, pinned linear palette, fixed brush, flags and up to 125 exact selected integer cells. Its array capacity is 1,024 words; only the 584 payload words are uploaded. The uniform buffer and descriptor range are exactly 2,336 bytes. Invalid frame inputs return failure. Mesh vertices remain 40 bytes, including full material bits, flat owning-cell anchor and rectangle extents.
-
-`examples/voxel/scene.bend` owns the uniform, descriptor schemas, pool and sets, normalized nearest sampler, fixed 512-square sampled D32 shadow target, layouts for the frame and main pass, static 576 ring indices and GPU geometry. Main-format pipelines belong to the output target and unwind partial creation. Stable resources survive target resize.
-
-The shared recorder clears and renders shadow depth each frame, orders early and late depth writes before fragment sampling, draws gradient, ground and grid without voxel-depth writes, draws shaded geometry and draws rings with depth tests but no depth writes. It rebinds descriptor sets after every pipeline bind. A memory dependency orders previous fragment sampling, depth attachment access and transfer reads before discard-to-shadow-attachment reuse; the discard image barrier itself retains zero source access. Offscreen and native owners retain attachment transitions, submission, readback or presentation and completion and command reset before host writes.
-
-The consumer uses public effects. The wrapper does not infer layouts, add a render graph or supply a voxel-specific native binding. See the [voxel appearance policy](voxel.md#production-appearance-and-evidence) and [presentation lifecycle](presentation.md).
+The optional [voxel frame contract](https://github.com/aivv73/bend-voxel/tree/main/vulkan/docs/voxel.md#production-voxel-frame-contract) belongs to the consumer.
 
 ## Command submission
 

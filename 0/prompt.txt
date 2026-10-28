@@ -1,0 +1,7 @@
+<environment_context>
+  <cwd>/home/aivv/Документы/projects/bend-vulkan</cwd>
+  <shell>bash</shell>
+  <current_date>2026-10-25</current_date>
+  <timezone>Europe/Ulyanovsk</timezone>
+  <filesystem><workspace_roots><root>/home/aivv/Документы/projects/bend-vulkan</root></workspace_roots><permission_profile type="disabled"><file_system type="unrestricted" /></permission_profile></filesystem>
+</environment_context>

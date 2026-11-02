@@ -2,6 +2,8 @@
 
 The Vulkan API, general examples and historical voxel consumer now have separate verification entry points; see [repository boundaries](../README.md#repository-boundaries). Historical results below retain their original scope. Voxel laws and commands now live in the `vulkan/` directory of bend-voxel.
 
+Traditional unit, integration, ABI fixture, and mock-based suites have since been removed under [AGENTS.md](../AGENTS.md). Historical commands and coverage below describe the original milestone runs. Current verification uses formal proofs, public examples on the real Vulkan runtime, and live window evidence; see [Verify changes](../README.md#verify-changes).
+
 The target is an ash-inspired Bend wrapper that can run bend-voxel as a mesh renderer.
 Bend owns the world, edits, meshing, and application state. GLSL vertex and fragment shaders run through Vulkan graphics pipelines.
 The first renderer milestone is a headless, indexed mesh draw with color and depth readback. Window presentation follows that working path.
@@ -72,7 +74,7 @@ Command/pool/fence rows stayed fixed. A further 32 convenience submissions reuse
 Native success and accepted-pending failure scopes left zero registry rows.
 Controlled test-only probes covered exact error bits, array ownership, failed metadata allocation, submit uncertainty, reset failure, and sticky loss.
 They did not induce hardware loss. Khronos validation and synchronization validation were unavailable.
-Rerun evidence is in `tools/verify.py`, `tools/check_native.py`, and the native Bend/C checks under `tests/`.
+The native Bend/C checks and controlled probe runner used for this acceptance are historical and are no longer maintained.
 
 ## 2. Offscreen images
 
@@ -97,11 +99,11 @@ Verify unsupported format requests and wrong-device objects produce useful error
 Acceptance passed with `python3 tools/verify.py --sanitize` on NVIDIA GeForce GTX 1660 with Bend 2.0.37.
 The six-format creation profile is optimal 2D RGBA8/BGRA8 UNORM/SRGB and depth-only D16_UNORM/D32_SFLOAT, with one sample and explicit mip/layer counts.
 The [offscreen example](../examples/offscreen_roundtrip.bend) verifies every magenta RGBA8 pixel through staging.
-The [transfer check](../tests/offscreen.bend) verifies asymmetric padded two-layer uploads at nonzero offsets and mip, untouched texels, and all staging sentinels.
-The [rendering check](../tests/rendering.bend) verifies full and partial-area color/D32 clears and LOAD preservation.
-The [format check](../tests/image_formats.bend) verifies RGBA/BGRA UNORM/SRGB raw channels and exact D16 depth `1.0` bytes.
+The former transfer check verified asymmetric padded two-layer uploads at nonzero offsets and mip, untouched texels, and all staging sentinels.
+The former rendering check verified full and partial-area color/D32 clears and LOAD preservation.
+The former format check verified RGBA/BGRA UNORM/SRGB raw channels and exact D16 depth `1.0` bytes.
 D32 clear and render-pass readback verify depth `0.5` as `00 00 00 3f` at every pixel.
-The [reuse check](../tests/image_repeated.bend) verifies 32 changing color/depth pass cycles and 32 image/view/pass/framebuffer churn cycles with bounded rows.
+The former reuse check verified 32 changing color/depth pass cycles and 32 image/view/pass/framebuffer churn cycles with bounded rows.
 
 Framebuffer-only lifetime checks establish layouts in an earlier completed and reset recording.
 Real pre-observation host calls reject through the transitive graph, while unrelated staging memory remains accessible.
@@ -131,7 +133,7 @@ Completion evidence: draw indexed geometry into the offscreen target and verify 
 Render overlapping geometry in both draw orders and verify that the nearer surface wins.
 Check winding, clipping, depth convention, and image orientation before introducing voxel geometry.
 
-Executed acceptance is in [indexed_graphics.bend](../tests/indexed_graphics.bend) and [graphics_probes.c](../tests/graphics_probes.c).
+Historical acceptance used the former indexed graphics suite and controlled graphics probes.
 Every RGBA8 and D32 pixel matches literal expectations for both draw orders, UINT16/UINT32 indices, nonzero offsets/firstIndex, and base vertex -3.
 The suite checks winding, lateral and near/far plane clipping, positive-height orientation, a nonsymmetric column-major matrix, dynamic viewport/scissor, color masks, triangle strips, changing pushes, and 32 stable reuses.
 Real submissions retain overwritten pipeline/buffer roots and exclude host access until observed completion.

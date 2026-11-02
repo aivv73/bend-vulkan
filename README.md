@@ -84,10 +84,10 @@ This opens and closes its own windows, checks rendered colors and camera changes
 
 ## Repository boundaries
 
-| Area | Code and tests | Verification |
+| Area | Code and formal claims | Verification |
 | --- | --- | --- |
-| General Vulkan API | `Vulkan.bend`, `src/`, `tests/`, root laws and proofs | `python3 tools/verify.py` |
-| General graphics examples | `examples/`, shared fixture `shaders/`; indexed and readback acceptance in `tests/` | `python3 examples/verify.py` |
+| General Vulkan API | `Vulkan.bend`, `src/`, root laws and proofs | `python3 tools/verify.py` |
+| General graphics examples | `examples/`, shared `shaders/`, example laws and proofs | `python3 examples/verify.py` |
 | Voxel consumer (separate repository) | [bend-voxel](https://github.com/aivv73/bend-voxel), under `vulkan/` | From bend-voxel: `python3 vulkan/tools/verify.py` |
 
 The root verifier includes the general examples and needs only `bend-collections`.
@@ -115,17 +115,19 @@ General `pNext` chains, allocation callbacks, and platforms beyond Linux are out
 
 ## Verify changes
 
-The headless library suite also requires `glslc` and `spirv-val` for shader freshness checks.
+Verification follows [AGENTS.md](AGENTS.md): formal laws and executable proofs, real-runtime validation, live UI checks, and deterministic evidence. Traditional unit, integration, and mock-based tests are not maintained.
+
+The headless verifier also requires `glslc` and `spirv-val` for shader freshness checks.
 
 ```sh
 python3 tools/verify.py
 ```
 
-The suite checks generated files and pure proofs, runs GPU readback and rendering comparisons, and exercises lifetime and failure handling.
+The verifier checks generated files, import boundaries, and pure proofs, then builds and runs the public examples for device discovery, buffer readback, image clears, and indexed color/depth rendering.
 It enables Khronos and synchronization validation when the validation layer is installed. A missing Vulkan device fails verification.
 Reports and captures go under `build/`, including `discovery.txt` and `validation.txt`.
 
-To include AddressSanitizer and UndefinedBehaviorSanitizer:
+To run the buffer, offscreen, and indexed examples under AddressSanitizer and UndefinedBehaviorSanitizer as well:
 
 ```sh
 python3 tools/verify.py --sanitize

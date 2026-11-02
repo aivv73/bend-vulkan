@@ -3,8 +3,6 @@ import ./src/core.bend as Core
 import ./src/constants.bend as vk
 import ./deps/bend-collections/src/math/u64.bend as W
 
-# Native marshalling must preserve these limbs; the C boundary is tested separately.
-
 law size_words_roundtrip:
   for value: W.U64
   {Core.size_from_words(Core.size_words(value)) == value : W.U64}

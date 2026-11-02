@@ -82,8 +82,6 @@ The compiler packs single-U32 handles and flattens nested Data fields in configs
 C follows emitted layouts. Imported U64 constructors cannot appear in native CID macros.
 Heap sizes and selected limits cross as nested U32 limb tuples. Pure adapters reconstruct the pinned bend-collections U64.
 All sizes, offsets, alignments, and nanosecond timeouts use that upstream type. Existing byte-list read counts remain U32.
-`tests/image_abi.bend` sends distinct fields through a native effect using the installed compiler.
-It checks mixed float lanes, signed zero, packed DepthClear, ColorClear/UnusedClear, Some/None, lists, and distinct high/low limbs.
 Native float extraction uses `f32_unbox`, preserving depth `0.5` as `0x3f000000`. It never numerically casts a float to an integer.
 The public handle is `ImageHandle` because Base already declares `Image`.
 
@@ -129,7 +127,6 @@ Its Vulkan 1.3 dynamic rendering, packed color conventions, and U32 memory sizes
 ## Graphics readiness and retention
 
 Typed graphics descriptions marshal through the measured Bend ABI into one native module.
-`tests/graphics_abi.bend` checks the actual emitted 14-lane pipeline description, three-lane layout, F32 viewport, signed base bits, lists, and U64 limbs.
 Pipeline creation computes immutable per-binding alignment and first-record requirements.
 It reserves all metadata and layout/pass edges before native creation, initializes the output to null, and destroys any nonnull failed pipeline output.
 Exact VkResult bits and sticky device loss use the existing error path.
@@ -148,23 +145,16 @@ The wrapper checks the index span, never index contents or effective signed vert
 It checks first-record vertex coverage, while subsequent vertex/instance fetches and shader validity remain caller obligations.
 The [graphics API contract](api.md#indexed-graphics-recording) defines these boundaries.
 
-## Executed acceptance
+## Verification
 
-The fixed compiler version is part of this ABI contract. Real effect-return tests cover native and interpreted array ownership.
-Test-only C probes substitute dispatch and metadata allocation in an emitted translation unit. Production code exposes no injection hooks.
-Those probes distinguish controlled errors and loss from driver execution.
-Separate native runs verify literal GPU readback, 32 changing staging/copy/readback cycles, command/fence reuse, and stable registry rows.
-Image runs verify every-pixel clears, nonuniform padded two-layer/nonzero-mip transfers, full and partial color/depth pass clears, 32 changing attachment cycles, and resource churn.
-Indexed acceptance checks literal RGBA8 and D32 pixels for both draw orders, index widths, negative base vertex, a nonsymmetric camera, winding, clipping, dynamic state, color masks, strips, and changing pushes.
-It runs 32 stable command/fence/resource reuses. A separate real submission proves overwritten pipeline/buffer retention and allocation host exclusion.
-The framebuffer-only lifetime test prepares layouts in an earlier completed and reset recording, removing direct image roots before the pass submission.
-Controlled probes cover timeout/NOT_READY, Uncertain recovery, failed reset retaining the graph, no-dispatch failures, creation rollback, and metadata cleanup.
-Wrapper allocation counters supplement zero-row assertions because ASan driver-global leak detection is disabled.
-Pure laws cover packing, limb conversion, checked U64 arithmetic, mip dimensions, range wrap, and final copy spans. They do not prove driver behavior.
+The fixed compiler version is part of this ABI contract. `tools/verify.py` checks generated sources, import boundaries, shader freshness, and formal proofs, then runs the public examples against the real Vulkan runtime.
+The examples validate device discovery, host and GPU buffer readback, every-pixel image clears, and indexed RGBA8/D32 occlusion with both index widths.
+Khronos and synchronization validation are enabled when available. `--sanitize` runs the native readback and rendering examples under ASan and UBSan; driver-global leak detection is disabled.
+`examples/verify_window.py` drives the real indexed window through camera movement/reset, resize, suspension/restoration, and close, retaining logs and captures.
 
-The GTX 1660 run exposes no host-visible type compatible with optimal color image requirements.
-Real pre-observation rejection and staging bytes prove driver behavior. Controlled map dispatch separately proves host access resumes after completion/recovery.
-No optimal-image mapped pixel read is claimed. The milestone-3 run uses the available Khronos layer with synchronization validation.
+Pure laws cover packing, limb conversion, checked U64 arithmetic, mip dimensions, range wrap, and final copy spans. They do not prove native marshalling or driver behavior.
+Traditional unit, integration, ABI fixture, and mock-dispatch suites have been removed under [AGENTS.md](../AGENTS.md). Current example validation does not reproduce their injected allocation failures, simulated device loss, or exhaustive ABI cases.
+The [roadmap](roadmap.md) and archived verification records retain historical acceptance results; those results do not describe the current verifier's coverage.
 
 Linear registry scans, allocation-wide host exclusion, and one-time recordings keep one ownership model for this milestone.
 The presentation profile adds a present queue and keeps one active graphics submission. Descriptor sets join the same dependency graph and freeze until recorded references reset. Overlapping graphics submissions remain outside this subset.

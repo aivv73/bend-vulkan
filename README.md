@@ -108,6 +108,24 @@ remain available separately.
 
 ## Use the library
 
+Published on BendHub as [bend-vulkan-library@0.1.0.0](https://hub.bend-lang.com/n/bend-vulkan-library),
+owned by [aivv73](https://hub.bend-lang.com/user/aivv73).
+Source: [bend-vulkan on Entire](https://entire.com/et/bend-engine/bend-vulkan).
+Import the published API and helpers directly:
+
+```bend
+import bend-vulkan-library@0.1.0.0/Vulkan.bend as V
+import bend-vulkan-library@0.1.0.0/src/core.bend as Core
+import bend-vulkan-library@0.1.0.0/src/constants.bend as vk
+import bend-vulkan-library@0.1.0.0/src/upload.bend as Upload
+import bend-vulkan-library@0.1.0.0/deps/bend-collections/src/math/u64.bend as W
+```
+
+The package includes the native bridges, examples, and pure laws and proofs.
+[package.bend](package.bend) collects these files for publication; use `Vulkan.bend` as the API entry.
+The published release uses BendHub's default MIT-0 license for bend-vulkan and
+preserves the bundled bend-collections module's MIT license.
+
 Import [Vulkan.bend](Vulkan.bend) for the public API, [src/core.bend](src/core.bend) for selection helpers, and [src/constants.bend](src/constants.bend) for Vulkan constants.
 Sizes, offsets, and alignments use the two-limb `U64` in [bend-collections](https://github.com/Giulio2002/bend-collections), at `deps/bend-collections/src/math/u64.bend`.
 Import paths are relative to your Bend source file.

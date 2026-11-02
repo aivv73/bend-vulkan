@@ -55,7 +55,12 @@ Build any example with the same `bend <source> -o <binary>` command:
 | [offscreen_roundtrip.bend](examples/offscreen_roundtrip.bend) | Clear an RGBA8 image and verify every pixel through staging readback |
 | [indexed_offscreen.bend](examples/indexed_offscreen.bend) | Verify indexed draws and depth occlusion with UINT16 and UINT32 indices |
 
-Check these examples independently with `python3 examples/verify.py`.
+Check these examples independently from the repository root:
+
+```sh
+bend examples/verify.bend -o build/verify-examples
+./build/verify-examples
+```
 
 ## Run the independent window example
 
@@ -74,24 +79,29 @@ Resizing recreates the swapchain, framebuffers and depth attachment and updates 
 
 The mesh uses 28 position/color vertices (24-byte stride), 42 UINT32 indices and the existing GLSL shaders. A column-major 64-byte camera push constant uses Vulkan's depth range of 0 to 1 and flips projection Y. The floor is drawn after the cube so their overlap exercises depth testing.
 
-To check the real window, install Python's `python-xlib` and `Pillow` packages, then run:
+The live-window verifier uses [bend-ui-test 0.1.0.1](https://hub.bend-lang.com/n/bend-ui-test) for input and [bend-window-capture 0.1.0.2](https://hub.bend-lang.com/n/bend-window-capture) for client pixels. Bend fetches these pinned packages on the first build. From the repository root, run:
 
 ```sh
-python3 examples/verify_window.py
+bend examples/verify_window.bend -o build/verify-window
+./build/verify-window
 ```
 
-This opens and closes its own windows, checks rendered colors and camera changes, resizes through landscape and portrait sizes, unmaps/restores, and tests Escape and close while suspended. Logs and captures are written under `build/indexed-window-*`. It enables Khronos and synchronization validation when the layer is installed. The headless suite remains independent of `DISPLAY` and these Python packages.
+This opens and closes its own windows, checks rendered colors and camera changes, resizes through landscape and portrait sizes, unmaps/restores, and tests Escape and close while suspended. Logs and binary PPM captures are written under `build/indexed-window-*`. It enables Khronos and synchronization validation when the layer is installed. Python Xlib and Pillow are no longer needed. The headless suite remains independent of `DISPLAY`.
+
+Keep the client unobscured and allow application-requested resizing. On a tiling desktop, use a floating window or an isolated X11 display (for example, rootful XWayland or Xvfb) and set `DISPLAY` for the verifier. Geometry and capture failures fail verification rather than skipping checks.
+
+A small verification-only native adapter in `tools/window_verification/bridge.*` owns/reaps the child process and handles X11 discovery, resize and map/unmap. It lends a private capture connection to the capture package without transferring ownership of the Vulkan window. The adapter is pinned to the Bend 2.0.39 window ABI; revalidate it when upgrading Bend. Pixel assertions, exact camera-reset comparison, bounded polling and evidence output are implemented in Bend.
 
 ## Repository boundaries
 
 | Area | Code and formal claims | Verification |
 | --- | --- | --- |
-| General Vulkan API | `Vulkan.bend`, `src/`, root laws and proofs | `python3 tools/verify.py` |
-| General graphics examples | `examples/`, shared `shaders/`, example laws and proofs | `python3 examples/verify.py` |
+| General Vulkan API | `Vulkan.bend`, `src/`, root laws and proofs | `build/verify` |
+| General graphics examples | `examples/`, shared `shaders/`, example laws and proofs | `build/verify-examples` |
 | Voxel consumer (separate repository) | [bend-voxel](https://github.com/aivv73/bend-voxel), under `vulkan/` | From bend-voxel: `python3 vulkan/tools/verify.py` |
 
 The root verifier includes the general examples and needs only `bend-collections`.
-`tools/check_layers.py` enforces the import boundary. The dependency runs one way: bend-voxel depends on bend-vulkan.
+`tools/check_layers.bend` enforces the import boundary. The dependency runs one way: bend-voxel depends on bend-vulkan.
 This repository has no bend-voxel submodule.
 The historical [Atelier demo and its verification commands](https://github.com/aivv73/bend-voxel/tree/main/vulkan/README.md)
 remain available separately.
@@ -117,23 +127,24 @@ General `pNext` chains, allocation callbacks, and platforms beyond Linux are out
 
 Verification follows [AGENTS.md](AGENTS.md): formal laws and executable proofs, real-runtime validation, live UI checks, and deterministic evidence. Traditional unit, integration, and mock-based tests are not maintained.
 
-The headless verifier also requires `glslc` and `spirv-val` for shader freshness checks.
+The headless verifier also requires `glslc` and `spirv-val` for shader freshness checks. Python 3 remains required by the binding and shader generators, which the Bend verifier invokes with `--check`. Verification runners and the import-boundary checker are Bend programs.
 
 ```sh
-python3 tools/verify.py
+bend tools/verify.bend -o build/verify
+./build/verify
 ```
 
-The verifier checks generated files, import boundaries, and pure proofs, then builds and runs the public examples for device discovery, buffer readback, image clears, and indexed color/depth rendering.
+The verifier checks generated files, import boundaries, and pure proofs (including the pixel-verification laws), then builds and runs the public examples for device discovery, buffer readback, image clears, and indexed color/depth rendering.
 It enables Khronos and synchronization validation when the validation layer is installed. A missing Vulkan device fails verification.
 Reports and captures go under `build/`, including `discovery.txt` and `validation.txt`.
 
 To run the buffer, offscreen, and indexed examples under AddressSanitizer and UndefinedBehaviorSanitizer as well:
 
 ```sh
-python3 tools/verify.py --sanitize
+./build/verify --sanitize
 ```
 
-The independent window check is `python3 examples/verify_window.py`. Atelier acceptance remains in the [consumer suite](https://github.com/aivv73/bend-voxel/tree/main/vulkan/README.md#ownership-and-checks).
+Build the independent window verifier as shown above, then run `./build/verify-window`. Atelier acceptance remains in the [consumer suite](https://github.com/aivv73/bend-voxel/tree/main/vulkan/README.md#ownership-and-checks).
 The root suite needs no `DISPLAY` and no files from bend-voxel.
 
 Pure rules live in [LAWS.bend](LAWS.bend), with proofs in [PROOF.bend](PROOF.bend). Before committing, run:

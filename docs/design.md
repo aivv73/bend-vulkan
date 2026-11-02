@@ -147,10 +147,10 @@ The [graphics API contract](api.md#indexed-graphics-recording) defines these bou
 
 ## Verification
 
-The fixed compiler version is part of this ABI contract. `tools/verify.py` checks generated sources, import boundaries, shader freshness, and formal proofs, then runs the public examples against the real Vulkan runtime.
+The fixed compiler version is part of this ABI contract. `tools/verify.bend` checks generated sources, import boundaries, shader freshness, and formal proofs, then runs the public examples against the real Vulkan runtime.
 The examples validate device discovery, host and GPU buffer readback, every-pixel image clears, and indexed RGBA8/D32 occlusion with both index widths.
 Khronos and synchronization validation are enabled when available. `--sanitize` runs the native readback and rendering examples under ASan and UBSan; driver-global leak detection is disabled.
-`examples/verify_window.py` drives the real indexed window through camera movement/reset, resize, suspension/restoration, and close, retaining logs and captures.
+`examples/verify_window.bend` drives the real indexed window through camera movement/reset, resize, suspension/restoration, and close, retaining logs and captures.
 
 Pure laws cover packing, limb conversion, checked U64 arithmetic, mip dimensions, range wrap, and final copy spans. They do not prove native marshalling or driver behavior.
 Traditional unit, integration, ABI fixture, and mock-dispatch suites have been removed under [AGENTS.md](../AGENTS.md). Current example validation does not reproduce their injected allocation failures, simulated device loss, or exhaustive ABI cases.

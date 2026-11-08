@@ -1,0 +1,1 @@
+update to latest bend version and to use my bend-collections fork https://github.com/aivv73/bend-collections

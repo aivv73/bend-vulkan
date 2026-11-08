@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6XHHSEJ8YX4E5YA3VZZ6388",
+  "session_id": "01a1bafb-6b14-7841-abf0-6872afa96847",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-08T12:18:55.015745445Z",
+  "branch": "t3/update-bend-collections-fork",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    ".gitmodules",
+    "README.md",
+    "docs/design.md",
+    "docs/roadmap.md",
+    "tools/verify.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "7a2e31b34694",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 82412,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2085120,
+    "output_tokens": 8004,
+    "api_call_count": 28,
+    "subagent_tokens_complete": true
+  },
+  "redaction": {
+    "replacements": 7,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 7,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 1
+  }
+}

@@ -20,13 +20,14 @@ The [roadmap](docs/roadmap.md) tracks implemented work and planned API and platf
 Install these prerequisites:
 
 - 64-bit Linux with glibc 2.34 or newer.
-- **Bend 2.0.39**, the version required by the native effect ABI.
+- **Bend 2.0.40**, the version required by the native effect ABI.
 - Clang, Python 3, Vulkan development headers, and `libvulkan.so.1`.
 - A Vulkan driver with a graphics queue. A software driver such as Lavapipe is sufficient for the buffer example.
 
-Confirm that `bend version` prints `bend 2.0.39`. From the repository root, initialize the library dependency and build:
+Confirm that `bend version` prints `bend 2.0.40`. From the repository root, initialize the library dependency and build:
 
 ```sh
+git submodule sync -- deps/bend-collections
 git submodule update --init deps/bend-collections
 mkdir -p build
 bend examples/buffer_roundtrip.bend -o build/buffer-roundtrip
@@ -74,7 +75,7 @@ remain available separately.
 ## Use the library
 
 Import [Vulkan.bend](Vulkan.bend) for the public API, [src/core.bend](src/core.bend) for selection helpers, and [src/constants.bend](src/constants.bend) for Vulkan constants.
-Sizes, offsets, and alignments use the two-limb `U64` in [bend-collections](https://github.com/Giulio2002/bend-collections), at `deps/bend-collections/src/math/u64.bend`.
+Sizes, offsets, and alignments use the two-limb `U64` in the [aivv73/bend-collections fork](https://github.com/aivv73/bend-collections), at `deps/bend-collections/src/math/u64.bend`.
 Import paths are relative to your Bend source file.
 
 Start with the [buffer example](examples/buffer_roundtrip.bend). Its resource scope uses `V.Entry.with(Unit, entry => run(entry))` to load Vulkan and clean up after either success or a returned failure.

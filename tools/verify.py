@@ -9,7 +9,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
-BEND_VERSION = "2.0.39"
+BEND_VERSION = "2.0.40"
 
 
 def run(*args, **kwargs):

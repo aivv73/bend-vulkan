@@ -75,7 +75,7 @@ remain available separately.
 ## Use the library
 
 Import [Vulkan.bend](Vulkan.bend) for the public API, [src/core.bend](src/core.bend) for selection helpers, and [src/constants.bend](src/constants.bend) for Vulkan constants.
-Sizes, offsets, and alignments use the two-limb `U64` in the [aivv73/bend-collections fork](https://github.com/aivv73/bend-collections), at `deps/bend-collections/src/math/u64.bend`.
+Sizes, offsets, and alignments use the two-limb `U64` in [bend-collections](https://github.com/Giulio2002/bend-collections), at `deps/bend-collections/src/math/u64.bend`.
 Import paths are relative to your Bend source file.
 
 Start with the [buffer example](examples/buffer_roundtrip.bend). Its resource scope uses `V.Entry.with(Unit, entry => run(entry))` to load Vulkan and clean up after either success or a returned failure.
